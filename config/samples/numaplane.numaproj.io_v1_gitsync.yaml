@@ -1,0 +1,12 @@
+apiVersion: numaplane.numaproj.io.github.com.numaproj-labs/v1
+kind: GitSync
+metadata:
+  labels:
+    app.kubernetes.io/name: gitsync
+    app.kubernetes.io/instance: gitsync-sample
+    app.kubernetes.io/part-of: numaplane
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: numaplane
+  name: gitsync-sample
+spec:
+  # TODO(user): Add fields here
