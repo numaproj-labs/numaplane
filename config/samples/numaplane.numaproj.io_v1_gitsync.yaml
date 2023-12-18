@@ -9,4 +9,12 @@ metadata:
     app.kubernetes.io/created-by: numaplane
   name: gitsync-sample
 spec:
-  # TODO(user): Add fields here
+  repositoryPaths:
+    - repoUrl: "https://github.com/myrepo.git"
+      path: "./numaflowResources/"
+    - repoUrl: "https://github.com/myrepo.git"
+      path: "./numaflowController/"
+  destinations:
+    - cluster: staging-usw2-k8s
+      namespace: namespace-1
+      
