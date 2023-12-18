@@ -34,14 +34,63 @@ spec:
           spec:
             description: GitSyncSpec defines the desired state of GitSync
             properties:
-              foo:
-                description: Foo is an example field of GitSync. Edit gitsync_types.go
-                  to remove/update
-                type: string
+              destinations:
+                description: Destinations describe where to sync it
+                items:
+                  properties:
+                    cluster:
+                      type: string
+                    namespace:
+                      description: 'Namespace is optional, as the Resources may be
+                        on the cluster level (Note that some Resources describe their
+                        namespace within their spec: for those that don''t it''s useful
+                        to have it here)'
+                      type: string
+                  required:
+                  - cluster
+                  type: object
+                type: array
+              repositoryPaths:
+                description: RepositoryPaths lists one or more Git Repository paths
+                  to watch
+                items:
+                  properties:
+                    path:
+                      description: Path is the full path from the root of the repository
+                        to where the resources are held Can be a file or a directory
+                        Note that all resources within this path (described by .yaml
+                        files) will be synced
+                      type: string
+                    repoUrl:
+                      description: RepoUrl is the URL to the repository itself
+                      type: string
+                  required:
+                  - path
+                  - repoUrl
+                  type: object
+                type: array
+            required:
+            - destinations
+            - repositoryPaths
             type: object
           status:
             description: GitSyncStatus defines the observed state of GitSync
+            properties:
+              commitStatus:
+                description: Recent commits that have been processed and their status
+                items:
+                  properties:
+                    hash:
+                      type: string
+                    synced:
+                      type: boolean
+                  required:
+                  - hash
+                  type: object
+                type: array
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

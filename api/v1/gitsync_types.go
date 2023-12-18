@@ -25,17 +25,45 @@ import (
 
 // GitSyncSpec defines the desired state of GitSync
 type GitSyncSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of GitSync. Edit gitsync_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// RepositoryPaths lists one or more Git Repository paths to watch
+	RepositoryPaths []RepositoryPath `json:"repositoryPaths"`
+
+	// Destinations describe where to sync it
+	Destinations []Destination `json:"destinations"`
 }
 
 // GitSyncStatus defines the observed state of GitSync
 type GitSyncStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// Recent commits that have been processed and their status
+	CommitStatus []CommitStatus `json:"commitStatus,omitempty"`
+}
+
+type RepositoryPath struct {
+	// RepoUrl is the URL to the repository itself
+	RepoUrl string `json:"repoUrl"`
+
+	// Path is the full path from the root of the repository to where the resources are held
+	// Can be a file or a directory
+	// Note that all resources within this path (described by .yaml files) will be synced
+	Path string `json:"path"`
+}
+
+type Destination struct {
+	Cluster string `json:"cluster"`
+
+	// Namespace is optional, as the Resources may be on the cluster level
+	// (Note that some Resources describe their namespace within their spec: for those that don't it's useful to have it here)
+	Namespace string `json:"namespace,omitempty"`
+}
+
+type CommitStatus struct {
+	Hash string `json:"hash"`
+
+	Synced bool `json:"synced,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -46,7 +74,7 @@ type GitSync struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   GitSyncSpec   `json:"spec,omitempty"`
+	Spec   GitSyncSpec   `json:"spec"`
 	Status GitSyncStatus `json:"status,omitempty"`
 }
 
