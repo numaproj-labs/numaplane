@@ -143,8 +143,10 @@ func (in *GitSyncStatus) DeepCopyInto(out *GitSyncStatus) {
 	*out = *in
 	if in.CommitStatus != nil {
 		in, out := &in.CommitStatus, &out.CommitStatus
-		*out = make([]CommitStatus, len(*in))
-		copy(*out, *in)
+		*out = make(map[string]CommitStatus, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 }
 
