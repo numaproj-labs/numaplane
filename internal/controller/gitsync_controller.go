@@ -19,18 +19,31 @@ package controller
 import (
 	"context"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	numaplanenumaprojiov1 "github.com/numaproj-labs/numaplane/api/v1"
+	"github.com/numaproj-labs/numaplane/internal/git"
 )
 
 // GitSyncReconciler reconciles a GitSync object
 type GitSyncReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	// gitSyncProcessors maps namespaced name of each GitSync CRD to GitSyncProcessor
+	gitSyncProcessors map[string]*git.GitSyncProcessor
+}
+
+func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) *GitSyncReconciler {
+	return &GitSyncReconciler{
+		Client:            c,
+		Scheme:            s,
+		gitSyncProcessors: make(map[string]*git.GitSyncProcessor),
+	}
 }
 
 //+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=gitsyncs,verbs=get;list;watch;create;update;patch;delete
@@ -47,9 +60,53 @@ type GitSyncReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	// get the GitSync CRD - if not found, it may have been deleted in the past
+	gitSync := &numaplanenumaprojiov1.GitSync{}
+	if err := r.Client.Get(ctx, req.NamespacedName, gitSync); err != nil {
+		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		} else {
+			logger.Error(err, "Unable to get GitSync", "request", req)
+			return ctrl.Result{}, err
+		}
+	}
+
+	// if there's a Deletion Timestamp set on it, then it's been deleted, so we do Deletion logic
+	// otherwise, we do Create/Update logic
+
+	if isDeletion {
+		// find it in the map and call Shutdown(), and then delete it from the map
+		processor, found := r.gitSyncProcessors[req.NamespacedName.String()]
+		if !found {
+			// todo: should this be a warning? Is it reasonable to get here?
+			logger.Info("Unexpected: GitSync not found in map to delete it", "request", req)
+			return ctrl.Result{}, nil
+		}
+		err := processor.Shutdown()
+		if err != nil {
+			logger.Error(err, "Error shutting down GitSync", "request", req)
+			return ctrl.Result{}, nil
+		}
+		delete(r.gitSyncProcessors, req.NamespacedName.String())
+
+	} else {
+		//  if it doesn't exist in our map, we create it and add it to the map (this applies either to a new CRD just created, or in the case that this app has restarted)
+		//  if it already exists in our map, we call Update()
+
+		processor, found := r.gitSyncProcessors[req.NamespacedName.String()]
+		if !found {
+			// this is either a new CRD just created, or otherwise the app may have restarted
+			processor, err := git.NewGitSyncProcessor(gitSync)
+			if err != nil {
+
+			}
+		} else {
+
+		}
+	}
 
 	return ctrl.Result{}, nil
 }

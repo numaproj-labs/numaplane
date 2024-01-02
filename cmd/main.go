@@ -89,10 +89,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.GitSyncReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	reconciler := controller.NewGitSyncReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+	)
+
+	if err = reconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GitSync")
 		os.Exit(1)
 	}
