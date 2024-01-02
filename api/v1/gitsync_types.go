@@ -38,8 +38,8 @@ type GitSyncSpec struct {
 type GitSyncStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Recent commits that have been processed and their status
-	CommitStatus []CommitStatus `json:"commitStatus,omitempty"`
+	// Recent commits that have been processed and their status, mapped by <RepoUrl>/<Path>
+	CommitStatus map[string]CommitStatus `json:"commitStatus,omitempty"`
 }
 
 type RepositoryPath struct {
