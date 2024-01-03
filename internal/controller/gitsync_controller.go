@@ -77,18 +77,20 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// if there's a Deletion Timestamp set on it, then it's been deleted, so we do Deletion logic
 	// otherwise, we do Create/Update logic
 
+	isDeletion := !gitSync.DeletionTimestamp.IsZero()
+
 	if isDeletion {
 		// find it in the map and call Shutdown(), and then delete it from the map
 		processor, found := r.gitSyncProcessors[req.NamespacedName.String()]
 		if !found {
 			// todo: should this be a warning? Is it reasonable to get here?
-			logger.Info("Unexpected: GitSync not found in map to delete it", "request", req)
+			logger.Info("Unexpected: GitSync not found in map to delete it", "gitSync", gitSync)
 			return ctrl.Result{}, nil
 		}
 		err := processor.Shutdown()
 		if err != nil {
-			logger.Error(err, "Error shutting down GitSync", "request", req)
-			return ctrl.Result{}, nil
+			logger.Error(err, "Error shutting down GitSync", "gitSync", gitSync)
+			return ctrl.Result{}, err
 		}
 		delete(r.gitSyncProcessors, req.NamespacedName.String())
 
@@ -96,16 +98,28 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		//  if it doesn't exist in our map, we create it and add it to the map (this applies either to a new CRD just created, or in the case that this app has restarted)
 		//  if it already exists in our map, we call Update()
 
+		// first validate it
+		err := r.validate(gitSync)
+		if err != nil {
+			logger.Error(err, "Validation failed", "gitSync", gitSync)
+			// TODO: update Conditions/Phase as needed
+			return ctrl.Result{}, err
+		}
+
 		processor, found := r.gitSyncProcessors[req.NamespacedName.String()]
 		if !found {
 			// this is either a new CRD just created, or otherwise the app may have restarted
-			processor, err := git.NewGitSyncProcessor(gitSync)
+			processor, err := git.NewGitSyncProcessor(gitSync, r.Client)
 			if err != nil {
-
+				logger.Error(err, "Error creating GitSyncProcessor", "gitSync", gitSync)
 			}
+			r.gitSyncProcessors[req.NamespacedName.String()] = processor
 		} else {
-
+			processor.Update(gitSync)
 		}
+
+		// TODO: update Conditions and Phase - note we will need a way to make updates in a locked way for a given GitSync
+
 	}
 
 	return ctrl.Result{}, nil
@@ -116,4 +130,9 @@ func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&numaplanenumaprojiov1.GitSync{}).
 		Complete(r)
+}
+
+// TODO: add validation
+func (r *GitSyncReconciler) validate(gitSync *numaplanenumaprojiov1.GitSync) error {
+	return nil
 }
