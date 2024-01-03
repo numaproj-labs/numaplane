@@ -36,8 +36,9 @@ import (
 )
 
 var (
+	// scheme is the runtime.Scheme to which all Numaplane API types are registered.
 	scheme = runtime.NewScheme()
-
+	// logger is the global logger for the controller-manager.
 	logger = logging.NewLogger().Named("controller-manager")
 )
 
