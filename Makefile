@@ -1,4 +1,3 @@
-
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -21,6 +20,10 @@ CONTAINER_TOOL ?= docker
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
+
+BINARY_NAME:=numaplane
+CURRENT_DIR=$(shell pwd)
+DIST_DIR=${CURRENT_DIR}/dist
 
 .PHONY: all
 all: build
@@ -81,10 +84,9 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 	$(GOLANGCI_LINT) run --fix
 
 ##@ Build
-
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ${DIST_DIR}/$(BINARY_NAME) ./cmd
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.

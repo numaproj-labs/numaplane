@@ -18,34 +18,33 @@ package main
 
 import (
 	"flag"
-	"os"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	numaplanenumaprojiov1 "github.com/numaproj-labs/numaplane/api/v1"
+	apiv1 "github.com/numaproj-labs/numaplane/api/v1"
 	"github.com/numaproj-labs/numaplane/internal/controller"
+	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme = runtime.NewScheme()
+
+	logger = logging.NewLogger().Named("controller-manager")
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(numaplanenumaprojiov1.AddToScheme(scheme))
+	utilruntime.Must(apiv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -85,31 +84,26 @@ func main() {
 		// LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
+		logger.Fatalw("Unable to get a controller-runtime manager", err)
 	}
 
 	if err = (&controller.GitSyncReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "GitSync")
-		os.Exit(1)
+		logger.Fatalw("Unable to set up GitSync controller", err)
 	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
+		logger.Fatalw("unable to set up health check", err)
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
+		logger.Fatalw("unable to set up ready check", err)
 	}
 
-	setupLog.Info("starting manager")
+	logger.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
+		logger.Fatalw("Unable to start manager", err)
 	}
 }
