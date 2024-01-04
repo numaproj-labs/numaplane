@@ -34,6 +34,7 @@ import (
 
 	numaplanenumaprojiov1 "github.com/numaproj-labs/numaplane/api/v1"
 	"github.com/numaproj-labs/numaplane/internal/controller"
+	"github.com/numaproj-labs/numaplane/internal/git"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -90,8 +91,9 @@ func main() {
 	}
 
 	if err = (&controller.GitSyncReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		Processor: git.NewGitSyncProcessor(mgr.GetClient()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GitSync")
 		os.Exit(1)
