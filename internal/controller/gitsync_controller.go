@@ -128,18 +128,22 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	}
 
-	if needsUpdate(gitSync, gitSyncOrig) {
+	if needsUpdate(gitSyncOrig, gitSync) {
 		// Update with a DeepCopy because .Status will be cleaned up.
-		gitSyncCopied := gitSync.DeepCopy()
-		if err := r.Client.Update(ctx, gitSyncCopied); err != nil {
-			logger.Error(err, "Error Updating GitSync", "GitSync", gitSyncCopied)
+		//gitSyncCopied := gitSync.DeepCopy()
+		gitSyncStatus := gitSync.Status // TODO: test if this in fact gets wiped and re-added below
+		if err := r.Client.Update(ctx, gitSync /*gitSyncCopied*/); err != nil {
+			logger.Error(err, "Error Updating GitSync", "GitSync", gitSync)
 			return ctrl.Result{}, err
 		}
+		gitSync.Status = gitSyncStatus
 	}
-	// TODO: make thread safe?
-	if err := r.Client.Status().Update(ctx, gitSync); err != nil {
-		logger.Error(err, "Error Updating GitSync Status", "GitSync", gitSync)
-		return ctrl.Result{}, err
+	if !isDeletion {
+		// TODO: make thread safe?
+		if err := r.Client.Status().Update(ctx, gitSync); err != nil {
+			logger.Error(err, "Error Updating GitSync Status", "GitSync", gitSync)
+			return ctrl.Result{}, err
+		}
 	}
 
 	return ctrl.Result{}, nil
