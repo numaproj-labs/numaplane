@@ -78,6 +78,11 @@ type GitSync struct {
 	Status GitSyncStatus `json:"status,omitempty"`
 }
 
+// String returns the general purpose string representation
+func (gitSync GitSync) String() string {
+	return gitSync.Namespace + "/" + gitSync.Name
+}
+
 //+kubebuilder:object:root=true
 
 // GitSyncList contains a list of GitSync

@@ -19,10 +19,12 @@ package controller
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	numaplanenumaprojiov1 "github.com/numaproj-labs/numaplane/api/v1"
@@ -37,6 +39,10 @@ type GitSyncReconciler struct {
 	// gitSyncProcessors maps namespaced name of each GitSync CRD to GitSyncProcessor
 	gitSyncProcessors map[string]*git.GitSyncProcessor
 }
+
+const (
+	finalizerName = "numaplane-controller"
+)
 
 func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) *GitSyncReconciler {
 	return &GitSyncReconciler{
@@ -67,12 +73,15 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err := r.Client.Get(ctx, req.NamespacedName, gitSync); err != nil {
 		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, nil
 		} else {
 			logger.Error(err, "Unable to get GitSync", "request", req)
 			return ctrl.Result{}, err
 		}
 	}
+
+	gitSyncOrig := gitSync
+	gitSync = gitSync.DeepCopy()
 
 	// if there's a Deletion Timestamp set on it, then it's been deleted, so we do Deletion logic
 	// otherwise, we do Create/Update logic
@@ -80,49 +89,109 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	isDeletion := !gitSync.DeletionTimestamp.IsZero()
 
 	if isDeletion {
-		// find it in the map and call Shutdown(), and then delete it from the map
-		processor, found := r.gitSyncProcessors[req.NamespacedName.String()]
-		if !found {
-			// todo: should this be a warning? Is it reasonable to get here?
-			logger.Info("Unexpected: GitSync not found in map to delete it", "gitSync", gitSync)
-			return ctrl.Result{}, nil
-		}
-		err := processor.Shutdown()
+
+		logger.Info("Received request to delete GitSync", "GitSync", gitSync)
+		err := r.deleteGitSync(ctx, gitSync)
 		if err != nil {
-			logger.Error(err, "Error shutting down GitSync", "gitSync", gitSync)
+			logger.Error(err, "GitSync Deletion error", "GitSync", gitSync)
 			return ctrl.Result{}, err
 		}
-		delete(r.gitSyncProcessors, req.NamespacedName.String())
 
 	} else {
+
+		logger.Info("Received request to create or update GitSync", "GitSync", gitSync)
+
 		//  if it doesn't exist in our map, we create it and add it to the map (this applies either to a new CRD just created, or in the case that this app has restarted)
 		//  if it already exists in our map, we call Update()
 
 		// first validate it
 		err := r.validate(gitSync)
 		if err != nil {
-			logger.Error(err, "Validation failed", "gitSync", gitSync)
+			logger.Error(err, "Validation failed", "GitSync", gitSync)
 			// TODO: update Conditions/Phase as needed
 			return ctrl.Result{}, err
 		}
 
 		processor, found := r.gitSyncProcessors[req.NamespacedName.String()]
 		if !found {
-			// this is either a new CRD just created, or otherwise the app may have restarted
-			processor, err := git.NewGitSyncProcessor(gitSync, r.Client)
+			err := r.addGitSync(ctx, gitSync)
 			if err != nil {
-				logger.Error(err, "Error creating GitSyncProcessor", "gitSync", gitSync)
+				logger.Error(err, "Error creating GitSync", "GitSync", gitSync)
+				return ctrl.Result{}, err
 			}
-			r.gitSyncProcessors[req.NamespacedName.String()] = processor
 		} else {
+			logger.Info("Updating existing GitSync", "GitSync", gitSync)
 			processor.Update(gitSync)
 		}
 
-		// TODO: update Conditions and Phase - note we will need a way to make updates in a locked way for a given GitSync
+		// TODO: update Conditions and Phase
 
 	}
 
+	if needsUpdate(gitSync, gitSyncOrig) {
+		// Update with a DeepCopy because .Status will be cleaned up.
+		gitSyncCopied := gitSync.DeepCopy()
+		if err := r.Client.Update(ctx, gitSyncCopied); err != nil {
+			logger.Error(err, "Error Updating GitSync", "GitSync", gitSyncCopied)
+			return ctrl.Result{}, err
+		}
+	}
+	// TODO: make thread safe?
+	if err := r.Client.Status().Update(ctx, gitSync); err != nil {
+		logger.Error(err, "Error Updating GitSync Status", "GitSync", gitSync)
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
+}
+
+func (r *GitSyncReconciler) addGitSync(ctx context.Context, gitSync *numaplanenumaprojiov1.GitSync) error {
+	logger := log.FromContext(ctx)
+
+	// this is either a new CRD just created, or otherwise the app may have restarted
+	logger.Info("GitSync not found, so adding", "GitSync", gitSync)
+
+	if !controllerutil.ContainsFinalizer(gitSync, finalizerName) { // TODO: make sure this is locked
+		controllerutil.AddFinalizer(gitSync, finalizerName)
+	}
+
+	processor, err := git.NewGitSyncProcessor(gitSync, r.Client)
+	if err != nil {
+		logger.Error(err, "Error creating GitSyncProcessor", "GitSync", gitSync)
+	}
+	r.gitSyncProcessors[gitSync.String()] = processor
+
+	return nil
+}
+
+/*func (r *GitSyncReconciler) updateGitSync(gitSync *numaplanenumaprojiov1.GitSync) error {
+
+}*/
+
+func (r *GitSyncReconciler) deleteGitSync(ctx context.Context, gitSync *numaplanenumaprojiov1.GitSync) error {
+	logger := log.FromContext(ctx)
+
+	if controllerutil.ContainsFinalizer(gitSync, finalizerName) {
+
+		// find it in the map and call Shutdown(), and then delete it from the map
+		processor, found := r.gitSyncProcessors[gitSync.String()]
+		if !found {
+			// todo: should this be a warning? Is it reasonable to get here?
+			logger.Info("Unexpected: GitSync not found in map to delete it", "GitSync", gitSync)
+			return nil
+		}
+		err := processor.Shutdown()
+		if err != nil {
+			logger.Error(err, "Error shutting down GitSync", "GitSync", gitSync)
+			return err
+		}
+		delete(r.gitSyncProcessors, gitSync.String())
+		logger.Info("Deleted GitSync", "GitSync", gitSync)
+
+		controllerutil.RemoveFinalizer(gitSync, finalizerName)
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -135,4 +204,17 @@ func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // TODO: add validation
 func (r *GitSyncReconciler) validate(gitSync *numaplanenumaprojiov1.GitSync) error {
 	return nil
+}
+
+func needsUpdate(old, new *numaplanenumaprojiov1.GitSync) bool {
+
+	if old == nil {
+		return true
+	}
+	// check for any fields we might update in the Spec - generally we'd only update a Finalizer or maybe something in the metadata
+	// TODO: any official guideline?
+	if !equality.Semantic.DeepEqual(old.Finalizers, new.Finalizers) {
+		return true
+	}
+	return false
 }
