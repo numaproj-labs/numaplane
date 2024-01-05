@@ -34,6 +34,15 @@ type GitSyncSpec struct {
 	Destinations []Destination `json:"destinations"`
 }
 
+func (gitSyncSpec *GitSyncSpec) ContainsClusterDestination(cluster string) bool {
+	for _, destination := range gitSyncSpec.Destinations {
+		if destination.Cluster == cluster {
+			return true
+		}
+	}
+	return false
+}
+
 // GitSyncStatus defines the observed state of GitSync
 type GitSyncStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
