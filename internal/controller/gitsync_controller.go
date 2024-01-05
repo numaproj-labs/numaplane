@@ -27,8 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	numaplanenumaprojiov1 "github.com/numaproj-labs/numaplane/api/v1"
 	"github.com/numaproj-labs/numaplane/internal/git"
+
+	apiv1 "github.com/numaproj-labs/numaplane/api/v1"
+	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
 
 // GitSyncReconciler reconciles a GitSync object
@@ -66,10 +68,10 @@ func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) *GitSyncReconciler
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	logger := logging.FromContext(ctx)
 
 	// get the GitSync CRD - if not found, it may have been deleted in the past
-	gitSync := &numaplanenumaprojiov1.GitSync{}
+	gitSync := &apiv1.GitSync{}
 	if err := r.Client.Get(ctx, req.NamespacedName, gitSync); err != nil {
 		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
 		if apierrors.IsNotFound(err) {
@@ -149,7 +151,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *GitSyncReconciler) addGitSync(ctx context.Context, gitSync *numaplanenumaprojiov1.GitSync) error {
+func (r *GitSyncReconciler) addGitSync(ctx context.Context, gitSync *apiv1.GitSync) error {
 	logger := log.FromContext(ctx)
 
 	// this is either a new CRD just created, or otherwise the app may have restarted
@@ -168,11 +170,11 @@ func (r *GitSyncReconciler) addGitSync(ctx context.Context, gitSync *numaplanenu
 	return nil
 }
 
-/*func (r *GitSyncReconciler) updateGitSync(gitSync *numaplanenumaprojiov1.GitSync) error {
+/*func (r *GitSyncReconciler) updateGitSync(gitSync *apiv1.GitSync) error {
 
 }*/
 
-func (r *GitSyncReconciler) deleteGitSync(ctx context.Context, gitSync *numaplanenumaprojiov1.GitSync) error {
+func (r *GitSyncReconciler) deleteGitSync(ctx context.Context, gitSync *apiv1.GitSync) error {
 	logger := log.FromContext(ctx)
 
 	if controllerutil.ContainsFinalizer(gitSync, finalizerName) {
@@ -201,16 +203,16 @@ func (r *GitSyncReconciler) deleteGitSync(ctx context.Context, gitSync *numaplan
 // SetupWithManager sets up the controller with the Manager.
 func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&numaplanenumaprojiov1.GitSync{}).
+		For(&apiv1.GitSync{}).
 		Complete(r)
 }
 
 // TODO: add validation
-func (r *GitSyncReconciler) validate(gitSync *numaplanenumaprojiov1.GitSync) error {
+func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 	return nil
 }
 
-func needsUpdate(old, new *numaplanenumaprojiov1.GitSync) bool {
+func needsUpdate(old, new *apiv1.GitSync) bool {
 
 	if old == nil {
 		return true
