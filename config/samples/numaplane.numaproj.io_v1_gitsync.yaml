@@ -12,9 +12,11 @@ spec:
   repositoryPaths:
     - repoUrl: "https://github.com/myrepo.git"
       path: "./numaflowResources/"
+      targetRevision: "main"
       name: my-pipelines
     - repoUrl: "https://github.com/myrepo.git"
       path: "./nested/numaflowController/"
+      targetRevision: "main"
       name: controller
   destinations:
     - cluster: staging-usw2-k8s

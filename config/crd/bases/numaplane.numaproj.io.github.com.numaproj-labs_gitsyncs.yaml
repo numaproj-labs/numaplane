@@ -67,10 +67,15 @@ spec:
                     repoUrl:
                       description: RepoUrl is the URL to the repository itself
                       type: string
+                    targetRevision:
+                      description: TargetRevision specifies the target revision to
+                        sync to, it can be a branch, a tag, or a commit hash.
+                      type: string
                   required:
                   - name
                   - path
                   - repoUrl
+                  - targetRevision
                   type: object
                 type: array
             required:
