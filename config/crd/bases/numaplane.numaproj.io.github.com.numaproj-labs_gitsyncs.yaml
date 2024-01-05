@@ -55,6 +55,9 @@ spec:
                   to watch
                 items:
                   properties:
+                    name:
+                      description: Name is a unique name
+                      type: string
                     path:
                       description: Path is the full path from the root of the repository
                         to where the resources are held Can be a file or a directory
@@ -65,6 +68,7 @@ spec:
                       description: RepoUrl is the URL to the repository itself
                       type: string
                   required:
+                  - name
                   - path
                   - repoUrl
                   type: object

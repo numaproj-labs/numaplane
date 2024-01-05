@@ -43,6 +43,9 @@ type GitSyncStatus struct {
 }
 
 type RepositoryPath struct {
+	// Name is a unique name
+	Name string `json:"name"`
+
 	// RepoUrl is the URL to the repository itself
 	RepoUrl string `json:"repoUrl"`
 
