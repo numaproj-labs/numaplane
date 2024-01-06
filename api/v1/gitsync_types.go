@@ -53,6 +53,10 @@ type RepositoryPath struct {
 	// Can be a file or a directory
 	// Note that all resources within this path (described by .yaml files) will be synced
 	Path string `json:"path"`
+
+	// TargetRevision specifies the target revision to sync to, it can be a branch, a tag,
+	// or a commit hash.
+	TargetRevision string `json:"targetRevision"`
 }
 
 type Destination struct {
