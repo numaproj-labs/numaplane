@@ -154,11 +154,10 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	if needsUpdate(gitSyncOrig, gitSync) { // TODO: add back
+	if needsUpdate(gitSyncOrig, gitSync) {
 		// Update with a DeepCopy because .Status will be cleaned up.
-		//gitSyncCopied := gitSync.DeepCopy()
-		gitSyncStatus := gitSync.Status // TODO: test if this in fact gets wiped and re-added below
-		if err := r.Client.Update(ctx, gitSync /*gitSyncCopied*/); err != nil {
+		gitSyncStatus := gitSync.Status
+		if err := r.Client.Update(ctx, gitSync); err != nil {
 			logger.Errorw("Error Updating GitSync", "err", err, "GitSync", gitSync)
 			return ctrl.Result{}, err
 		}
@@ -167,7 +166,6 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if !shouldDelete { // would've already been deleted
-		// TODO: make thread safe?
 		if err := r.Client.Status().Update(ctx, gitSync); err != nil {
 			logger.Errorw("Error Updating GitSync Status", "err", err, "GitSync", gitSync)
 			return ctrl.Result{}, err
@@ -183,7 +181,7 @@ func (r *GitSyncReconciler) addGitSync(ctx context.Context, gitSync *apiv1.GitSy
 	// this is either a new CRD just created, or otherwise the app may have restarted
 	logger.Infow("GitSync not found, so adding", "GitSync", gitSync)
 
-	if !controllerutil.ContainsFinalizer(gitSync, finalizerName) { // TODO: make sure this is locked
+	if !controllerutil.ContainsFinalizer(gitSync, finalizerName) {
 		controllerutil.AddFinalizer(gitSync, finalizerName)
 	}
 
