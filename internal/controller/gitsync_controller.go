@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,6 +37,9 @@ import (
 type GitSyncReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// gitSyncLocks maps namespaced name to Mutex, to prevent more than one goroutine from performing the read-then-write operation at the same time
+	// note that if other goroutines outside of this struct need to share the lock in the future, it can be moved
+	gitSyncLocks map[string]*sync.Mutex
 
 	// gitSyncProcessors maps namespaced name of each GitSync CRD to GitSyncProcessor
 	gitSyncProcessors map[string]*git.GitSyncProcessor
@@ -51,6 +55,7 @@ func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) *GitSyncReconciler
 	return &GitSyncReconciler{
 		Client:            c,
 		Scheme:            s,
+		gitSyncLocks:      make(map[string]*sync.Mutex),
 		gitSyncProcessors: make(map[string]*git.GitSyncProcessor),
 	}
 }
@@ -61,15 +66,19 @@ func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) *GitSyncReconciler
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the GitSync object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logging.FromContext(ctx)
+
+	// since this function can be called by multiple goroutines at the same time, lock so we only process one at a time
+	_, foundLock := r.gitSyncLocks[req.NamespacedName.String()]
+	if !foundLock {
+		r.gitSyncLocks[req.NamespacedName.String()] = &sync.Mutex{}
+	}
+	r.gitSyncLocks[req.NamespacedName.String()].Lock()
+	defer r.gitSyncLocks[req.NamespacedName.String()].Unlock()
 
 	// get the GitSync CRD - if not found, it may have been deleted in the past
 	gitSync := &apiv1.GitSync{}
@@ -117,7 +126,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		err := r.validate(gitSync)
 		if err != nil {
 			logger.Errorw("Validation failed", "err", err, "GitSync", gitSync)
-			// TODO: update Conditions/Phase as needed
+			gitSync.Status.MarkNotConfigured("InvalidSpec", err.Error())
 			return ctrl.Result{}, err
 		}
 
@@ -126,20 +135,26 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			err := r.addGitSync(ctx, gitSync)
 			if err != nil {
 				logger.Errorw("Error creating GitSync", "err", err, "GitSync", gitSync)
+				gitSync.Status.MarkNotConfigured("CreationFailure", err.Error())
 				return ctrl.Result{}, err
 			}
 		} else {
 			logger.Infow("Updating existing GitSync", "GitSync", gitSync)
-			processor.Update(gitSync)
+			err := processor.Update(gitSync)
+			if err != nil {
+				logger.Errorw("Error updating GitSync", "err", err, "GitSync", gitSync)
+				gitSync.Status.MarkNotConfigured("UpdateFailure", err.Error())
+				return ctrl.Result{}, err
+			}
 		}
 
-		// TODO: update Conditions and Phase
+		gitSync.Status.MarkConfigured()
 
 	} else {
 		return ctrl.Result{}, nil
 	}
 
-	if needsUpdate(gitSyncOrig, gitSync) {
+	if needsUpdate(gitSyncOrig, gitSync) { // TODO: add back
 		// Update with a DeepCopy because .Status will be cleaned up.
 		//gitSyncCopied := gitSync.DeepCopy()
 		gitSyncStatus := gitSync.Status // TODO: test if this in fact gets wiped and re-added below
@@ -148,7 +163,9 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 		gitSync.Status = gitSyncStatus
+
 	}
+
 	if !shouldDelete { // would've already been deleted
 		// TODO: make thread safe?
 		if err := r.Client.Status().Update(ctx, gitSync); err != nil {
@@ -164,7 +181,7 @@ func (r *GitSyncReconciler) addGitSync(ctx context.Context, gitSync *apiv1.GitSy
 	logger := logging.FromContext(ctx)
 
 	// this is either a new CRD just created, or otherwise the app may have restarted
-	logger.Info("GitSync not found, so adding", "GitSync", gitSync)
+	logger.Infow("GitSync not found, so adding", "GitSync", gitSync)
 
 	if !controllerutil.ContainsFinalizer(gitSync, finalizerName) { // TODO: make sure this is locked
 		controllerutil.AddFinalizer(gitSync, finalizerName)
@@ -172,16 +189,12 @@ func (r *GitSyncReconciler) addGitSync(ctx context.Context, gitSync *apiv1.GitSy
 
 	processor, err := git.NewGitSyncProcessor(gitSync, r.Client)
 	if err != nil {
-		logger.Error(err, "Error creating GitSyncProcessor", "GitSync", gitSync)
+		logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
 	}
 	r.gitSyncProcessors[gitSync.String()] = processor
 
 	return nil
 }
-
-/*func (r *GitSyncReconciler) updateGitSync(gitSync *apiv1.GitSync) error {
-
-}*/
 
 func (r *GitSyncReconciler) deleteGitSync(ctx context.Context, gitSync *apiv1.GitSync) error {
 	logger := logging.FromContext(ctx)
@@ -191,13 +204,13 @@ func (r *GitSyncReconciler) deleteGitSync(ctx context.Context, gitSync *apiv1.Gi
 		// find it in the map and call Shutdown(), and then delete it from the map
 		processor, found := r.gitSyncProcessors[gitSync.String()]
 		if !found {
-			// todo: should this be a warning? Is it reasonable to get here?
-			logger.Info("Unexpected: GitSync not found in map to delete it", "GitSync", gitSync)
+			// TODO: should this be a warning? Is it reasonable to get here?
+			logger.Infow("Unexpected: GitSync not found in map to delete it", "GitSync", gitSync)
 			return nil
 		}
 		err := processor.Shutdown()
 		if err != nil {
-			logger.Error(err, "Error shutting down GitSync", "GitSync", gitSync)
+			logger.Errorw("Error shutting down GitSync", "err", err, "GitSync", gitSync)
 			return err
 		}
 		delete(r.gitSyncProcessors, gitSync.String())
