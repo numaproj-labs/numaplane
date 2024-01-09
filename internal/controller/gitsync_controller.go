@@ -139,6 +139,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				return ctrl.Result{}, err
 			}
 		} else {
+			// TODO: maybe we can use ResourceVersion to determine if there's a real change here or not
 			processor := processorAsInterface.(*git.GitSyncProcessor)
 			logger.Infow("Updating existing GitSync", "GitSync", gitSync)
 			err := processor.Update(gitSync)
