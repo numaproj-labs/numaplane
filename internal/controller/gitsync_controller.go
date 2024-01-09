@@ -95,6 +95,36 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	gitSyncOrig := gitSync
 	gitSync = gitSync.DeepCopy()
 
+	result, err := r.reconcile(ctx, gitSync)
+	if err != nil {
+		return result, err
+	}
+
+	if needsUpdate(gitSyncOrig, gitSync) {
+		gitSyncStatus := gitSync.Status
+		if err := r.Client.Update(ctx, gitSync); err != nil {
+			logger.Errorw("Error Updating GitSync", "err", err, "GitSync", gitSync)
+			return ctrl.Result{}, err
+		}
+		// restore the original status, which would've been wiped in the previous call to Update()
+		gitSync.Status = gitSyncStatus
+
+	}
+
+	if gitSync.DeletionTimestamp.IsZero() { // would've already been deleted
+		if err := r.Client.Status().Update(ctx, gitSync); err != nil {
+			logger.Errorw("Error Updating GitSync Status", "err", err, "GitSync", gitSync)
+			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// reconcile does the real logic
+func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSync) (ctrl.Result, error) {
+	logger := logging.FromContext(ctx)
+
 	// We will have a GitSyncProcessor object for every GitSync that contains our cluster
 	// Therefore, we Create or Update it if our cluster is in the GitSync
 	// We Delete it if either the GitSync is deleted or our cluster is removed from it
@@ -130,7 +160,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 
-		processorAsInterface, found := r.gitSyncProcessors.Load(req.NamespacedName.String())
+		processorAsInterface, found := r.gitSyncProcessors.Load(gitSync.String())
 		if !found {
 			err := r.addGitSync(ctx, gitSync)
 			if err != nil {
@@ -152,29 +182,10 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		gitSync.Status.MarkConfigured()
 
-	} else {
-		return ctrl.Result{}, nil
-	}
-
-	if needsUpdate(gitSyncOrig, gitSync) {
-		gitSyncStatus := gitSync.Status
-		if err := r.Client.Update(ctx, gitSync); err != nil {
-			logger.Errorw("Error Updating GitSync", "err", err, "GitSync", gitSync)
-			return ctrl.Result{}, err
-		}
-		// restore the original status, which would've been wiped in the previous call to Update()
-		gitSync.Status = gitSyncStatus
-
-	}
-
-	if !shouldDelete { // would've already been deleted
-		if err := r.Client.Status().Update(ctx, gitSync); err != nil {
-			logger.Errorw("Error Updating GitSync Status", "err", err, "GitSync", gitSync)
-			return ctrl.Result{}, err
-		}
 	}
 
 	return ctrl.Result{}, nil
+
 }
 
 func (r *GitSyncReconciler) addGitSync(ctx context.Context, gitSync *apiv1.GitSync) error {
