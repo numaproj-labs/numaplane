@@ -37,12 +37,13 @@ import (
 type GitSyncReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
 	// gitSyncLocks maps namespaced name to Mutex, to prevent more than one goroutine from performing the read-then-write operation at the same time
 	// note that if other goroutines outside of this struct need to share the lock in the future, it can be moved
 	gitSyncLocks map[string]*sync.Mutex
 
 	// gitSyncProcessors maps namespaced name of each GitSync CRD to GitSyncProcessor
-	gitSyncProcessors map[string]*git.GitSyncProcessor
+	gitSyncProcessors sync.Map
 }
 
 const (
@@ -53,10 +54,9 @@ const (
 
 func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) *GitSyncReconciler {
 	return &GitSyncReconciler{
-		Client:            c,
-		Scheme:            s,
-		gitSyncLocks:      make(map[string]*sync.Mutex),
-		gitSyncProcessors: make(map[string]*git.GitSyncProcessor),
+		Client:       c,
+		Scheme:       s,
+		gitSyncLocks: make(map[string]*sync.Mutex),
 	}
 }
 
@@ -100,7 +100,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// We Delete it if either the GitSync is deleted or our cluster is removed from it
 
 	forThisCluster := gitSync.Spec.ContainsClusterDestination(clusterName)
-	_, forThisClusterPrev := r.gitSyncProcessors[gitSync.String()]
+	_, forThisClusterPrev := r.gitSyncProcessors.Load(gitSync.String())
 	shouldDelete := !gitSync.DeletionTimestamp.IsZero() || (forThisClusterPrev && !forThisCluster)
 	shouldApply := gitSync.DeletionTimestamp.IsZero() && forThisCluster
 
@@ -130,7 +130,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 
-		processor, found := r.gitSyncProcessors[req.NamespacedName.String()]
+		processorAsInterface, found := r.gitSyncProcessors.Load(req.NamespacedName.String())
 		if !found {
 			err := r.addGitSync(ctx, gitSync)
 			if err != nil {
@@ -139,6 +139,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				return ctrl.Result{}, err
 			}
 		} else {
+			processor := processorAsInterface.(*git.GitSyncProcessor)
 			logger.Infow("Updating existing GitSync", "GitSync", gitSync)
 			err := processor.Update(gitSync)
 			if err != nil {
@@ -155,12 +156,12 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if needsUpdate(gitSyncOrig, gitSync) {
-		// Update with a DeepCopy because .Status will be cleaned up.
 		gitSyncStatus := gitSync.Status
 		if err := r.Client.Update(ctx, gitSync); err != nil {
 			logger.Errorw("Error Updating GitSync", "err", err, "GitSync", gitSync)
 			return ctrl.Result{}, err
 		}
+		// restore the original status, which would've been wiped in the previous call to Update()
 		gitSync.Status = gitSyncStatus
 
 	}
@@ -189,7 +190,7 @@ func (r *GitSyncReconciler) addGitSync(ctx context.Context, gitSync *apiv1.GitSy
 	if err != nil {
 		logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
 	}
-	r.gitSyncProcessors[gitSync.String()] = processor
+	r.gitSyncProcessors.Store(gitSync.String(), processor)
 
 	return nil
 }
@@ -200,18 +201,18 @@ func (r *GitSyncReconciler) deleteGitSync(ctx context.Context, gitSync *apiv1.Gi
 	if controllerutil.ContainsFinalizer(gitSync, finalizerName) {
 
 		// find it in the map and call Shutdown(), and then delete it from the map
-		processor, found := r.gitSyncProcessors[gitSync.String()]
+		processorAsInterface, found := r.gitSyncProcessors.Load(gitSync.String())
 		if !found {
-			// TODO: should this be a warning? Is it reasonable to get here?
-			logger.Infow("Unexpected: GitSync not found in map to delete it", "GitSync", gitSync)
+			logger.Warnw("Unexpected: GitSync not found in map to delete it", "GitSync", gitSync)
 			return nil
 		}
+		processor := processorAsInterface.(*git.GitSyncProcessor)
 		err := processor.Shutdown()
 		if err != nil {
 			logger.Errorw("Error shutting down GitSync", "err", err, "GitSync", gitSync)
 			return err
 		}
-		delete(r.gitSyncProcessors, gitSync.String())
+		r.gitSyncProcessors.Delete(gitSync.String())
 		logger.Info("Deleted GitSync", "GitSync", gitSync)
 
 		controllerutil.RemoveFinalizer(gitSync, finalizerName)
@@ -238,7 +239,7 @@ func needsUpdate(old, new *apiv1.GitSync) bool {
 		return true
 	}
 	// check for any fields we might update in the Spec - generally we'd only update a Finalizer or maybe something in the metadata
-	// TODO: any official guideline?
+	// TODO: we would need to update this if we ever add anything else, like a label or annotation - unless there's a generic check that makes sense
 	if !equality.Semantic.DeepEqual(old.Finalizers, new.Finalizers) {
 		return true
 	}
