@@ -167,18 +167,18 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 		err := r.validate(gitSync)
 		if err != nil {
 			logger.Errorw("Validation failed", "err", err, "GitSync", gitSync)
-			gitSync.Status.MarkNotConfigured("InvalidSpec", err.Error())
+			gitSync.Status.MarkFailed("InvalidSpec", err.Error())
 			return ctrl.Result{}, err
 		}
 
 		err = r.addGitSyncProcessor(ctx, gitSync)
 		if err != nil {
 			logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
-			gitSync.Status.MarkNotConfigured("CreationFailure", err.Error())
+			gitSync.Status.MarkFailed("CreationFailure", err.Error())
 			return ctrl.Result{}, err
 		}
 
-		gitSync.Status.MarkConfigured()
+		gitSync.Status.MarkRunning()
 
 	} else if shouldUpdate {
 		logger.Debugw("Received request to update GitSync", "GitSync", gitSync)
@@ -187,7 +187,7 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 		err := r.validate(gitSync)
 		if err != nil {
 			logger.Errorw("Validation failed", "err", err, "GitSync", gitSync)
-			gitSync.Status.MarkNotConfigured("InvalidSpec", err.Error())
+			gitSync.Status.MarkFailed("InvalidSpec", err.Error())
 			return ctrl.Result{}, err
 		}
 
@@ -197,11 +197,11 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 		err = processor.Update(gitSync)
 		if err != nil {
 			logger.Errorw("Error updating GitSync", "err", err, "GitSync", gitSync)
-			gitSync.Status.MarkNotConfigured("UpdateFailure", err.Error())
+			gitSync.Status.MarkFailed("UpdateFailure", err.Error())
 			return ctrl.Result{}, err
 		}
 
-		gitSync.Status.MarkConfigured() // should already be but just in case
+		gitSync.Status.MarkRunning() // should already be but just in case
 	}
 
 	return ctrl.Result{}, nil

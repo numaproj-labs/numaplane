@@ -205,14 +205,14 @@ func (status *GitSyncStatus) MarkConditionUnknown(t ConditionType, reason, messa
 	status.markTypeStatus(t, metav1.ConditionUnknown, reason, message)
 }
 
-// MarkConfigured sets the GitSync to Running
-func (status *GitSyncStatus) MarkConfigured() {
+// MarkRunning sets the GitSync to Running
+func (status *GitSyncStatus) MarkRunning() {
 	status.MarkConditionTrue(GitSyncConditionConfigured)
 	status.SetPhase(GitSyncPhaseRunning, "")
 }
 
-// MarkNotConfigured sets the GitSync to Failed
-func (status *GitSyncStatus) MarkNotConfigured(reason, message string) {
+// MarkFailed sets the GitSync to Failed
+func (status *GitSyncStatus) MarkFailed(reason, message string) {
 	status.MarkConditionFalse(GitSyncConditionConfigured, reason, message)
 	status.SetPhase(GitSyncPhaseFailed, message)
 }
