@@ -73,6 +73,7 @@ func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) (*GitSyncReconcile
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
+// Note this method is called concurrently by multiple goroutines, whenever there is a change to the GitSync CRD
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
@@ -208,6 +209,7 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 
 }
 
+// addGitSyncProcessor creates a new GitSyncProcessor and adds it to our map
 func (r *GitSyncReconciler) addGitSyncProcessor(ctx context.Context, gitSync *apiv1.GitSync) error {
 	logger := logging.FromContext(ctx)
 
@@ -229,6 +231,8 @@ func (r *GitSyncReconciler) addGitSyncProcessor(ctx context.Context, gitSync *ap
 	return nil
 }
 
+// deleteGitSyncProcessor shuts down the GitSyncProcessor and removes it from the map
+// it also removes the finalizer so that it can be deleted
 func (r *GitSyncReconciler) deleteGitSyncProcessor(ctx context.Context, gitSync *apiv1.GitSync) error {
 	logger := logging.FromContext(ctx)
 
