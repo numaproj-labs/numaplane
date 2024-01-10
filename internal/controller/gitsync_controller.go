@@ -40,7 +40,7 @@ type GitSyncReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	// gitSyncLocks maps namespaced name to Mutex, to prevent more than one goroutine from performing the read-then-write operation at the same time
+	// gitSyncLocks maps GitSync namespaced name to Mutex, to prevent processing the same GitSync at the same time
 	// note that if other goroutines outside of this struct need to share the lock in the future, it can be moved
 	gitSyncLocks sync.Map
 
@@ -79,7 +79,7 @@ func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) (*GitSyncReconcile
 func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logging.FromContext(ctx)
 
-	// since this function can be called by multiple goroutines at the same time, lock so we only process one at a time
+	// since this function can be called by multiple goroutines at the same time, lock so we only process a given GitSync one at a time
 	lockAsInterface, foundLock := r.gitSyncLocks.Load(req.NamespacedName.String())
 	if !foundLock {
 		r.gitSyncLocks.Store(req.NamespacedName.String(), &sync.Mutex{})
@@ -101,7 +101,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	gitSyncOrig := gitSync
+	gitSyncOrig := gitSync // save this off so we can compare it later
 	gitSync = gitSync.DeepCopy()
 
 	result, err := r.reconcile(ctx, gitSync)
@@ -109,6 +109,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return result, err
 	}
 
+	// Update the Spec if needed
 	if needsUpdate(gitSyncOrig, gitSync) {
 		gitSyncStatus := gitSync.Status
 		if err := r.Client.Update(ctx, gitSync); err != nil {
@@ -120,6 +121,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	}
 
+	// Update the Status subresource
 	if gitSync.DeletionTimestamp.IsZero() { // would've already been deleted
 		if err := r.Client.Status().Update(ctx, gitSync); err != nil {
 			logger.Errorw("Error Updating GitSync Status", "err", err, "GitSync", gitSync)
@@ -135,31 +137,29 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 	logger := logging.FromContext(ctx)
 
 	// We will have a GitSyncProcessor object for every GitSync that contains our cluster
-	// Therefore, we Create or Update it if our cluster is in the GitSync
+	// Therefore, we Create or Update it if our cluster is defined as a Destination in the GitSync
 	// We Delete it if either the GitSync is deleted or our cluster is removed from it
 
-	forThisCluster := gitSync.Spec.ContainsClusterDestination(r.clusterName)
+	forThisCluster := gitSync.DeletionTimestamp.IsZero() && gitSync.Spec.ContainsClusterDestination(r.clusterName)
 	_, forThisClusterPrev := r.gitSyncProcessors.Load(gitSync.String())
-	shouldDelete := !gitSync.DeletionTimestamp.IsZero() || (forThisClusterPrev && !forThisCluster)
-	shouldApply := gitSync.DeletionTimestamp.IsZero() && forThisCluster
+	shouldDelete := !forThisCluster && forThisClusterPrev
+	shouldAdd := forThisCluster && !forThisClusterPrev
+	shouldUpdate := forThisCluster && forThisClusterPrev
 
 	logger.Debugw("GitSync values: ", "forThisCluster", forThisCluster, "forThisClusterPrev", forThisClusterPrev, "deletionTimestamp", gitSync.DeletionTimestamp,
-		"shouldDelete", shouldDelete, "shouldApply", shouldApply)
+		"shouldDelete", shouldDelete, "shoulAdd", shouldAdd, "shouldUpdate", shouldUpdate)
 
 	if shouldDelete {
-		logger.Infow("Received request to delete GitSync", "GitSync", gitSync)
-		err := r.deleteGitSync(ctx, gitSync)
+		logger.Infow("Received request to stop watching GitSync repos", "GitSync", gitSync)
+		err := r.deleteGitSyncProcessor(ctx, gitSync)
 		if err != nil {
-			logger.Errorw("GitSync Deletion error", "err", err, "GitSync", gitSync)
+			logger.Errorw("GitSyncProcessor Deletion error", "err", err, "GitSync", gitSync)
 			return ctrl.Result{}, err
 		}
 
-	} else if shouldApply {
+	} else if shouldAdd {
 
-		logger.Debugw("Received request to create or update GitSync", "GitSync", gitSync)
-
-		//  if it doesn't exist in our map, we create it and add it to the map (this applies either to a new CRD just created, or in the case that this app has restarted)
-		//  if it already exists in our map, we call Update()
+		logger.Debugw("Received request to watch GitSync repos", "GitSync", gitSync)
 
 		// first validate it
 		err := r.validate(gitSync)
@@ -169,39 +169,50 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 			return ctrl.Result{}, err
 		}
 
-		processorAsInterface, found := r.gitSyncProcessors.Load(gitSync.String())
-		if !found {
-			err := r.addGitSync(ctx, gitSync)
-			if err != nil {
-				logger.Errorw("Error creating GitSync", "err", err, "GitSync", gitSync)
-				gitSync.Status.MarkNotConfigured("CreationFailure", err.Error())
-				return ctrl.Result{}, err
-			}
-		} else {
-			processor := processorAsInterface.(*git.GitSyncProcessor)
-			logger.Infow("Updating existing GitSync", "GitSync", gitSync)
-			err := processor.Update(gitSync)
-			if err != nil {
-				logger.Errorw("Error updating GitSync", "err", err, "GitSync", gitSync)
-				gitSync.Status.MarkNotConfigured("UpdateFailure", err.Error())
-				return ctrl.Result{}, err
-			}
+		err = r.addGitSyncProcessor(ctx, gitSync)
+		if err != nil {
+			logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
+			gitSync.Status.MarkNotConfigured("CreationFailure", err.Error())
+			return ctrl.Result{}, err
 		}
 
 		gitSync.Status.MarkConfigured()
 
+	} else if shouldUpdate {
+		logger.Debugw("Received request to update GitSync", "GitSync", gitSync)
+
+		// first validate it
+		err := r.validate(gitSync)
+		if err != nil {
+			logger.Errorw("Validation failed", "err", err, "GitSync", gitSync)
+			gitSync.Status.MarkNotConfigured("InvalidSpec", err.Error())
+			return ctrl.Result{}, err
+		}
+
+		processorAsInterface, _ := r.gitSyncProcessors.Load(gitSync.String())
+		processor := processorAsInterface.(*git.GitSyncProcessor)
+		logger.Infow("Updating existing GitSync", "GitSync", gitSync)
+		err = processor.Update(gitSync)
+		if err != nil {
+			logger.Errorw("Error updating GitSync", "err", err, "GitSync", gitSync)
+			gitSync.Status.MarkNotConfigured("UpdateFailure", err.Error())
+			return ctrl.Result{}, err
+		}
+
+		gitSync.Status.MarkConfigured() // should already be but just in case
 	}
 
 	return ctrl.Result{}, nil
 
 }
 
-func (r *GitSyncReconciler) addGitSync(ctx context.Context, gitSync *apiv1.GitSync) error {
+func (r *GitSyncReconciler) addGitSyncProcessor(ctx context.Context, gitSync *apiv1.GitSync) error {
 	logger := logging.FromContext(ctx)
 
 	// this is either a new CRD just created, or otherwise the app may have restarted
-	logger.Infow("GitSync not found, so adding", "GitSync", gitSync)
+	logger.Infow("GitSyncProcessor not found, so adding", "GitSync", gitSync)
 
+	// add Finalizer so we can ensure that we take appropriate action when CRD is deleted
 	if !controllerutil.ContainsFinalizer(gitSync, finalizerName) {
 		controllerutil.AddFinalizer(gitSync, finalizerName)
 	}
@@ -211,11 +222,12 @@ func (r *GitSyncReconciler) addGitSync(ctx context.Context, gitSync *apiv1.GitSy
 		logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
 	}
 	r.gitSyncProcessors.Store(gitSync.String(), processor)
+	logger.Infow("Started watching GitSync repos", "GitSync", gitSync)
 
 	return nil
 }
 
-func (r *GitSyncReconciler) deleteGitSync(ctx context.Context, gitSync *apiv1.GitSync) error {
+func (r *GitSyncReconciler) deleteGitSyncProcessor(ctx context.Context, gitSync *apiv1.GitSync) error {
 	logger := logging.FromContext(ctx)
 
 	if controllerutil.ContainsFinalizer(gitSync, finalizerName) {
@@ -223,7 +235,7 @@ func (r *GitSyncReconciler) deleteGitSync(ctx context.Context, gitSync *apiv1.Gi
 		// find it in the map and call Shutdown(), and then delete it from the map
 		processorAsInterface, found := r.gitSyncProcessors.Load(gitSync.String())
 		if !found {
-			logger.Warnw("Unexpected: GitSync not found in map to delete it", "GitSync", gitSync)
+			logger.Warnw("Unexpected: GitSyncProcessor not found in map to delete it", "GitSync", gitSync)
 			return nil
 		}
 		processor := processorAsInterface.(*git.GitSyncProcessor)
@@ -233,7 +245,7 @@ func (r *GitSyncReconciler) deleteGitSync(ctx context.Context, gitSync *apiv1.Gi
 			return err
 		}
 		r.gitSyncProcessors.Delete(gitSync.String())
-		logger.Info("Deleted GitSync", "GitSync", gitSync)
+		logger.Infow("Stopped watching GitSync repos", "GitSync", gitSync)
 
 		controllerutil.RemoveFinalizer(gitSync, finalizerName)
 	}
