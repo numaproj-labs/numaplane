@@ -38,9 +38,6 @@ const (
 	// GitSyncConditionConfigured has the status True when the GitSync
 	// has valid configuration.
 	GitSyncConditionConfigured ConditionType = "Configured"
-	// GitSyncConditionDeployed has the status True when the GitSync
-	// has its RestfulSet/Deployment as well as services created.
-	//GitSyncConditionDeployed ConditionType = "Deployed"
 )
 
 // GitSyncSpec defines the desired state of GitSync
