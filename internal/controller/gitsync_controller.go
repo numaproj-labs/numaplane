@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -40,24 +42,29 @@ type GitSyncReconciler struct {
 
 	// gitSyncLocks maps namespaced name to Mutex, to prevent more than one goroutine from performing the read-then-write operation at the same time
 	// note that if other goroutines outside of this struct need to share the lock in the future, it can be moved
-	gitSyncLocks map[string]*sync.Mutex
+	gitSyncLocks sync.Map
 
 	// gitSyncProcessors maps namespaced name of each GitSync CRD to GitSyncProcessor
 	gitSyncProcessors sync.Map
+
+	// clusterName is the name of the cluster we're running on - used to determine which GitSyncs to store in memory
+	clusterName string
 }
 
 const (
 	finalizerName = "numaplane-controller"
-
-	clusterName = "staging-usw2-k8s" // TODO: just for testing - add to a ConfigMap?
 )
 
-func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) *GitSyncReconciler {
-	return &GitSyncReconciler{
-		Client:       c,
-		Scheme:       s,
-		gitSyncLocks: make(map[string]*sync.Mutex),
+func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) (*GitSyncReconciler, error) {
+	clusterName, found := os.LookupEnv("CLUSTER_NAME") // TODO: if we incorporate a ConfigMap later, could include this in it
+	if !found {
+		return nil, fmt.Errorf("environment variable CLUSTER_NAME not found")
 	}
+	return &GitSyncReconciler{
+		Client:      c,
+		Scheme:      s,
+		clusterName: clusterName,
+	}, nil
 }
 
 //+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=gitsyncs,verbs=get;list;watch;create;update;patch;delete
@@ -73,12 +80,14 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	logger := logging.FromContext(ctx)
 
 	// since this function can be called by multiple goroutines at the same time, lock so we only process one at a time
-	_, foundLock := r.gitSyncLocks[req.NamespacedName.String()]
+	lockAsInterface, foundLock := r.gitSyncLocks.Load(req.NamespacedName.String())
 	if !foundLock {
-		r.gitSyncLocks[req.NamespacedName.String()] = &sync.Mutex{}
+		r.gitSyncLocks.Store(req.NamespacedName.String(), &sync.Mutex{})
+		lockAsInterface, _ = r.gitSyncLocks.Load(req.NamespacedName.String())
 	}
-	r.gitSyncLocks[req.NamespacedName.String()].Lock()
-	defer r.gitSyncLocks[req.NamespacedName.String()].Unlock()
+	lock := lockAsInterface.(*sync.Mutex)
+	lock.Lock()
+	defer lock.Unlock()
 
 	// get the GitSync CRD - if not found, it may have been deleted in the past
 	gitSync := &apiv1.GitSync{}
@@ -129,7 +138,7 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 	// Therefore, we Create or Update it if our cluster is in the GitSync
 	// We Delete it if either the GitSync is deleted or our cluster is removed from it
 
-	forThisCluster := gitSync.Spec.ContainsClusterDestination(clusterName)
+	forThisCluster := gitSync.Spec.ContainsClusterDestination(r.clusterName)
 	_, forThisClusterPrev := r.gitSyncProcessors.Load(gitSync.String())
 	shouldDelete := !gitSync.DeletionTimestamp.IsZero() || (forThisClusterPrev && !forThisCluster)
 	shouldApply := gitSync.DeletionTimestamp.IsZero() && forThisCluster
@@ -169,7 +178,6 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 				return ctrl.Result{}, err
 			}
 		} else {
-			// TODO: maybe we can use ResourceVersion to determine if there's a real change here or not
 			processor := processorAsInterface.(*git.GitSyncProcessor)
 			logger.Infow("Updating existing GitSync", "GitSync", gitSync)
 			err := processor.Update(gitSync)

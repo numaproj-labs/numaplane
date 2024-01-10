@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -72,29 +73,57 @@ func Test_NewGitSync(t *testing.T) {
 		gitSync := defaultGitSync.DeepCopy()
 		ctx := context.TODO()
 		client := fake.NewClientBuilder().Build()
-		r := NewGitSyncReconciler(client, scheme.Scheme)
+		os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
+		r, err := NewGitSyncReconciler(client, scheme.Scheme)
+		assert.Nil(t, err)
+		assert.NotNil(t, r)
 
-		//err := client.Create(ctx, gitSync)
-		//assert.NoError(t, err)
-		//time.Sleep(20 * time.Second)
-		//gitSyncs := &apiv1.GitSyncList{}
-		//err = client.List(ctx, gitSyncs)
-		//assert.NoError(t, err)
-		//fmt.Println("gitSyncs", gitSyncs)
-		//namespacedName := k8stypes.NamespacedName{Namespace: gitSync.Namespace, Name: gitSync.Name}
-		//_, err = r.Reconcile(ctx, ctrl.Request{NamespacedName: namespacedName})
-		//assert.NoError(t, err)
+		// reconcile it twice: first reconcile should be a new add, and the subsequent one should keep everything the same
+		for i := 0; i < 2; i++ {
+			_, err := r.reconcile(ctx, gitSync)
+			assert.NoError(t, err)
+			processorAsInterface, found := r.gitSyncProcessors.Load(gitSync.String())
+			assert.True(t, found)
+			assert.NotPanics(t, func() { _ = processorAsInterface.(*git.GitSyncProcessor) })
 
-		_, err := r.reconcile(ctx, gitSync)
+			assert.Equal(t, apiv1.GitSyncPhaseRunning, gitSync.Status.Phase)
+			assert.Equal(t, string(apiv1.GitSyncConditionConfigured), gitSync.Status.Conditions[0].Type)
+			assert.Equal(t, metav1.ConditionTrue, gitSync.Status.Conditions[0].Status)
+
+		}
+	})
+
+}
+
+// GitSync should be added to our GitSyncProcessor map if our cluster matches one of the clusters, but removed if it's not
+func Test_GitSyncCluster(t *testing.T) {
+	t.Run("GitSync cluster test", func(t *testing.T) {
+		gitSync := defaultGitSync.DeepCopy()
+		gitSync.Spec.Destinations = []apiv1.Destination{ // doesn't include our cluster
+			{
+				Cluster:   "staging-use2-k8s",
+				Namespace: "team-a-namespace",
+			},
+		}
+		ctx := context.TODO()
+		client := fake.NewClientBuilder().Build()
+		os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
+		r, err := NewGitSyncReconciler(client, scheme.Scheme)
+		assert.Nil(t, err)
+		assert.NotNil(t, r)
+
+		// our cluster is not one of the destinations, so it shouldn't end up in the map
+		_, err = r.reconcile(ctx, gitSync)
+		assert.NoError(t, err)
+		_, found := r.gitSyncProcessors.Load(gitSync.String())
+		assert.False(t, found)
+
+		// now update the spec so that it is one of the destinations
+		gitSync = defaultGitSync.DeepCopy()
+		_, err = r.reconcile(ctx, gitSync)
 		assert.NoError(t, err)
 		processorAsInterface, found := r.gitSyncProcessors.Load(gitSync.String())
 		assert.True(t, found)
-		//_ = processorAsInterface.(*apiv1.GitSync) // just make sure type is right
 		assert.NotPanics(t, func() { _ = processorAsInterface.(*git.GitSyncProcessor) })
-
-		assert.Equal(t, apiv1.GitSyncPhaseRunning, gitSync.Status.Phase)
-		assert.Equal(t, string(apiv1.GitSyncConditionConfigured), gitSync.Status.Conditions[0].Type)
-		assert.Equal(t, metav1.ConditionTrue, gitSync.Status.Conditions[0].Status)
 	})
-
 }
