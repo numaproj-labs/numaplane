@@ -189,7 +189,6 @@ func (status *GitSyncStatus) markTypeStatus(t ConditionType, s metav1.ConditionS
 	})
 }
 
-// TODO: add in the additional functionality contained in numaflow pkg/apis/numaflow/v1alpha1/status_types.go?
 // MarkConditionTrue sets the status of t to true
 func (status *GitSyncStatus) MarkConditionTrue(t ConditionType) {
 	status.markTypeStatus(t, metav1.ConditionTrue, "Successful", "Successful")
