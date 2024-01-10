@@ -16,12 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-// what to test:
-// newly created GitSync should: have finalizer, correct status, be added to map
-// updated GitSync should still have the finalizer, correct status, and still be in map
-// updated GitSync with cluster changes in both directions
-// deleted GitSync should get deleted (i.e. finalizer removed) and no longer be in map
-
 const (
 	testGitSyncName = "test-gitsync"
 	testNamespace   = "test-ns"
@@ -68,6 +62,7 @@ func init() {
 	_ = corev1.AddToScheme(scheme.Scheme)
 }
 
+// test reconciliation of a new GitSync plus one that's been updated
 func Test_NewGitSync(t *testing.T) {
 	t.Run("new GitSync", func(t *testing.T) {
 		gitSync := defaultGitSync.DeepCopy()
@@ -95,6 +90,7 @@ func Test_NewGitSync(t *testing.T) {
 
 }
 
+// Test the changing of destinations in the GitSync
 // GitSync should be added to our GitSyncProcessor map if our cluster matches one of the clusters, but removed if it's not
 func Test_GitSyncCluster(t *testing.T) {
 	t.Run("GitSync cluster test", func(t *testing.T) {

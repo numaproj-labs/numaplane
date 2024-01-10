@@ -104,6 +104,8 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	gitSyncOrig := gitSync // save this off so we can compare it later
 	gitSync = gitSync.DeepCopy()
 
+	gitSync.Status.InitConditions()
+
 	result, err := r.reconcile(ctx, gitSync)
 	if err != nil {
 		return result, err

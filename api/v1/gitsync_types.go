@@ -60,7 +60,8 @@ type GitSyncStatus struct {
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	Message    string             `json:"message,omitempty"`
+	// Message is added if there's a failure
+	Message string `json:"message,omitempty"`
 
 	// Recent commits that have been processed and their status, mapped by <RepoUrl>/<Path>
 	CommitStatus map[string]CommitStatus `json:"commitStatus,omitempty"`
