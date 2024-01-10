@@ -128,6 +128,7 @@ func init() {
 	SchemeBuilder.Register(&GitSync{}, &GitSyncList{})
 }
 
+// ContainsClusterDestination determines if the cluster is in the list of Destinations
 func (gitSyncSpec *GitSyncSpec) ContainsClusterDestination(cluster string) bool {
 	for _, destination := range gitSyncSpec.Destinations {
 		if destination.Cluster == cluster {
