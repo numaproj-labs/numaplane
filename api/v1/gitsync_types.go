@@ -200,6 +200,11 @@ func (status *GitSyncStatus) MarkConditionFalse(t ConditionType, reason, message
 	status.markTypeStatus(t, metav1.ConditionFalse, reason, message)
 }
 
+// MarkUnknown sets the status of t to unknown
+func (status *GitSyncStatus) MarkConditionUnknown(t ConditionType, reason, message string) {
+	status.markTypeStatus(t, metav1.ConditionUnknown, reason, message)
+}
+
 // MarkConfigured sets the GitSync to Running
 func (status *GitSyncStatus) MarkConfigured() {
 	status.MarkConditionTrue(GitSyncConditionConfigured)
