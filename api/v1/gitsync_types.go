@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:validation:Enum="";Pending;Running;Failed
+// +kubebuilder:validation:Enum="";Pending;Running;Failed;NotApplicable
 type GitSyncPhase string
 
 type ConditionType string

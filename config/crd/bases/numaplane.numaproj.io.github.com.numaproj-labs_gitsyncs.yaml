@@ -179,6 +179,7 @@ spec:
                 - Pending
                 - Running
                 - Failed
+                - NotApplicable
                 type: string
             type: object
         required:

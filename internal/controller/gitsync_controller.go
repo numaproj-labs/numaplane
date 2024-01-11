@@ -121,7 +121,6 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		// restore the original status, which would've been wiped in the previous call to Update()
 		gitSync.Status = gitSyncStatus
-
 	}
 
 	// Update the Status subresource
