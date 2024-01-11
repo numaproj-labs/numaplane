@@ -88,11 +88,17 @@ func main() {
 		logger.Fatalw("Unable to get a controller-runtime manager", err)
 	}
 
-	if err = (&controller.GitSyncReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	reconciler, err := controller.NewGitSyncReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+	)
+	if err != nil {
+		logger.Fatalw("Unable to create GitSync controller", err)
+	}
+
+	if err = reconciler.SetupWithManager(mgr); err != nil {
 		logger.Fatalw("Unable to set up GitSync controller", err)
+
 	}
 	//+kubebuilder:scaffold:builder
 
