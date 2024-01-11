@@ -218,6 +218,7 @@ func (status *GitSyncStatus) MarkFailed(reason, message string) {
 	status.SetPhase(GitSyncPhaseFailed, message)
 }
 
+// MarkNotApplicable sets the GitSync to Not Applicable
 func (status *GitSyncStatus) MarkNotApplicable(reason, message string) {
 	status.MarkConditionFalse(GitSyncConditionConfigured, reason, message)
 	status.SetPhase(GitSyncPhaseNA, message)
