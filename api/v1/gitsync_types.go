@@ -30,10 +30,10 @@ type GitSyncPhase string
 type ConditionType string
 
 const (
-	GitSyncPhaseUnknown GitSyncPhase = ""
 	GitSyncPhasePending GitSyncPhase = "Pending"
 	GitSyncPhaseRunning GitSyncPhase = "Running"
 	GitSyncPhaseFailed  GitSyncPhase = "Failed"
+	GitSyncPhaseNA      GitSyncPhase = "NotApplicable" // use this for the case in which this cluster isn't listed as a Destination
 
 	// GitSyncConditionConfigured has the status True when the GitSync
 	// has valid configuration.
@@ -155,9 +155,10 @@ func (status *GitSyncStatus) InitializeConditions(conditionTypes ...ConditionTyp
 	}
 }
 
-// setCondition sets a condition
+// setCondition sets a Condition, and sorts the list of Conditions
 func (status *GitSyncStatus) setCondition(condition metav1.Condition) {
 	var conditions []metav1.Condition
+	// copy the list of Conditions, and if we find one of this type, replace it and return
 	for _, c := range status.Conditions {
 		if c.Type != condition.Type {
 			conditions = append(conditions, c)
@@ -168,9 +169,9 @@ func (status *GitSyncStatus) setCondition(condition metav1.Condition) {
 			}
 		}
 	}
+	// didn't find a Condition of this type, so append it to the end of the list, and sort the list for easy read
 	condition.LastTransitionTime = metav1.NewTime(time.Now())
 	conditions = append(conditions, condition)
-	// Sort for easy read
 	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
 	status.Conditions = conditions
 }
@@ -200,7 +201,7 @@ func (status *GitSyncStatus) MarkConditionFalse(t ConditionType, reason, message
 	status.markTypeStatus(t, metav1.ConditionFalse, reason, message)
 }
 
-// MarkUnknown sets the status of t to unknown
+// MarkConditionUnknown sets the status of t to unknown
 func (status *GitSyncStatus) MarkConditionUnknown(t ConditionType, reason, message string) {
 	status.markTypeStatus(t, metav1.ConditionUnknown, reason, message)
 }
@@ -215,4 +216,9 @@ func (status *GitSyncStatus) MarkRunning() {
 func (status *GitSyncStatus) MarkFailed(reason, message string) {
 	status.MarkConditionFalse(GitSyncConditionConfigured, reason, message)
 	status.SetPhase(GitSyncPhaseFailed, message)
+}
+
+func (status *GitSyncStatus) MarkNotApplicable(reason, message string) {
+	status.MarkConditionFalse(GitSyncConditionConfigured, reason, message)
+	status.SetPhase(GitSyncPhaseNA, message)
 }

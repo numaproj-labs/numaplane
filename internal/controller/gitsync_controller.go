@@ -152,13 +152,19 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 	logger.Debugw("GitSync values: ", "forThisCluster", forThisCluster, "forThisClusterPrev", forThisClusterPrev, "deletionTimestamp", gitSync.DeletionTimestamp,
 		"shouldDelete", shouldDelete, "shoulAdd", shouldAdd, "shouldUpdate", shouldUpdate)
 
+	if !gitSync.Spec.ContainsClusterDestination(r.clusterName) {
+		gitSync.Status.MarkNotApplicable("ClusterMismatch", "This cluster isn't a destination")
+	}
+
 	if shouldDelete {
 		logger.Infow("Received request to stop watching GitSync repos", "GitSync", gitSync)
+
 		err := r.deleteGitSyncProcessor(ctx, gitSync)
 		if err != nil {
 			logger.Errorw("GitSyncProcessor Deletion error", "err", err, "GitSync", gitSync)
 			return ctrl.Result{}, err
 		}
+		logger.Debugw("Successfully stopped watching GitSync repos", "GitSync", gitSync)
 
 	} else if shouldAdd {
 
@@ -178,6 +184,7 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 			gitSync.Status.MarkFailed("CreationFailure", err.Error())
 			return ctrl.Result{}, err
 		}
+		logger.Debugw("Successfully started watching GitSync repos", "GitSync", gitSync)
 
 		gitSync.Status.MarkRunning()
 
@@ -201,6 +208,7 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 			gitSync.Status.MarkFailed("UpdateFailure", err.Error())
 			return ctrl.Result{}, err
 		}
+		logger.Debugw("Successfully updated GitSync", "GitSync", gitSync)
 
 		gitSync.Status.MarkRunning() // should already be but just in case
 	}
@@ -242,16 +250,16 @@ func (r *GitSyncReconciler) deleteGitSyncProcessor(ctx context.Context, gitSync 
 		processorAsInterface, found := r.gitSyncProcessors.Load(gitSync.String())
 		if !found {
 			logger.Warnw("Unexpected: GitSyncProcessor not found in map to delete it", "GitSync", gitSync)
-			return nil
+		} else {
+			processor := processorAsInterface.(*git.GitSyncProcessor)
+			err := processor.Shutdown()
+			if err != nil {
+				logger.Errorw("Error shutting down GitSync", "err", err, "GitSync", gitSync)
+				return err
+			}
+			r.gitSyncProcessors.Delete(gitSync.String())
+			logger.Infow("Stopped watching GitSync repos", "GitSync", gitSync)
 		}
-		processor := processorAsInterface.(*git.GitSyncProcessor)
-		err := processor.Shutdown()
-		if err != nil {
-			logger.Errorw("Error shutting down GitSync", "err", err, "GitSync", gitSync)
-			return err
-		}
-		r.gitSyncProcessors.Delete(gitSync.String())
-		logger.Infow("Stopped watching GitSync repos", "GitSync", gitSync)
 
 		controllerutil.RemoveFinalizer(gitSync, finalizerName)
 	}
