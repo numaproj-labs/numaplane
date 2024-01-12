@@ -68,7 +68,8 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		gitSync := defaultGitSync.DeepCopy()
 
 		client := fake.NewClientBuilder().Build()
-		os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
+		err := os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
+		assert.Nil(t, err)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
@@ -105,7 +106,8 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		}
 
 		client := fake.NewClientBuilder().Build()
-		os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
+		err := os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
+		assert.Nil(t, err)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
@@ -122,7 +124,7 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 }
 
 func reconcile(t *testing.T, r *GitSyncReconciler, gitSync *apiv1.GitSync) {
-	_, err := r.reconcile(context.Background(), gitSync)
+	err := r.reconcile(context.Background(), gitSync)
 	assert.NoError(t, err)
 }
 
