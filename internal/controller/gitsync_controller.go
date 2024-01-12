@@ -107,9 +107,9 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	gitSync.Status.InitConditions()
 
-	result, err := r.reconcile(ctx, gitSync)
+	err := r.reconcile(ctx, gitSync)
 	if err != nil {
-		return result, err
+		return ctrl.Result{}, err
 	}
 
 	// Update the Spec if needed
@@ -135,7 +135,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 // reconcile does the real logic
-func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSync) (ctrl.Result, error) {
+func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSync) error {
 	logger := logging.FromContext(ctx)
 
 	// We will have a GitSyncProcessor object for every GitSync that contains our cluster
@@ -161,7 +161,7 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 		err := r.deleteGitSyncProcessor(ctx, gitSync)
 		if err != nil {
 			logger.Errorw("GitSyncProcessor Deletion error", "err", err, "GitSync", gitSync)
-			return ctrl.Result{}, err
+			return err
 		}
 		logger.Debugw("Successfully stopped watching GitSync repos", "GitSync", gitSync)
 
@@ -174,14 +174,14 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 		if err != nil {
 			logger.Errorw("Validation failed", "err", err, "GitSync", gitSync)
 			gitSync.Status.MarkFailed("InvalidSpec", err.Error())
-			return ctrl.Result{}, err
+			return err
 		}
 
 		err = r.addGitSyncProcessor(ctx, gitSync)
 		if err != nil {
 			logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
 			gitSync.Status.MarkFailed("CreationFailure", err.Error())
-			return ctrl.Result{}, err
+			return err
 		}
 		logger.Debugw("Successfully started watching GitSync repos", "GitSync", gitSync)
 
@@ -195,7 +195,7 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 		if err != nil {
 			logger.Errorw("Validation failed", "err", err, "GitSync", gitSync)
 			gitSync.Status.MarkFailed("InvalidSpec", err.Error())
-			return ctrl.Result{}, err
+			return err
 		}
 
 		processorAsInterface, _ := r.gitSyncProcessors.Load(gitSync.String())
@@ -205,14 +205,14 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 		if err != nil {
 			logger.Errorw("Error updating GitSync", "err", err, "GitSync", gitSync)
 			gitSync.Status.MarkFailed("UpdateFailure", err.Error())
-			return ctrl.Result{}, err
+			return err
 		}
 		logger.Debugw("Successfully updated GitSync", "GitSync", gitSync)
 
 		gitSync.Status.MarkRunning() // should already be but just in case
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 
 }
 
@@ -231,6 +231,7 @@ func (r *GitSyncReconciler) addGitSyncProcessor(ctx context.Context, gitSync *ap
 	processor, err := git.NewGitSyncProcessor(gitSync, r.Client)
 	if err != nil {
 		logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
+		return err
 	}
 	r.gitSyncProcessors.Store(gitSync.String(), processor)
 	logger.Infow("Started watching GitSync repos", "GitSync", gitSync)
