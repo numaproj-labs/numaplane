@@ -6,7 +6,6 @@ on:
   pull_request:
     branches:
       - "main"
-      - "ci-test"
 jobs:
   unit-tests:
     name: Unit Tests
