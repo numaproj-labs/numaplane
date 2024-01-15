@@ -33,16 +33,13 @@ func isValidTag(tag string) bool {
 }
 
 func cloneRepository(repoUrl string, reference string) (*git.Repository, error) {
-	var referenceName plumbing.ReferenceName
 	if isValidTag(reference) {
-		referenceName = plumbing.ReferenceName(fmt.Sprintf("refs/tags/%s", reference))
-	} else {
-		referenceName = plumbing.ReferenceName(reference)
+		reference = fmt.Sprintf("refs/tags/%s", reference)
 	}
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:           repoUrl,
 		SingleBranch:  true,
-		ReferenceName: referenceName,
+		ReferenceName: plumbing.ReferenceName(reference),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error cloning the repository url %s", err)
@@ -70,4 +67,5 @@ func NewGitSyncProcessor(gitSync *v1.GitSync, k8client client.Client, clusterNam
 		channels:    channels,
 		clusterName: clusterName,
 	}, nil
+
 }

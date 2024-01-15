@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: numaplane
   name: gitsync-sample
+  namespace: numaplane-system
 spec:
   repositoryPaths:
     - repoUrl: "https://github.com/myrepo.git"
@@ -21,4 +22,5 @@ spec:
   destinations:
     - cluster: staging-usw2-k8s
       namespace: namespace-1
-      
+    - cluster: staging-use2-k8s
+      namespace: namespace-1

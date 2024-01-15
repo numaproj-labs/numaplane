@@ -7,9 +7,8 @@ import (
 )
 
 const (
-	repoURl    = "https://github.com/numaproj/numaflow-go"
-	commitHash = "5424b351d679bc894d1666aac1d8778443314ffc"
-	tag        = "v0.5.2"
+	repoURl = "https://github.com/numaproj/numaflow-go"
+	tag     = "v0.5.2"
 )
 
 func TestCloneRepositoryForBranch(t *testing.T) {
