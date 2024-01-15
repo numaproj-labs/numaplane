@@ -69,3 +69,11 @@ func NewGitSyncProcessor(gitSync *v1.GitSync, k8client client.Client, clusterNam
 	}, nil
 
 }
+
+func (processor *GitSyncProcessor) Update(gitSync *v1.GitSync) error {
+	return nil
+}
+
+func (processor *GitSyncProcessor) Shutdown() error {
+	return nil
+}
