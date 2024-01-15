@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 
 	"github.com/go-git/go-git/v5"
@@ -11,6 +12,8 @@ import (
 
 	v1 "github.com/numaproj-labs/numaplane/api/v1"
 )
+
+const messageChanLength = 5
 
 type Message struct {
 	Updates bool
@@ -24,23 +27,17 @@ type GitSyncProcessor struct {
 	clusterName string
 }
 
-func isCommitHash(hash string) bool {
-	match, _ := regexp.MatchString("^[0-9a-fA-F]{40}$", hash)
-	return match
-}
-
 func isValidTag(tag string) bool {
 	match, _ := regexp.MatchString(`^[vV]?\d+\.\d+\.\d+$`, tag)
 	return match
 }
 
-// reference can  can be a branch, a tag, or a commit hash
 func cloneRepository(repoUrl string, reference string) (*git.Repository, error) {
 	var referenceName plumbing.ReferenceName
 	if isValidTag(reference) {
 		referenceName = plumbing.ReferenceName(fmt.Sprintf("refs/tags/%s", reference))
-	} else if isCommitHash(reference) {
-		referenceName = plumbing.NewHashReference("", plumbing.NewHash(reference)).Name()
+	} else {
+		referenceName = plumbing.ReferenceName(reference)
 	}
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:           repoUrl,
@@ -53,15 +50,19 @@ func cloneRepository(repoUrl string, reference string) (*git.Repository, error) 
 	return r, nil
 }
 
+func watchRepo(repoUrl string, reference string) {
+	_, err := cloneRepository(repoUrl, reference)
+	if err != nil {
+		log.Fatalf("error cloning the repository %s", err.Error())
+	}
+}
+
 func NewGitSyncProcessor(gitSync *v1.GitSync, k8client client.Client, clusterName string) (*GitSyncProcessor, error) {
 	channels := make(map[string]chan Message)
 	for _, repo := range gitSync.Spec.RepositoryPaths {
-		gitCh := make(chan Message)
+		gitCh := make(chan Message, messageChanLength)
 		channels[repo.Name] = gitCh
-		_, err := cloneRepository(repo.RepoUrl, repo.TargetRevision)
-		if err != nil {
-			return nil, err
-		}
+		go watchRepo(repo.RepoUrl, repo.TargetRevision)
 	}
 	return &GitSyncProcessor{
 		gitSync:     *gitSync,

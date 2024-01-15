@@ -13,13 +13,7 @@ const (
 )
 
 func TestCloneRepositoryForBranch(t *testing.T) {
-	repository, err := cloneRepository(repoURl, "main")
-	assert.Nil(t, err)
-	assert.NotNil(t, repository)
-}
-
-func TestCloneRepositoryForCommitHash(t *testing.T) {
-	repository, err := cloneRepository(repoURl, commitHash)
+	repository, err := cloneRepository(repoURl, "protof")
 	assert.Nil(t, err)
 	assert.NotNil(t, repository)
 }
