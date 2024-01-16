@@ -38,13 +38,16 @@ func checkRevision(r *git.Repository, revision string) (string, error) {
 		return "", err
 	}
 	found := false
-	err = refs.ForEach(func(ref *plumbing.Reference) error {
+	refs.ForEach(func(ref *plumbing.Reference) error {
 		if ref.Name().IsTag() && ref.Name().Short() == revision {
 			found = true
 			return nil
 		}
 		return nil
 	})
+	if err != nil {
+		return "", err
+	}
 	if found {
 		return "tag", nil
 	}
