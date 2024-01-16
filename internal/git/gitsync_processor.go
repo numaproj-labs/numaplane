@@ -36,21 +36,51 @@ func isCommitHash(hash string) bool {
 	return match
 }
 
-// reference can be a branch, a tag, or a commit hash
-func cloneRepository(repoUrl string, reference string) (*git.Repository, error) {
-	var referenceName plumbing.ReferenceName
-	if isValidTag(reference) {
-		referenceName = plumbing.ReferenceName(fmt.Sprintf("refs/tags/%s", reference))
-	} else if isCommitHash(reference) {
-		referenceName = plumbing.NewHashReference("", plumbing.NewHash(reference)).Name()
-	} else {
-
-		referenceName = plumbing.ReferenceName(reference)
+func checkRevision(r *git.Repository, revision string) (string, error) {
+	hash, err := r.ResolveRevision(plumbing.Revision(revision))
+	if err != nil {
+		return "", err
 	}
+
+	// Check if it's a  tag
+	refs, err := r.References()
+	if err != nil {
+		return "", err
+	}
+	found := false
+	err = refs.ForEach(func(ref *plumbing.Reference) error {
+		if ref.Name().IsTag() && ref.Name().Short() == revision {
+			found = true
+			return nil
+		}
+		return nil
+	})
+	if found {
+		return "tag", nil
+	}
+	// Check if it's a branch
+	iter, err := r.Branches()
+	if err != nil {
+		return "", err
+	}
+	err = iter.ForEach(func(ref *plumbing.Reference) error {
+		if ref.Hash() == *hash {
+			return nil
+		}
+		return fmt.Errorf("not a branch")
+	})
+	if err == nil {
+		return "branch", nil
+	}
+	// If it's neither a tag nor a branch, it must be a commit hash
+	return "commit-hash", nil
+}
+
+// reference can be a branch, a tag, or a commit hash
+func cloneRepository(repoUrl string) (*git.Repository, error) {
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
-		URL:           repoUrl,
-		SingleBranch:  true,
-		ReferenceName: referenceName,
+		URL:          repoUrl,
+		SingleBranch: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error cloning the repository url %s", err)
@@ -59,9 +89,26 @@ func cloneRepository(repoUrl string, reference string) (*git.Repository, error) 
 }
 
 func watchRepo(repo *v1.RepositoryPath) {
-	_, err := cloneRepository(repo.RepoUrl, repo.TargetRevision)
+	r, err := cloneRepository(repo.RepoUrl)
 	if err != nil {
 		log.Fatalf("error cloning the repository %s", err.Error())
+	}
+	// check the TargetRevision is hash ,branch or tag
+	revision, err := checkRevision(r, repo.TargetRevision)
+	if err != nil {
+		log.Fatalf("error in checking revision %s", err.Error())
+		return
+	}
+
+	switch revision {
+	case "branch":
+		// monitor the branch
+	case "tag":
+	// monitor the tag for any change in commit
+
+	case "commit-hash":
+		// no monitoring
+
 	}
 
 }
