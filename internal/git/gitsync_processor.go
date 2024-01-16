@@ -31,15 +31,26 @@ func isValidTag(tag string) bool {
 	match, _ := regexp.MatchString(`^[vV]?\d+\.\d+\.\d+$`, tag)
 	return match
 }
+func isCommitHash(hash string) bool {
+	match, _ := regexp.MatchString("^[0-9a-fA-F]{40}$", hash)
+	return match
+}
 
+// reference can be a branch, a tag, or a commit hash
 func cloneRepository(repoUrl string, reference string) (*git.Repository, error) {
+	var referenceName plumbing.ReferenceName
 	if isValidTag(reference) {
-		reference = fmt.Sprintf("refs/tags/%s", reference)
+		referenceName = plumbing.ReferenceName(fmt.Sprintf("refs/tags/%s", reference))
+	} else if isCommitHash(reference) {
+		referenceName = plumbing.NewHashReference("", plumbing.NewHash(reference)).Name()
+	} else {
+
+		referenceName = plumbing.ReferenceName(reference)
 	}
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:           repoUrl,
 		SingleBranch:  true,
-		ReferenceName: plumbing.ReferenceName(reference),
+		ReferenceName: referenceName,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error cloning the repository url %s", err)
@@ -47,11 +58,12 @@ func cloneRepository(repoUrl string, reference string) (*git.Repository, error) 
 	return r, nil
 }
 
-func watchRepo(repoUrl string, reference string) {
-	_, err := cloneRepository(repoUrl, reference)
+func watchRepo(repo *v1.RepositoryPath) {
+	_, err := cloneRepository(repo.RepoUrl, repo.TargetRevision)
 	if err != nil {
 		log.Fatalf("error cloning the repository %s", err.Error())
 	}
+
 }
 
 func NewGitSyncProcessor(gitSync *v1.GitSync, k8client client.Client, clusterName string) (*GitSyncProcessor, error) {
@@ -59,7 +71,7 @@ func NewGitSyncProcessor(gitSync *v1.GitSync, k8client client.Client, clusterNam
 	for _, repo := range gitSync.Spec.RepositoryPaths {
 		gitCh := make(chan Message, messageChanLength)
 		channels[repo.Name] = gitCh
-		go watchRepo(repo.RepoUrl, repo.TargetRevision)
+		go watchRepo(&repo)
 	}
 	return &GitSyncProcessor{
 		gitSync:     *gitSync,
