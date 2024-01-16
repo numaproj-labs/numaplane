@@ -1,20 +1,20 @@
 package kubernetes
 
 import (
+	"regexp"
+	"strings"
+	"time"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/resource"
-	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/kubectl/pkg/util"
 	"path/filepath"
-	"regexp"
-	"strings"
-	"time"
 )
 
 const (
@@ -34,41 +34,8 @@ type client struct {
 	log    *zap.SugaredLogger
 }
 
-type Client interface {
-	Apply(*unstructured.Unstructured) error
-}
-
-// NewClient creates a new kubernetes client.
-func NewClient(config *rest.Config) (Client, error) {
-	config.Timeout = defaultTimeout
-
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	httpCacheDir := filepath.Join(cacheDir, "http")
-	discoveryCacheDir := computeDiscoverCacheDir(filepath.Join(cacheDir, "discovery"), config.Host)
-
-	// DiscoveryClient queries API server about the resources
-	cdc, err := disk.NewCachedDiscoveryClientForConfig(config, discoveryCacheDir, httpCacheDir, ttl)
-	if err != nil {
-		return nil, err
-	}
-
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cdc)
-
-	kubeClient := &client{
-		c:      dynamicClient,
-		config: config,
-		mapper: mapper,
-	}
-
-	return kubeClient, nil
-}
-
-// Apply will do create/patch of manifest
-func (c *client) Apply(u *unstructured.Unstructured) error {
+// apply will do create/patch of manifest
+func (c *client) apply(u *unstructured.Unstructured) error {
 	gvk := u.GroupVersionKind()
 	restMapping, err := c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
