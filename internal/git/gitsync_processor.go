@@ -3,7 +3,6 @@ package git
 import (
 	"fmt"
 	"log"
-	"regexp"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -25,15 +24,6 @@ type GitSyncProcessor struct {
 	channels    map[string]chan Message
 	k8Client    client.Client
 	clusterName string
-}
-
-func isValidTag(tag string) bool {
-	match, _ := regexp.MatchString(`^[vV]?\d+\.\d+\.\d+$`, tag)
-	return match
-}
-func isCommitHash(hash string) bool {
-	match, _ := regexp.MatchString("^[0-9a-fA-F]{40}$", hash)
-	return match
 }
 
 func checkRevision(r *git.Repository, revision string) (string, error) {
