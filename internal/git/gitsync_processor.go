@@ -56,9 +56,9 @@ func checkRevision(repoPath *v1.RepositoryPath) {
 	}
 
 	if isCommitSHA(repoPath.TargetRevision) {
-		// no monitoring
+		log.Println("No monitoring")
 	} else {
-		// monitor with intervals
+		log.Println("monitoring")
 	}
 }
 
