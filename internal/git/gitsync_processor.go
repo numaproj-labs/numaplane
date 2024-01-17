@@ -1,8 +1,8 @@
 package git
 
 import (
-	"fmt"
 	"log"
+	"regexp"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -19,6 +19,11 @@ type Message struct {
 	Err     error
 }
 
+func isCommitSHA(revision string) bool {
+	match, _ := regexp.MatchString("^[0-9a-fA-F]{40}$", revision)
+	return match
+}
+
 type GitSyncProcessor struct {
 	gitSync     v1.GitSync
 	channels    map[string]chan Message
@@ -26,84 +31,35 @@ type GitSyncProcessor struct {
 	clusterName string
 }
 
-func checkRevision(r *git.Repository, revision string) (string, error) {
-	hash, err := r.ResolveRevision(plumbing.Revision(revision))
-	if err != nil {
-		return "", err
-	}
-
-	// Check if it's a  tag
-	refs, err := r.References()
-	if err != nil {
-		return "", err
-	}
-	found := false
-	refs.ForEach(func(ref *plumbing.Reference) error {
-		if ref.Name().IsTag() && ref.Name().Short() == revision {
-			found = true
-			return nil
-		}
-		return nil
-	})
-	if err != nil {
-		return "", err
-	}
-	if found {
-		return "tag", nil
-	}
-	// Check if it's a branch
-	iter, err := r.Branches()
-	if err != nil {
-		return "", err
-	}
-	err = iter.ForEach(func(ref *plumbing.Reference) error {
-		if ref.Hash() == *hash {
-			return nil
-		}
-		return fmt.Errorf("not a branch")
-	})
-	if err == nil {
-		return "branch", nil
-	}
-	// If it's neither a tag nor a branch, it must be a commit hash
-	return "commit-hash", nil
-}
-
-// reference can be a branch, a tag, or a commit hash
-func cloneRepository(repoUrl string) (*git.Repository, error) {
+func checkRevision(repoPath *v1.RepositoryPath) {
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
-		URL:          repoUrl,
-		SingleBranch: true,
+		URL: repoPath.RepoUrl,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("error cloning the repository url %s", err)
-	}
-	return r, nil
-}
-
-func watchRepo(repo *v1.RepositoryPath) {
-	r, err := cloneRepository(repo.RepoUrl)
 	if err != nil {
 		log.Fatalf("error cloning the repository %s", err.Error())
 	}
-	// check the TargetRevision is hash ,branch or tag
-	revision, err := checkRevision(r, repo.TargetRevision)
+	// TargetRevision can be a branch, a tag, or a commit hash
+	hash, err := r.ResolveRevision(plumbing.Revision(repoPath.TargetRevision))
 	if err != nil {
-		log.Fatalf("error in checking revision %s", err.Error())
-		return
+		log.Fatalf("error resolving revision %s", err.Error())
+	}
+	w, err := r.Worktree()
+	if err != nil {
+		log.Fatalf("error getting repository worktree %s", err.Error())
 	}
 
-	switch revision {
-	case "branch":
-		// monitor the branch
-	case "tag":
-	// monitor the tag for any change in commit
+	err = w.Checkout(&git.CheckoutOptions{
+		Hash: *hash,
+	})
+	if err != nil {
+		log.Fatalf("error checking out to the revision %s", err.Error())
+	}
 
-	case "commit-hash":
+	if isCommitSHA(repoPath.TargetRevision) {
 		// no monitoring
-
+	} else {
+		// monitor with intervals
 	}
-
 }
 
 func NewGitSyncProcessor(gitSync *v1.GitSync, k8client client.Client, clusterName string) (*GitSyncProcessor, error) {
@@ -111,7 +67,7 @@ func NewGitSyncProcessor(gitSync *v1.GitSync, k8client client.Client, clusterNam
 	for _, repo := range gitSync.Spec.RepositoryPaths {
 		gitCh := make(chan Message, messageChanLength)
 		channels[repo.Name] = gitCh
-		go watchRepo(&repo)
+		go checkRevision(&repo)
 	}
 	return &GitSyncProcessor{
 		gitSync:     *gitSync,
