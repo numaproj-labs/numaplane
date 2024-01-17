@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -71,7 +72,7 @@ type Patcher struct {
 	OpenAPIV3Root openapi3.Root
 }
 
-func newPatcher(info *resource.Info, helper *resource.Helper) (*Patcher, error) {
+func newPatcher(info *resource.Info, helper *resource.Helper) *Patcher {
 	var openAPIGetter openapi.OpenAPIResourcesGetter
 	var openAPIV3Root openapi3.Root
 
@@ -87,7 +88,7 @@ func newPatcher(info *resource.Info, helper *resource.Helper) (*Patcher, error) 
 		OpenAPIGetter:     openAPIGetter,
 		OpenAPIV3Root:     openAPIV3Root,
 		Retries:           maxPatchRetry,
-	}, nil
+	}
 }
 
 func (p *Patcher) delete(namespace, name string) error {
@@ -376,8 +377,8 @@ func (p *Patcher) deleteAndCreate(original runtime.Object, modified []byte, name
 	if err := p.delete(namespace, name); err != nil {
 		return modified, nil, err
 	}
-	// TODO: use wait
-	if err := wait.PollImmediate(1*time.Second, p.Timeout, func() (bool, error) {
+
+	if err := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, p.Timeout, true, func(ctx context.Context) (bool, error) {
 		if _, err := p.Helper.Get(namespace, name); !apierrors.IsNotFound(err) {
 			return false, err
 		}
