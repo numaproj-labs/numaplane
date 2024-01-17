@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/kubectl/pkg/util"
-	"path/filepath"
 )
 
 const (
@@ -61,10 +61,7 @@ func (c *client) apply(u *unstructured.Unstructured) error {
 		ResourceVersion: restMapping.Resource.Version,
 	}
 
-	patcher, err := newPatcher(resourceInfo, helper)
-	if err != nil {
-		return err
-	}
+	patcher := newPatcher(resourceInfo, helper)
 
 	// Retrieves the modified configuration of the object, then embeds the result as an annotation in the modified configuration
 	modified, err := util.GetModifiedConfiguration(resourceInfo.Object, true, unstructured.UnstructuredJSONScheme)

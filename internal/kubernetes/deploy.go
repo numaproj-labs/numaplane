@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"fmt"
+	"path/filepath"
 
 	jsongo "github.com/json-iterator/go"
 	"gopkg.in/yaml.v2"
@@ -11,7 +12,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-	"path/filepath"
 )
 
 // NewClient creates a new kubernetes client.
