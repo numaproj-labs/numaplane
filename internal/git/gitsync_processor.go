@@ -9,7 +9,7 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	v1 "github.com/numaproj-labs/numaplane/api/v1"
+	"github.com/numaproj-labs/numaplane/api/v1"
 )
 
 const messageChanLength = 5
@@ -31,7 +31,7 @@ type GitSyncProcessor struct {
 	clusterName string
 }
 
-func checkRevision(repoPath *v1.RepositoryPath) {
+func cloneRepo(repoPath *v1.RepositoryPath) {
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL: repoPath.RepoUrl,
 	})
@@ -39,27 +39,36 @@ func checkRevision(repoPath *v1.RepositoryPath) {
 		log.Fatalf("error cloning the repository %s", err.Error())
 	}
 	// TargetRevision can be a branch, a tag, or a commit hash
-	hash, err := r.ResolveRevision(plumbing.Revision(repoPath.TargetRevision))
+	err = checkRevision(r, repoPath.TargetRevision)
 	if err != nil {
-		log.Fatalf("error resolving revision %s", err.Error())
+		log.Fatalf("error  checking revision for the repository %s", err.Error())
+
+	}
+}
+
+func checkRevision(r *git.Repository, revision string) error {
+	hash, err := r.ResolveRevision(plumbing.Revision(revision))
+	if err != nil {
+		return err
 	}
 	w, err := r.Worktree()
 	if err != nil {
-		log.Fatalf("error getting repository worktree %s", err.Error())
+		return err
 	}
 
 	err = w.Checkout(&git.CheckoutOptions{
 		Hash: *hash,
 	})
 	if err != nil {
-		log.Fatalf("error checking out to the revision %s", err.Error())
+		return err
 	}
 
-	if isCommitSHA(repoPath.TargetRevision) {
+	if isCommitSHA(revision) {
 		log.Println("No monitoring")
 	} else {
 		log.Println("monitoring")
 	}
+	return nil
 }
 
 func NewGitSyncProcessor(gitSync *v1.GitSync, k8client client.Client, clusterName string) (*GitSyncProcessor, error) {
@@ -67,7 +76,7 @@ func NewGitSyncProcessor(gitSync *v1.GitSync, k8client client.Client, clusterNam
 	for _, repo := range gitSync.Spec.RepositoryPaths {
 		gitCh := make(chan Message, messageChanLength)
 		channels[repo.Name] = gitCh
-		go checkRevision(&repo)
+		go cloneRepo(&repo)
 	}
 	return &GitSyncProcessor{
 		gitSync:     *gitSync,
