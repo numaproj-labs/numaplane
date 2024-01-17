@@ -9,7 +9,7 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/numaproj-labs/numaplane/api/v1"
+	v1 "github.com/numaproj-labs/numaplane/api/v1"
 )
 
 const messageChanLength = 5
