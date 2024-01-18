@@ -105,9 +105,6 @@ type CommitStatus struct {
 	// SyncTime represents the last time that we attempted to sync this commit (whether or not it succeeded)
 	SyncTime metav1.Time `json:"syncTime"`
 
-	// CommitTime is the time of the Git commit
-	CommitTime metav1.Time `json:"commitTime"`
-
 	// Error indicates an error that occurred upon attempting sync, if any
 	Error string `json:"error,omitempty"`
 }

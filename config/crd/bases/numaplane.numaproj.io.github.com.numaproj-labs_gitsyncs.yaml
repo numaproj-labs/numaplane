@@ -92,10 +92,6 @@ spec:
                   description: CommitStatus maintains the status of syncing an individual
                     Git commit
                   properties:
-                    commitTime:
-                      description: CommitTime is the time of the Git commit
-                      format: date-time
-                      type: string
                     error:
                       description: Error indicates an error that occurred upon attempting
                         sync, if any
@@ -112,7 +108,6 @@ spec:
                       description: Synced indicates if the sync went through
                       type: boolean
                   required:
-                  - commitTime
                   - hash
                   - syncTime
                   type: object
