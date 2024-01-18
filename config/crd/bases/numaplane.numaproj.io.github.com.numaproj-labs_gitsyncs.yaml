@@ -37,6 +37,7 @@ spec:
               destinations:
                 description: Destinations describe where to sync it
                 items:
+                  description: Destination indicates a Cluster to sync to
                   properties:
                     cluster:
                       type: string
@@ -54,6 +55,7 @@ spec:
                 description: RepositoryPaths lists one or more Git Repository paths
                   to watch
                 items:
+                  description: RepositoryPath indicates a particular Git path
                   properties:
                     name:
                       description: Name is a unique name
@@ -87,16 +89,35 @@ spec:
             properties:
               commitStatus:
                 additionalProperties:
+                  description: CommitStatus maintains the status of syncing an individual
+                    Git commit
                   properties:
+                    commitTime:
+                      description: CommitTime is the time of the Git commit
+                      format: date-time
+                      type: string
+                    error:
+                      description: Error indicates an error that occurred upon attempting
+                        sync, if any
+                      type: string
                     hash:
+                      description: Hash of the git commit
+                      type: string
+                    syncTime:
+                      description: SyncTime represents the last time that we attempted
+                        to sync this commit (whether or not it succeeded)
+                      format: date-time
                       type: string
                     synced:
+                      description: Synced indicates if the sync went through
                       type: boolean
                   required:
+                  - commitTime
                   - hash
+                  - syncTime
                   type: object
-                description: Recent commits that have been processed and their status,
-                  mapped by <RepoUrl>/<Path>
+                description: Last commit processed and its status, mapped by RepositoryPath
+                  name
                 type: object
               conditions:
                 description: Conditions are the latest available observations of a
