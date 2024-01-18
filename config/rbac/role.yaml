@@ -5,28 +5,8 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - '*'
   resources:
-  - gitsyncs
+  - '*'
   verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
-  resources:
-  - gitsyncs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
-  resources:
-  - gitsyncs/status
-  verbs:
-  - get
-  - patch
-  - update
+  - '*'
