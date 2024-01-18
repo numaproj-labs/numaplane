@@ -17,19 +17,3 @@ func TestCloneRepository(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, repository)
 }
-
-func TestCheckRevision_ExpectedBranch(t *testing.T) {
-	repository, err := cloneRepository(repoURl)
-	assert.Nil(t, err)
-	revision, err := checkRevision(repository, "main")
-	assert.Nil(t, err)
-	assert.Equal(t, "branch", revision)
-}
-
-func TestCheckRevision_ExpectedTag(t *testing.T) {
-	repository, err := cloneRepository(repoURl)
-	assert.Nil(t, err)
-	revision, err := checkRevision(repository, tag)
-	assert.Nil(t, err)
-	assert.Equal(t, "tag", revision)
-}

@@ -35,7 +35,7 @@ type client struct {
 }
 
 // apply will do create/patch of manifest
-func (c *client) apply(u *unstructured.Unstructured) error {
+func (c *client) apply(u *unstructured.Unstructured, namespace string) error {
 	gvk := u.GroupVersionKind()
 	restMapping, err := c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
@@ -55,7 +55,7 @@ func (c *client) apply(u *unstructured.Unstructured) error {
 	resourceInfo := &resource.Info{
 		Client:          restClient,
 		Mapping:         restMapping,
-		Namespace:       u.GetNamespace(),
+		Namespace:       namespace,
 		Name:            u.GetName(),
 		Object:          u,
 		ResourceVersion: restMapping.Resource.Version,

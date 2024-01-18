@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/pkg/errors"
 	"reflect"
 	"sort"
 	"time"
@@ -136,6 +137,15 @@ func (gitSyncSpec *GitSyncSpec) ContainsClusterDestination(cluster string) bool 
 		}
 	}
 	return false
+}
+
+func (gitSyncSpec *GitSyncSpec) GetDestinationNamespace(cluster string) (string, error) {
+	for _, destination := range gitSyncSpec.Destinations {
+		if destination.Cluster == cluster {
+			return destination.Namespace, nil
+		}
+	}
+	return "", errors.New("Destination was not found")
 }
 
 func (status *GitSyncStatus) SetPhase(phase GitSyncPhase, msg string) {

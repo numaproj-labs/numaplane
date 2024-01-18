@@ -67,9 +67,8 @@ func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) (*GitSyncReconcile
 	}, nil
 }
 
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=gitsyncs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=gitsyncs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=gitsyncs/finalizers,verbs=update
+// Grant super-user access to perform any action on any resource to be able to deploy any resources.
+// +kubebuilder:rbac:groups=*,resources=*,verbs=*
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -228,7 +227,7 @@ func (r *GitSyncReconciler) addGitSyncProcessor(ctx context.Context, gitSync *ap
 		controllerutil.AddFinalizer(gitSync, finalizerName)
 	}
 
-	processor, err := git.NewGitSyncProcessor(gitSync, r.Client, r.clusterName)
+	processor, err := git.NewGitSyncProcessor(gitSync, r.Client, r.clusterName, logger)
 	if err != nil {
 		logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
 		return err

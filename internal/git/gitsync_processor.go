@@ -2,7 +2,11 @@ package git
 
 import (
 	"fmt"
-	"log"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/numaproj-labs/numaplane/internal/kubernetes"
+	"go.uber.org/zap"
+	"k8s.io/client-go/rest"
+	"regexp"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -24,49 +28,16 @@ type GitSyncProcessor struct {
 	channels    map[string]chan Message
 	k8Client    client.Client
 	clusterName string
+	log         *zap.SugaredLogger
 }
 
-func checkRevision(r *git.Repository, revision string) (string, error) {
-	hash, err := r.ResolveRevision(plumbing.Revision(revision))
-	if err != nil {
-		return "", err
-	}
+var (
+	commitSHARegex = regexp.MustCompile("^[0-9A-Fa-f]{40}$")
+)
 
-	// Check if it's a  tag
-	refs, err := r.References()
-	if err != nil {
-		return "", err
-	}
-	found := false
-	refs.ForEach(func(ref *plumbing.Reference) error {
-		if ref.Name().IsTag() && ref.Name().Short() == revision {
-			found = true
-			return nil
-		}
-		return nil
-	})
-	if err != nil {
-		return "", err
-	}
-	if found {
-		return "tag", nil
-	}
-	// Check if it's a branch
-	iter, err := r.Branches()
-	if err != nil {
-		return "", err
-	}
-	err = iter.ForEach(func(ref *plumbing.Reference) error {
-		if ref.Hash() == *hash {
-			return nil
-		}
-		return fmt.Errorf("not a branch")
-	})
-	if err == nil {
-		return "branch", nil
-	}
-	// If it's neither a tag nor a branch, it must be a commit hash
-	return "commit-hash", nil
+// IsCommitSHA returns whether or not a string is a 40 character SHA-1
+func IsCommitSHA(sha string) bool {
+	return commitSHARegex.MatchString(sha)
 }
 
 // reference can be a branch, a tag, or a commit hash
@@ -81,45 +52,98 @@ func cloneRepository(repoUrl string) (*git.Repository, error) {
 	return r, nil
 }
 
-func watchRepo(repo *v1.RepositoryPath) {
+func (processor *GitSyncProcessor) watchRepo(repo *v1.RepositoryPath, namespace string) error {
+	logger := processor.log
 	r, err := cloneRepository(repo.RepoUrl)
 	if err != nil {
-		log.Fatalf("error cloning the repository %s", err.Error())
+		logger.Errorw("error cloning the repository", "err", err)
+		return err
 	}
-	// check the TargetRevision is hash ,branch or tag
-	revision, err := checkRevision(r, repo.TargetRevision)
+	h, err := r.ResolveRevision(plumbing.Revision(repo.TargetRevision))
 	if err != nil {
-		log.Fatalf("error in checking revision %s", err.Error())
-		return
+		logger.Errorw("error resolve the revision", "revision", repo.TargetRevision, "err", err)
+		return err
 	}
 
-	switch revision {
-	case "branch":
-		// monitor the branch
-	case "tag":
-	// monitor the tag for any change in commit
+	// ... retrieving the commit object
+	commit, err := r.CommitObject(*h)
+	if err != nil {
+		logger.Errorw("error checkout the commit", "hash", h.String(), "err", err)
+		return err
+	}
 
-	case "commit-hash":
+	// ... retrieve the tree from the commit
+	tree, err := commit.Tree()
+	if err != nil {
+		logger.Errorw("error get the commit tree", "err", err)
+		return err
+	}
+
+	// Locate the tree with the given path
+	tree, err = tree.Tree(repo.Path)
+	if err != nil {
+		logger.Errorw("error locate the path", "err", err)
+		return err
+	}
+
+	// Read all the files under the path and apply each one respectively.
+	return tree.Files().ForEach(func(f *object.File) error {
+		logger.Infow("read file", "file_hash", f.Hash, "file_name", f.Name)
+		resource, err := f.Contents()
+		if err != nil {
+			logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
+			return err
+		}
+
+		// Apply to the change.
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			logger.Errorw("cannot init the cluster config", "err", err)
+			return err
+		}
+		client, err := kubernetes.NewClient(config)
+		if err != nil {
+			logger.Errorw("cannot new client", "err", err)
+			return err
+		}
+		return client.ApplyResource([]byte(resource), namespace)
+	})
+
+	if IsCommitSHA(repo.TargetRevision) {
 		// no monitoring
-
+	} else {
+		// monitor with intervals
 	}
-
+	return nil
 }
 
-func NewGitSyncProcessor(gitSync *v1.GitSync, k8client client.Client, clusterName string) (*GitSyncProcessor, error) {
+func NewGitSyncProcessor(gitSync *v1.GitSync, k8client client.Client, clusterName string, log *zap.SugaredLogger) (*GitSyncProcessor, error) {
 	channels := make(map[string]chan Message)
-	for _, repo := range gitSync.Spec.RepositoryPaths {
-		gitCh := make(chan Message, messageChanLength)
-		channels[repo.Name] = gitCh
-		go watchRepo(&repo)
-	}
-	return &GitSyncProcessor{
+	processor := &GitSyncProcessor{
 		gitSync:     *gitSync,
 		k8Client:    k8client,
 		channels:    channels,
 		clusterName: clusterName,
-	}, nil
+		log:         log,
+	}
+	namespace, err := gitSync.Spec.GetDestinationNamespace(clusterName)
+	if err != nil {
+		log.Errorw("cannot get the destination namespace", "err", err)
+		return nil, err
+	}
+	for _, repo := range gitSync.Spec.RepositoryPaths {
+		gitCh := make(chan Message, messageChanLength)
+		channels[repo.Name] = gitCh
 
+		go func(repo *v1.RepositoryPath) {
+			err := processor.watchRepo(repo, namespace)
+			if err != nil {
+				// TODO: Retry on non-fatal errors
+				log.Errorw("error watch the repo", "err", err)
+			}
+		}(&repo)
+	}
+	return processor, nil
 }
 
 func (processor *GitSyncProcessor) Update(gitSync *v1.GitSync) error {
