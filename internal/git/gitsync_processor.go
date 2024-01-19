@@ -50,7 +50,7 @@ func watchRepo(ctx context.Context, repo *v1.RepositoryPath, _ /* namespace */ s
 	// The revision can be a branch, a tag, or a commit hash
 	h, err := r.ResolveRevision(plumbing.Revision(repo.TargetRevision))
 	if err != nil {
-		logger.Errorw("error resolve the revision", "revision", repo.TargetRevision, "err", err)
+		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err)
 		return err
 	}
 
@@ -121,7 +121,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client clie
 			err := watchRepo(ctx, repo, namespace)
 			if err != nil {
 				// TODO: Retry on non-fatal errors
-				logger.Errorw("error watch the repo", "err", err)
+				logger.Errorw("error watching the repo", "err", err)
 			}
 		}(&repo)
 	}
