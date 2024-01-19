@@ -10,10 +10,10 @@ Numaplane is a control plane for install, manage and run numaflow pipelines on K
 - Access to a Kubernetes v1.11.3+ cluster.
 
 ### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+**Build and push your image to the location specified by `IMAGE_FULL_PATH`:**
 
 ```sh
-make docker-build docker-push IMG=<some-registry>/numaplane:tag
+make docker-build docker-push IMAGE_FULL_PATH=<some-registry>/numaplane-controller:tag
 ```
 
 **NOTE:** This image ought to be published in the personal registry you specified. 
@@ -26,10 +26,10 @@ Make sure you have the proper permission to the registry if the above commands d
 make install
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+**Deploy the Manager to the cluster with the image specified by `IMAGE_FULL_PATH`:**
 
 ```sh
-make deploy IMG=<some-registry>/numaplane:tag
+make deploy IMAGE_FULL_PATH=<some-registry>/numaplane:tag
 ```
 
 > **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin 

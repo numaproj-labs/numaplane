@@ -1,9 +1,11 @@
 
 # Image URL to use all building/pushing image targets
 IMG ?= numaplane-controller
-IMAGE_NAMESPACE ?= quay.io/numaproj
 VERSION ?= latest
-IMAGE_FULL_PATH ?= $(IMAGE_NAMESPACE)/$(IMG):$(VERSION)
+#TODO: add back once ready to push to quay.io
+#IMAGE_NAMESPACE ?= quay.io/numaproj
+#IMAGE_FULL_PATH ?= $(IMAGE_NAMESPACE)/$(IMG):$(VERSION)
+IMAGE_FULL_PATH ?= $(IMG):$(VERSION)
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.28.0
