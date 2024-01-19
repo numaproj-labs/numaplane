@@ -149,6 +149,17 @@ func (gitSyncSpec *GitSyncSpec) ContainsClusterDestination(cluster string) bool 
 	return false
 }
 
+// GetDestinationNamespace gets the namespace matching the given cluster,
+// if not found, then return empty.
+func (gitSyncSpec *GitSyncSpec) GetDestinationNamespace(cluster string) string {
+	for _, destination := range gitSyncSpec.Destinations {
+		if destination.Cluster == cluster {
+			return destination.Namespace
+		}
+	}
+	return ""
+}
+
 func (status *GitSyncStatus) SetPhase(phase GitSyncPhase, msg string) {
 	status.Phase = phase
 	status.Message = msg
