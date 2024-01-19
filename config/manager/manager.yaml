@@ -70,7 +70,7 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: controller:latest
+        image: quay.io/numaproj/numaplane-controller:latest
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
