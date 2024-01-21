@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -9,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/resource"
@@ -29,10 +31,10 @@ var (
 )
 
 type client struct {
-	c      dynamic.Interface
-	config *rest.Config
-	mapper *restmapper.DeferredDiscoveryRESTMapper
-	log    *zap.SugaredLogger
+	dynamicClient dynamic.Interface
+	config        *rest.Config
+	mapper        *restmapper.DeferredDiscoveryRESTMapper
+	log           *zap.SugaredLogger
 }
 
 // apply will do create/patch of manifest
@@ -46,6 +48,7 @@ func (c *client) apply(u *unstructured.Unstructured, namespaceOverride string) e
 	gv := gvk.GroupVersion()
 	c.config.GroupVersion = &gv
 
+	// TODO: Make this as reusable REST Client rather than needing generating new client everytime.
 	restClient, err := newRestClient(*c.config, gv)
 	if err != nil {
 		return err
@@ -104,6 +107,31 @@ func (c *client) apply(u *unstructured.Unstructured, namespaceOverride string) e
 	}
 
 	return nil
+}
+
+// Delete resource from cluster using kind, name and namespace.
+func (c *client) deleteResourceByKindAndNameAndNamespace(kind, name, namespace string, do metav1.DeleteOptions) error {
+	gvk, err := c.mapper.KindFor(schema.GroupVersionResource{Resource: kind})
+	if err != nil {
+		return err
+	}
+
+	restMapping, err := c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return err
+	}
+
+	restClient, err := newRestClient(*c.config, gvk.GroupVersion())
+	if err != nil {
+		return err
+	}
+	helper := resource.NewHelper(restClient, restMapping)
+
+	// delete resource based on namespaced or non-namespaced.
+	if helper.NamespaceScoped {
+		return c.dynamicClient.Resource(restMapping.Resource).Namespace(namespace).Delete(context.Background(), name, do)
+	}
+	return c.dynamicClient.Resource(restMapping.Resource).Delete(context.Background(), name, do)
 }
 
 func newRestClient(restConfig rest.Config, gv schema.GroupVersion) (rest.Interface, error) {

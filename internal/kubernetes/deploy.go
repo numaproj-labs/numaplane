@@ -6,6 +6,7 @@ import (
 
 	jsongo "github.com/json-iterator/go"
 	"gopkg.in/yaml.v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery/cached/disk"
@@ -33,10 +34,15 @@ func NewClient(config *rest.Config) (Client, error) {
 	}
 
 	return &client{
-		c:      dynamicClient,
-		config: config,
-		mapper: restmapper.NewDeferredDiscoveryRESTMapper(cdc),
+		dynamicClient: dynamicClient,
+		config:        config,
+		mapper:        restmapper.NewDeferredDiscoveryRESTMapper(cdc),
 	}, nil
+}
+
+// DeleteResource will delete the resource from cluster using kind, name and namespace.
+func (c *client) DeleteResource(kind, name, namespace string, do metav1.DeleteOptions) error {
+	return c.deleteResourceByKindAndNameAndNamespace(kind, name, namespace, do)
 }
 
 // ApplyResource converts tha manifest byte data in unstructured format
