@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -35,7 +36,7 @@ type client struct {
 }
 
 // apply will do create/patch of manifest
-func (c *client) apply(u *unstructured.Unstructured) error {
+func (c *client) apply(u *unstructured.Unstructured, namespaceOverride string) error {
 	gvk := u.GroupVersionKind()
 	restMapping, err := c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
@@ -51,6 +52,11 @@ func (c *client) apply(u *unstructured.Unstructured) error {
 	}
 
 	helper := resource.NewHelper(restClient, restMapping)
+
+	// Override namespace of manifest
+	if err := SetNamespaceIfScoped(namespaceOverride, u, helper); err != nil {
+		return err
+	}
 
 	resourceInfo := &resource.Info{
 		Client:          restClient,
@@ -123,4 +129,16 @@ func computeDiscoverCacheDir(parentDir, host string) string {
 	// now do a simple collapse of non-AZ09 characters.  Collisions are possible but unlikely.  Even if we do collide the problem is short lived
 	safeHost := overlyCautiousIllegalFileCharacters.ReplaceAllString(schemelesHost, "_")
 	return filepath.Join(parentDir, safeHost)
+}
+
+func SetNamespaceIfScoped(namespaceOverride string, u *unstructured.Unstructured, helper *resource.Helper) error {
+	if helper.NamespaceScoped {
+		if namespaceOverride == "" {
+			return fmt.Errorf("failed to set namespace, override namespace is empty")
+		} else {
+			u.SetNamespace(namespaceOverride)
+		}
+	}
+
+	return nil
 }

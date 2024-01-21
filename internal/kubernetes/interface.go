@@ -1,5 +1,5 @@
 package kubernetes
 
 type Client interface {
-	ApplyResource([]byte) error
+	ApplyResource([]byte, string) error
 }

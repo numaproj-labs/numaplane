@@ -40,7 +40,7 @@ func NewClient(config *rest.Config) (Client, error) {
 }
 
 // ApplyResource converts tha manifest byte data in unstructured format
-func (c *client) ApplyResource(data []byte) error {
+func (c *client) ApplyResource(data []byte, namespaceOverride string) error {
 	obj := make(map[string]interface{})
 	if err := yaml.Unmarshal(data, obj); err != nil {
 		return fmt.Errorf("failed to unmarshal yaml data, err: %v", err)
@@ -52,7 +52,7 @@ func (c *client) ApplyResource(data []byte) error {
 		return err
 	}
 
-	return c.apply(unstructuredData)
+	return c.apply(unstructuredData, namespaceOverride)
 }
 
 func ToUnstructured(manifest map[string]interface{}) (*unstructured.Unstructured, error) {
