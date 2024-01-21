@@ -2,7 +2,10 @@ package git
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -96,10 +99,52 @@ func watchRepo(ctx context.Context, repo *v1.RepositoryPath, _ /* namespace */ s
 		logger.Debug("no monitoring")
 
 	} else {
-		// TODO: monitoring with intervals
+		ticker := time.NewTicker(3 * time.Minute)
+		for range ticker.C {
+			if err := fetchUpdates(r); err != nil {
+				logger.Errorw("error checking for updates in the github repo", "err", err)
+				continue
+			}
+
+			// Check for updates in the specified revision
+			latestCommit, err := getLatestCommit(r, repo.TargetRevision)
+			if err != nil {
+				logger.Errorw("failed to get  latest commits in the github repo", "err", err)
+				continue
+			}
+
+			if latestCommit != h.String() {
+				fmt.Printf("New changes detected. Comparing changes...\n")
+				// Compare the changes
+
+			} else {
+				fmt.Println("No new changes detected.")
+			}
+
+		}
+
 		logger.Debug("monitoring with intervals")
 	}
 	return nil
+}
+
+func fetchUpdates(repo *git.Repository) error {
+	err := repo.Fetch(&git.FetchOptions{
+		RemoteName: "origin",
+	})
+	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+		return err
+	}
+	return nil
+}
+
+// getLatestCommit retrieves the latest commit of a given branch or tag
+func getLatestCommit(repo *git.Repository, refName string) (string, error) {
+	ref, err := repo.Reference(plumbing.ReferenceName(refName), true)
+	if err != nil {
+		return "", err
+	}
+	return ref.Hash().String(), nil
 }
 
 func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client client.Client, clusterName string) (*GitSyncProcessor, error) {
