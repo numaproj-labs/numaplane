@@ -163,7 +163,7 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 	log.Println("remote hash", remoteRef.String(), "lastCommit", status.CommitStatus)
 
 	if remoteRef.String() != lastCommitStatus.Hash {
-		logger.Debug("New changes detected. Comparing changes...\n")
+		logger.Debug("New changes detected. Comparing changes...")
 		status.CommitStatus[repo.Name] = v1.CommitStatus{
 			Hash:     remoteRef.String(),
 			Synced:   true,
@@ -259,11 +259,11 @@ func getBlobFileContents(r *git.Repository, file diff.File) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	toContent, err := io.ReadAll(reader)
+	fileContent, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
-	return toContent, nil
+	return fileContent, nil
 }
 
 func fetchUpdates(repo *git.Repository) error {
