@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func ParseYamlData() map[string]interface{} {
@@ -33,4 +34,42 @@ spec:
 	}
 
 	return obj
+}
+
+func UnstructuredManifest() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata": map[string]interface{}{
+				"name": "nginx",
+				"labels": map[string]interface{}{
+					"app": "nginx",
+				},
+			},
+			"spec": map[string]interface{}{
+				"replicas": int64(1),
+				"selector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						"app": "nginx",
+					},
+				},
+				"template": map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{
+							"app": "nginx",
+						},
+					},
+					"spec": map[string]interface{}{
+						"containers": []interface{}{
+							map[string]interface{}{
+								"image": "nginx",
+								"name":  "nginx",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }

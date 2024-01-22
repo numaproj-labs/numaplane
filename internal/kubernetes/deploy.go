@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	jsongo "github.com/json-iterator/go"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -16,7 +17,7 @@ import (
 )
 
 // NewClient creates a new kubernetes client.
-func NewClient(config *rest.Config) (Client, error) {
+func NewClient(config *rest.Config, logger *zap.SugaredLogger) (Client, error) {
 	config.Timeout = defaultTimeout
 
 	dynamicClient, err := dynamic.NewForConfig(config)
@@ -37,6 +38,7 @@ func NewClient(config *rest.Config) (Client, error) {
 		dynamicClient: dynamicClient,
 		config:        config,
 		mapper:        restmapper.NewDeferredDiscoveryRESTMapper(cdc),
+		log:           logger,
 	}, nil
 }
 

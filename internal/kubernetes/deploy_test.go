@@ -18,7 +18,7 @@ func TestToUnstructured(t *testing.T) {
 		{
 			name:     "Successfully parsed data",
 			manifest: utils.ParseYamlData(),
-			want:     unstructuredExpectedSuccessful(),
+			want:     utils.UnstructuredManifest(),
 			wantErr:  false,
 		},
 	}
@@ -33,43 +33,5 @@ func TestToUnstructured(t *testing.T) {
 				t.Errorf("ToUnstructured() got = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-func unstructuredExpectedSuccessful() *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "apps/v1",
-			"kind":       "Deployment",
-			"metadata": map[string]interface{}{
-				"name": "nginx",
-				"labels": map[string]interface{}{
-					"app": "nginx",
-				},
-			},
-			"spec": map[string]interface{}{
-				"replicas": int64(1),
-				"selector": map[string]interface{}{
-					"matchLabels": map[string]interface{}{
-						"app": "nginx",
-					},
-				},
-				"template": map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"labels": map[string]interface{}{
-							"app": "nginx",
-						},
-					},
-					"spec": map[string]interface{}{
-						"containers": []interface{}{
-							map[string]interface{}{
-								"image": "nginx",
-								"name":  "nginx",
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 }
