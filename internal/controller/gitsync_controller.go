@@ -25,19 +25,20 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/numaproj-labs/numaplane/internal/git"
-
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1"
+	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
 
 // GitSyncReconciler reconciles a GitSync object
 type GitSyncReconciler struct {
 	client.Client
+	config *rest.Config
 	Scheme *runtime.Scheme
 
 	// gitSyncLocks maps GitSync namespaced name to Mutex, to prevent processing the same GitSync at the same time
@@ -55,13 +56,14 @@ const (
 	finalizerName = "numaplane-controller"
 )
 
-func NewGitSyncReconciler(c client.Client, s *runtime.Scheme) (*GitSyncReconciler, error) {
+func NewGitSyncReconciler(c client.Client, config *rest.Config, s *runtime.Scheme) (*GitSyncReconciler, error) {
 	clusterName, found := os.LookupEnv("CLUSTER_NAME") // TODO: if we incorporate a ConfigMap later, could include this in it
 	if !found {
 		return nil, fmt.Errorf("environment variable CLUSTER_NAME not found")
 	}
 	return &GitSyncReconciler{
 		Client:      c,
+		config:      config,
 		Scheme:      s,
 		clusterName: clusterName,
 	}, nil
@@ -227,7 +229,7 @@ func (r *GitSyncReconciler) addGitSyncProcessor(ctx context.Context, gitSync *ap
 		controllerutil.AddFinalizer(gitSync, finalizerName)
 	}
 
-	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.Client, r.clusterName)
+	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.config, r.clusterName)
 	if err != nil {
 		logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
 		return err
