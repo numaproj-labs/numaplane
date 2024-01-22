@@ -259,6 +259,9 @@ func getBlobFileContents(r *git.Repository, file diff.File) ([]byte, error) {
 		return nil, err
 	}
 	toContent, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
 	return toContent, nil
 }
 

@@ -109,17 +109,17 @@ func Test_watchRepo(t *testing.T) {
 	}
 }
 
-func updateFileInBranch(repo *git.Repository, branchName, fileName, content string, author *object.Signature, tagName string) (string, error) {
+func updateFileInBranch(repo *git.Repository, branchName, fileName, content string, author *object.Signature, tagName string) error {
 	// Find the branch
 	branchRef, err := repo.Reference(plumbing.NewBranchReferenceName(branchName), true)
 	if err != nil {
-		return "", fmt.Errorf("could not find branch: %v", err.Error())
+		return fmt.Errorf("could not find branch: %v", err.Error())
 	}
 
 	// Create a new working tree from the repository
 	w, err := repo.Worktree()
 	if err != nil {
-		return "", fmt.Errorf("could not get working tree: %v", err.Error())
+		return fmt.Errorf("could not get working tree: %v", err.Error())
 	}
 
 	// Checkout the branch
@@ -128,7 +128,7 @@ func updateFileInBranch(repo *git.Repository, branchName, fileName, content stri
 		Force:  true,
 	})
 	if err != nil {
-		return "", fmt.Errorf("could not checkout branch: %v", err)
+		return fmt.Errorf("could not checkout branch: %v", err)
 	}
 
 	// Create a path to the file in the working tree
@@ -137,18 +137,18 @@ func updateFileInBranch(repo *git.Repository, branchName, fileName, content stri
 	// Read the existing content from the file
 	existingContent, err := os.ReadFile(filePath)
 	if err != nil {
-		return "", fmt.Errorf("could not read existing file: %v", err)
+		return fmt.Errorf("could not read existing file: %v", err)
 	}
 	combinedContent := append(existingContent, []byte(content)...)
 	err = os.WriteFile(filePath, combinedContent, 0644)
 	if err != nil {
-		return "", fmt.Errorf("could not write to file: %v", err)
+		return fmt.Errorf("could not write to file: %v", err)
 	}
 
 	// Add the file to the staging area
 	_, err = w.Add(fileName)
 	if err != nil {
-		return "", fmt.Errorf("could not stage file: %v", err)
+		return fmt.Errorf("could not stage file: %v", err)
 	}
 
 	// Commit the changes
@@ -156,7 +156,7 @@ func updateFileInBranch(repo *git.Repository, branchName, fileName, content stri
 		Author: author,
 	})
 	if err != nil {
-		return "", fmt.Errorf("could not commit changes: %v", err)
+		return fmt.Errorf("could not commit changes: %v", err)
 	}
 
 	_, err = repo.CreateTag(tagName, commit, &git.CreateTagOptions{
@@ -164,7 +164,7 @@ func updateFileInBranch(repo *git.Repository, branchName, fileName, content stri
 		Tagger:  author,
 	})
 	if err != nil {
-		return "", fmt.Errorf("could not create tag: %v", err)
+		return fmt.Errorf("could not create tag: %v", err)
 	}
 
 	// Push the changes
@@ -175,20 +175,18 @@ func updateFileInBranch(repo *git.Repository, branchName, fileName, content stri
 			config.RefSpec("refs/tags/" + tagName + ":refs/tags/" + tagName),
 		},
 		Auth: &http.BasicAuth{
-			Username: "shubhamdixit863", // This can be empty for personal access tokens
-			Password: "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",
+			Username: os.Getenv("username"), // This can be empty for personal access tokens
+			Password: os.Getenv("password"),
 		},
 	})
 	if err != nil {
 		if err == git.NoErrAlreadyUpToDate {
-			fmt.Println("Already up-to-date.")
+			return fmt.Errorf("already up-to-date %s", err.Error())
 		} else {
-			return "", fmt.Errorf("could not push to remote: %v", err)
+			return fmt.Errorf("could not push to remote: %v", err)
 		}
 	}
-
-	fmt.Printf("Updated file '%s' in branch '%s'. New commit hash: %s\n", fileName, branchName, commit.String())
-	return commit.String(), nil
+	return nil
 }
 
 func getCommitHashAndRepo() (*git.Repository, string, error) {
@@ -229,7 +227,7 @@ func TestCheckForRepoUpdatesBranch(t *testing.T) {
 		Email: "shubhamdixit863@gmail.com",
 		When:  time.Now(),
 	}
-	_, err = updateFileInBranch(r, "main", fmt.Sprintf("%s/%s", path, fileNameToBeWatched), "test 12-2-2 test", signature, "")
+	err = updateFileInBranch(r, "main", fmt.Sprintf("%s/%s", path, fileNameToBeWatched), "test 12-2-2 test", signature, "")
 	assert.Nil(t, err)
 
 	path := &v1.RepositoryPath{
@@ -278,7 +276,7 @@ func TestCheckForRepoUpdatesVersion(t *testing.T) {
 		Email: "shubhamdixit863@gmail.com",
 		When:  time.Now(),
 	}
-	_, err = updateFileInBranch(r, "main", fmt.Sprintf("%s/%s", path, fileNameToBeWatched), "test 12-2-2 test", signature, tag)
+	err = updateFileInBranch(r, "main", fmt.Sprintf("%s/%s", path, fileNameToBeWatched), "test 12-2-2 test", signature, tag)
 	assert.Nil(t, err)
 
 	path := &v1.RepositoryPath{
