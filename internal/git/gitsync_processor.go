@@ -29,9 +29,10 @@ func isCommitSHA(sha string) bool {
 	return commitSHARegex.MatchString(sha)
 }
 
-// isRootDir returns whether or not this given path represents root directory of a repo
+// isRootDir returns whether or not this given path represents root directory of a repo,
+// We consider empty string as the root.
 func isRootDir(path string) bool {
-	return path == "." || path == "./" || path == "/"
+	return len(path) == 0
 }
 
 type GitSyncProcessor struct {

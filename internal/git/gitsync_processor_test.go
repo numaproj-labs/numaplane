@@ -15,7 +15,7 @@ func Test_watchRepo(t *testing.T) {
 		hasError bool
 	}{
 		{
-			name: "branch name as a TargetRevision",
+			name: "`main` as a TargetRevision",
 			repo: v1.RepositoryPath{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				Path:           "config/samples",
@@ -45,16 +45,16 @@ func Test_watchRepo(t *testing.T) {
 			name: "remote branch name as a TargetRevision",
 			repo: v1.RepositoryPath{
 				RepoUrl:        "https://github.com/git-fixtures/basic.git",
-				Path:           "./",
+				Path:           "go",
 				TargetRevision: "refs/remotes/origin/branch",
 			},
 			hasError: false,
 		},
 		{
-			name: "more branch name as a TargetRevision",
+			name: "local branch name as a TargetRevision",
 			repo: v1.RepositoryPath{
 				RepoUrl:        "https://github.com/git-fixtures/basic.git",
-				Path:           ".",
+				Path:           "go",
 				TargetRevision: "branch",
 			},
 			hasError: false,
@@ -63,7 +63,7 @@ func Test_watchRepo(t *testing.T) {
 			name: "root path",
 			repo: v1.RepositoryPath{
 				RepoUrl:        "https://github.com/git-fixtures/basic.git",
-				Path:           "/",
+				Path:           "",
 				TargetRevision: "branch",
 			},
 			hasError: false,
