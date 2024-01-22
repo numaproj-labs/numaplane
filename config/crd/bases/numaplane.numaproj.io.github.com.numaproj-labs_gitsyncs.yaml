@@ -62,7 +62,8 @@ spec:
                       type: string
                     path:
                       description: Path is the full path from the root of the repository
-                        to where the resources are held Can be a file or a directory
+                        to where the resources are held If Path is empty, then the
+                        root directory will be used. Can be a file or a directory
                         Note that all resources within this path (described by .yaml
                         files) will be synced
                       type: string

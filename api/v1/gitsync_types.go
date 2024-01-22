@@ -76,6 +76,7 @@ type RepositoryPath struct {
 	RepoUrl string `json:"repoUrl"`
 
 	// Path is the full path from the root of the repository to where the resources are held
+	// If Path is empty, then the root directory will be used.
 	// Can be a file or a directory
 	// Note that all resources within this path (described by .yaml files) will be synced
 	Path string `json:"path"`
