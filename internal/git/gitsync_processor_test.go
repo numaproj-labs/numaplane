@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	v1 "github.com/numaproj-labs/numaplane/api/v1"
+	"github.com/numaproj-labs/numaplane/tests/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -72,7 +73,7 @@ func Test_watchRepo(t *testing.T) {
 	t.Parallel()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := watchRepo(context.Background(), &tc.repo, "")
+			err := watchRepo(context.Background(), utils.GetTestRestConfig(), &tc.repo, "")
 			if tc.hasError {
 				assert.NotNil(t, err)
 			} else {

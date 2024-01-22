@@ -2,9 +2,11 @@ package utils
 
 import (
 	"log"
+	"time"
 
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/rest"
 )
 
 func ParseYamlData() map[string]interface{} {
@@ -71,5 +73,27 @@ func UnstructuredManifest() *unstructured.Unstructured {
 				},
 			},
 		},
+	}
+}
+
+func GetTestRestConfig() *rest.Config {
+	return &rest.Config{
+		Host:    "localhost:8080",
+		APIPath: "v1",
+		ContentConfig: rest.ContentConfig{
+			AcceptContentTypes: "application/json",
+			ContentType:        "application/json",
+		},
+
+		BearerToken: "1234567890",
+		Impersonate: rest.ImpersonationConfig{
+			UserName: "gopher2",
+			UID:      "uid123",
+		},
+
+		UserAgent: "gobot",
+		QPS:       1,
+		Burst:     2,
+		Timeout:   3 * time.Second,
 	}
 }
