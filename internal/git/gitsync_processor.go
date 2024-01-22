@@ -3,13 +3,14 @@ package git
 import (
 	"context"
 	"errors"
-	"github.com/go-git/go-git/v5/plumbing/format/diff"
 	"io"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/go-git/go-git/v5/plumbing/format/diff"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"

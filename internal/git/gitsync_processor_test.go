@@ -3,6 +3,13 @@ package git
 import (
 	"context"
 	"fmt"
+	"log"
+	"math"
+	"math/rand"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -10,12 +17,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"log"
-	"math"
-	"math/rand"
-	"os"
-	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
