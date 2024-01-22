@@ -111,19 +111,16 @@ func Test_watchRepo(t *testing.T) {
 }
 
 func updateFileInBranch(repo *git.Repository, branchName, fileName, content string, author *object.Signature, tagName string) error {
-	// Find the branch
 	branchRef, err := repo.Reference(plumbing.NewBranchReferenceName(branchName), true)
 	if err != nil {
 		return fmt.Errorf("could not find branch: %v", err.Error())
 	}
 
-	// Create a new working tree from the repository
 	w, err := repo.Worktree()
 	if err != nil {
 		return fmt.Errorf("could not get working tree: %v", err.Error())
 	}
 
-	// Checkout the branch
 	err = w.Checkout(&git.CheckoutOptions{
 		Branch: branchRef.Name(),
 		Force:  true,
@@ -132,7 +129,6 @@ func updateFileInBranch(repo *git.Repository, branchName, fileName, content stri
 		return fmt.Errorf("could not checkout branch: %v", err)
 	}
 
-	// Create a path to the file in the working tree
 	filePath := w.Filesystem.Join("temp", fileName)
 
 	// Read the existing content from the file
@@ -146,13 +142,11 @@ func updateFileInBranch(repo *git.Repository, branchName, fileName, content stri
 		return fmt.Errorf("could not write to file: %v", err)
 	}
 
-	// Add the file to the staging area
 	_, err = w.Add(fileName)
 	if err != nil {
 		return fmt.Errorf("could not stage file: %v", err)
 	}
 
-	// Commit the changes
 	commit, err := w.Commit("Update file "+fileName, &git.CommitOptions{
 		Author: author,
 	})
@@ -168,7 +162,6 @@ func updateFileInBranch(repo *git.Repository, branchName, fileName, content stri
 		return fmt.Errorf("could not create tag: %v", err)
 	}
 
-	// Push the changes
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		RefSpecs: []config.RefSpec{
@@ -176,7 +169,7 @@ func updateFileInBranch(repo *git.Repository, branchName, fileName, content stri
 			config.RefSpec("refs/tags/" + tagName + ":refs/tags/" + tagName),
 		},
 		Auth: &http.BasicAuth{
-			Username: os.Getenv("username"), // This can be empty for personal access tokens
+			Username: os.Getenv("username"),
 			Password: os.Getenv("password"),
 		},
 	})
