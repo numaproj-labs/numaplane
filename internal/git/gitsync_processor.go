@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -62,14 +61,14 @@ func (processor *GitSyncProcessor) watchRepo(ctx context.Context, repo *v1.Repos
 		SingleBranch: true,
 	})
 	if err != nil {
-		logger.Errorw("error cloning the repository", "err", err)
+		logger.Errorw("error cloning the repository", "err", err, "repo", repo.RepoUrl)
 		return err
 	}
 
 	// The revision can be a branch, a tag, or a commit hash
 	h, err := r.ResolveRevision(plumbing.Revision(repo.TargetRevision))
 	if err != nil {
-		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err)
+		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err, "repo", repo.RepoUrl)
 		return err
 	}
 	// TODO save the commit hash in the gitSync status
@@ -151,19 +150,17 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 	var patchedFiles PatchFiles
 	logger := logging.FromContext(ctx)
 	if err := fetchUpdates(r); err != nil {
-		logger.Errorw("error checking for updates in the github repo", "err", err)
+		logger.Errorw("error checking for updates in the github repo", "err", err, "repo", repo.RepoUrl)
 		return patchedFiles, err
 	}
 	remoteRef, err := getLatestCommit(r, repo.TargetRevision)
 	if err != nil {
-		logger.Errorw("failed to get latest commits in the github repo", "err", err)
+		logger.Errorw("failed to get latest commits in the github repo", "err", err, "repo", repo.RepoUrl)
 		return patchedFiles, err
 	}
 	lastCommitStatus := status.CommitStatus[repo.Name]
-	log.Println("remote hash", remoteRef.String(), "lastCommit", status.CommitStatus)
-
 	if remoteRef.String() != lastCommitStatus.Hash {
-		logger.Debug("New changes detected. Comparing changes...")
+
 		status.CommitStatus[repo.Name] = v1.CommitStatus{
 			Hash:     remoteRef.String(),
 			Synced:   true,
@@ -171,45 +168,22 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 			Error:    "",
 		}
 
-		lastCommit, err := r.CommitObject(plumbing.NewHash(lastCommitStatus.Hash))
+		lastTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, plumbing.NewHash(lastCommitStatus.Hash))
 		if err != nil {
-			logger.Errorw("error checkout the commit", "hash", lastCommitStatus.Hash, "err", err)
+			logger.Errorw("failed to  get last commit", "err", err, "repo", repo.RepoUrl)
 			return patchedFiles, err
 		}
 
-		lastTree, err := lastCommit.Tree()
-		if err != nil {
-			logger.Errorw("error getting the last tree", "hash", lastCommitStatus.Hash, "err", err)
-			return patchedFiles, err
-		}
+		recentTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, *remoteRef)
 
-		lastTreeForThePath, err := lastTree.Tree(repo.Path)
 		if err != nil {
-			logger.Errorw("error locating the path", "err", err)
-			return patchedFiles, err
-		}
-
-		recentCommit, err := r.CommitObject(*remoteRef)
-		if err != nil {
-			logger.Errorw("failed to get commit object repo", "err", err)
-			return patchedFiles, err
-		}
-
-		recentTree, err := recentCommit.Tree()
-		if err != nil {
-			logger.Errorw("error getting the last tree", "hash", remoteRef.String(), "err", err)
-			return patchedFiles, err
-		}
-
-		recentTreeForThePath, err := recentTree.Tree(repo.Path)
-		if err != nil {
-			logger.Errorw("error locate the path", "err", err)
+			logger.Errorw("failed to  recent commit", "err", err, "repo", repo.RepoUrl)
 			return patchedFiles, err
 		}
 
 		patch, err := lastTreeForThePath.Patch(recentTreeForThePath)
 		if err != nil {
-			logger.Errorw("failed to patch commit", "err", err)
+			logger.Errorw("failed to patch commit", "err", err, "repo", repo.RepoUrl)
 			return patchedFiles, err
 		}
 
@@ -249,6 +223,20 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 	return patchedFiles, nil
 }
 
+// retrieves a specific tree (or subtree) located at a given path within a specific commit in a Git repository
+func getCommitTreeAtPath(r *git.Repository, path string, hash plumbing.Hash) (*object.Tree, error) {
+	commit, err := r.CommitObject(hash)
+	if err != nil {
+		return nil, err
+	}
+	commitTree, err := commit.Tree()
+	if err != nil {
+		return nil, err
+	}
+	commitTreeForPath, err := commitTree.Tree(path)
+	return commitTreeForPath, nil
+}
+
 // gets the file content from the repository with file hash
 func getBlobFileContents(r *git.Repository, file diff.File) ([]byte, error) {
 	fileBlob, err := r.BlobObject(file.Hash())
@@ -266,6 +254,7 @@ func getBlobFileContents(r *git.Repository, file diff.File) ([]byte, error) {
 	return fileContent, nil
 }
 
+// fetchUpdates fetches updates from the 'origin' remote, returning nil if already up-to-date or an error otherwise.
 func fetchUpdates(repo *git.Repository) error {
 	err := repo.Fetch(&git.FetchOptions{
 		RemoteName: "origin",
@@ -283,6 +272,10 @@ func getLatestCommit(repo *git.Repository, refName string) (*plumbing.Hash, erro
 		return nil, err
 	}
 	return commitHash, err
+}
+
+func compareCommits() {
+
 }
 
 func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client client.Client, clusterName string) (*GitSyncProcessor, error) {

@@ -169,8 +169,8 @@ func updateFileInBranch(repo *git.Repository, branchName, fileName, content stri
 			config.RefSpec("refs/tags/" + tagName + ":refs/tags/" + tagName),
 		},
 		Auth: &http.BasicAuth{
-			Username: os.Getenv("username"),
-			Password: os.Getenv("password"),
+			Username: "shubhamdixit863",
+			Password: "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",
 		},
 	})
 	if err != nil {
@@ -212,7 +212,11 @@ func TestGetLatestCommit(t *testing.T) {
 	assert.Equal(t, 40, len(commit.String()))
 }
 func TestCheckForRepoUpdatesBranch(t *testing.T) {
-
+	source := rand.NewSource(time.Now().UnixNano())
+	rng := rand.New(source)
+	randomFloat := rng.Float64()
+	roundedFloat := math.Round(randomFloat*100) / 100
+	tag := fmt.Sprintf("v%f", roundedFloat)
 	r, lastCommitHash, err := getCommitHashAndRepo()
 	assert.Nil(t, err)
 
@@ -221,7 +225,7 @@ func TestCheckForRepoUpdatesBranch(t *testing.T) {
 		Email: "shubhamdixit863@gmail.com",
 		When:  time.Now(),
 	}
-	err = updateFileInBranch(r, "main", fmt.Sprintf("%s/%s", path, fileNameToBeWatched), "test 12-2-2 test", signature, "")
+	err = updateFileInBranch(r, "main", fmt.Sprintf("%s/%s", path, fileNameToBeWatched), "test 12-2-2 test", signature, tag)
 	assert.Nil(t, err)
 
 	path := &v1.RepositoryPath{
