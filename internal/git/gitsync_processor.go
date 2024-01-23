@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
@@ -29,6 +30,12 @@ func isCommitSHA(sha string) bool {
 	return commitSHARegex.MatchString(sha)
 }
 
+// isRootDir returns whether or not this given path represents root directory of a repo,
+// We consider empty string as the root.
+func isRootDir(path string) bool {
+	return len(path) == 0
+}
+
 type GitSyncProcessor struct {
 	gitSync     v1.GitSync
 	channels    map[string]chan Message
@@ -47,10 +54,22 @@ func watchRepo(ctx context.Context, config *rest.Config, repo *v1.RepositoryPath
 
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:          repo.RepoUrl,
-		SingleBranch: true,
+		SingleBranch: false,
 	})
 	if err != nil {
 		logger.Errorw("error cloning the repository", "err", err)
+		return err
+	}
+
+	// Fetch all remote branches
+	remote, err := r.Remote("origin")
+	if err != nil {
+		return err
+	}
+	opts := &git.FetchOptions{
+		RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
+	}
+	if err = remote.Fetch(opts); err != nil {
 		return err
 	}
 
@@ -75,11 +94,13 @@ func watchRepo(ctx context.Context, config *rest.Config, repo *v1.RepositoryPath
 		return err
 	}
 
-	// Locate the tree with the given path.
-	tree, err = tree.Tree(repo.Path)
-	if err != nil {
-		logger.Errorw("error locate the path", "err", err)
-		return err
+	if !isRootDir(repo.Path) {
+		// Locate the tree with the given path.
+		tree, err = tree.Tree(repo.Path)
+		if err != nil {
+			logger.Errorw("error locate the path", "err", err)
+			return err
+		}
 	}
 
 	// Read all the files under the path and apply each one respectively.
