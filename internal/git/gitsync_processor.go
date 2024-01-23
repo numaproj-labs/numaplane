@@ -30,7 +30,7 @@ func isCommitSHA(sha string) bool {
 	return commitSHARegex.MatchString(sha)
 }
 
-// isRootDir returns whether or not this given path represents root directory of a repo,
+// isRootDir returns whether this given path represents root directory of a repo,
 // We consider empty string as the root.
 func isRootDir(path string) bool {
 	return len(path) == 0
@@ -42,11 +42,11 @@ type GitSyncProcessor struct {
 	clusterName string
 }
 
-func watchRepo(ctx context.Context, config *rest.Config, repo *v1.RepositoryPath, namespace string) error {
+func watchRepo(ctx context.Context, restConfig *rest.Config, repo *v1.RepositoryPath, namespace string) error {
 	logger := logging.FromContext(ctx)
 
 	// create kubernetes client
-	k8sClient, err := kubernetes.NewClient(config, logger)
+	k8sClient, err := kubernetes.NewClient(restConfig, logger)
 	if err != nil {
 		logger.Errorw("cannot create kubernetes client", "err", err)
 		return err

@@ -47,7 +47,7 @@ func (c *client) DeleteResource(kind, name, namespace string, do metav1.DeleteOp
 	return c.deleteResourceByKindAndNameAndNamespace(kind, name, namespace, do)
 }
 
-// ApplyResource converts tha manifest byte data in unstructured format
+// ApplyResource converts the manifest byte data to unstructured format and then applies it to the cluster
 func (c *client) ApplyResource(data []byte, namespaceOverride string) error {
 	obj := make(map[string]interface{})
 	if err := yaml.Unmarshal(data, obj); err != nil {
