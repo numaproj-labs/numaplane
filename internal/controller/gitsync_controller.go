@@ -28,6 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/numaproj-labs/numaplane/internal/git"
 
@@ -269,7 +270,7 @@ func (r *GitSyncReconciler) deleteGitSyncProcessor(ctx context.Context, gitSync 
 // SetupWithManager sets up the controller with the Manager.
 func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&apiv1.GitSync{}).
+		For(&apiv1.GitSync{}).WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
 }
 
