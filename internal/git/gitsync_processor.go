@@ -72,7 +72,7 @@ func (processor *GitSyncProcessor) watchRepo(ctx context.Context, repo *v1.Repos
 		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err)
 		return err
 	}
-	// save the commit hash in the gitSync status
+	// TODO save the commit hash in the gitSync status
 
 	// Retrieving the commit object matching the hash.
 	commit, err := r.CommitObject(*h)
@@ -183,9 +183,9 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 			return patchedFiles, err
 		}
 
-		lastTreeForthePath, err := lastTree.Tree(repo.Path)
+		lastTreeForThePath, err := lastTree.Tree(repo.Path)
 		if err != nil {
-			logger.Errorw("error locate the path", "err", err)
+			logger.Errorw("error locating the path", "err", err)
 			return patchedFiles, err
 		}
 
@@ -207,7 +207,7 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 			return patchedFiles, err
 		}
 
-		patch, err := lastTreeForthePath.Patch(recentTreeForThePath)
+		patch, err := lastTreeForThePath.Patch(recentTreeForThePath)
 		if err != nil {
 			logger.Errorw("failed to patch commit", "err", err)
 			return patchedFiles, err
