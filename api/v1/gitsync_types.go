@@ -76,6 +76,7 @@ type RepositoryPath struct {
 	RepoUrl string `json:"repoUrl"`
 
 	// Path is the full path from the root of the repository to where the resources are held
+	// If Path is empty, then the root directory will be used.
 	// Can be a file or a directory
 	// Note that all resources within this path (described by .yaml files) will be synced
 	Path string `json:"path"`
@@ -147,6 +148,17 @@ func (gitSyncSpec *GitSyncSpec) ContainsClusterDestination(cluster string) bool 
 		}
 	}
 	return false
+}
+
+// GetDestinationNamespace gets the namespace matching the given cluster,
+// if not found, then return empty.
+func (gitSyncSpec *GitSyncSpec) GetDestinationNamespace(cluster string) string {
+	for _, destination := range gitSyncSpec.Destinations {
+		if destination.Cluster == cluster {
+			return destination.Namespace
+		}
+	}
+	return ""
 }
 
 func (status *GitSyncStatus) SetPhase(phase GitSyncPhase, msg string) {
