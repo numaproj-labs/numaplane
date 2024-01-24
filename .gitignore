@@ -19,6 +19,7 @@ Dockerfile.cross
 !vendor/**/zz_generated.*
 
 # Kustomize Generated files
+# since the Makefile calls kustomize to edit this file, ignore it - if we need to explicitly change this file in the future
 config/manager/kustomization.yaml # since the Makefile calls kustomize to edit this file, ignore it - if we need to explicitly change this file in the future
 
 # editor and IDE paraphernalia
