@@ -20,7 +20,7 @@ Dockerfile.cross
 
 # Kustomize Generated files
 # since the Makefile calls kustomize to edit this file, ignore it - if we need to explicitly change this file in the future
-config/manager/kustomization.yaml # since the Makefile calls kustomize to edit this file, ignore it - if we need to explicitly change this file in the future
+config/manager/kustomization.yaml 
 
 # editor and IDE paraphernalia
 .idea
