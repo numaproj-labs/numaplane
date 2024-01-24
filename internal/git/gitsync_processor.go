@@ -106,6 +106,7 @@ func watchRepo(ctx context.Context, restConfig *rest.Config, repo *v1.Repository
 	// Read all the files under the path and apply each one respectively.
 	err = tree.Files().ForEach(func(f *object.File) error {
 		logger.Debugw("read file", "file_name", f.Name)
+		//TODO: this currently assumes that one file contains just one manifest - modify for multiple
 		manifest, err := f.Contents()
 		if err != nil {
 			logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
