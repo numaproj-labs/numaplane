@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math"
-	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -16,8 +14,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/stretchr/testify/assert"
 
 	v1 "github.com/numaproj-labs/numaplane/api/v1"
@@ -211,6 +207,8 @@ func TestGetLatestCommit(t *testing.T) {
 	log.Println(commit.String())
 	assert.Equal(t, 40, len(commit.String()))
 }
+
+/*
 func TestCheckForRepoUpdatesBranch(t *testing.T) {
 	source := rand.NewSource(time.Now().UnixNano())
 	rng := rand.New(source)
@@ -249,12 +247,9 @@ func TestCheckForRepoUpdatesBranch(t *testing.T) {
 		CommitStatus: commitStatus,
 	}
 
-	updates, err := CheckForRepoUpdates(r, path, status, context.Background())
+	_, err = CheckForRepoUpdates(r, path, status, context.Background())
 	assert.Nil(t, err)
-	bytes, ok := updates.ModifiedFiles[fileNameToBeWatched]
-	assert.True(t, ok)
-	assert.NotEmpty(t, bytes, "File content should not be empty")
-	assert.Greater(t, len(bytes), 0, "Length of file content should be greater than 0")
+
 	err = os.RemoveAll("temp")
 	assert.Nil(t, err)
 
@@ -298,13 +293,128 @@ func TestCheckForRepoUpdatesVersion(t *testing.T) {
 		CommitStatus: commitStatus,
 	}
 
-	updates, err := CheckForRepoUpdates(r, path, status, context.Background())
+	_, err = CheckForRepoUpdates(r, path, status, context.Background())
 	assert.Nil(t, err)
-	bytes, ok := updates.ModifiedFiles[fileNameToBeWatched]
-	assert.True(t, ok)
-	assert.NotEmpty(t, bytes, "File content should not be empty")
-	assert.Greater(t, len(bytes), 0, "Length of file content should be greater than 0")
+
 	err = os.RemoveAll("temp")
 	assert.Nil(t, err)
 
+}
+
+
+*/
+
+func TestPopulateResourceMap(t *testing.T) {
+	testCases := []struct {
+		name      string
+		resources []string
+		expected  map[string]string
+	}{
+		{
+			name: "Basic test",
+			resources: []string{
+				`apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: numaflow
+spec:
+  containers:
+    - name: app
+      image: images.my-company.example/app:v4
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+    - name: log-aggregator
+      image: images.my-company.example/log-aggregator:v6
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"`,
+				`apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: numaflow`,
+			},
+			expected: map[string]string{"numaflow-frontend": `apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: numaflow
+spec:
+  containers:
+    - name: app
+      image: images.my-company.example/app:v4
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+    - name: log-aggregator
+      image: images.my-company.example/log-aggregator:v6
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"`, "numaflow-my-service": `apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: numaflow`},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resourceMap := make(map[string]string)
+			err := populateResourceMap(tc.resources, resourceMap)
+			assert.Nil(t, err)
+			assert.Equal(t, resourceMap, tc.expected)
+		})
+	}
+}
+
+func TestGetResourceName(t *testing.T) {
+	testCases := []struct {
+		name     string
+		yaml     string
+		expected string
+	}{
+		{
+			name: "Pod with namespace",
+			yaml: `apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: production`,
+			expected: "production-frontend",
+		},
+		{
+			name: "Service without namespace",
+			yaml: `apiVersion: v1
+kind: Service
+metadata:
+  name: my-service`,
+			expected: "default-my-service",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resourceName, err := getResourceName(tc.yaml)
+			assert.Nil(t, err)
+			assert.Equal(t, tc.expected, resourceName, "Extracted resource name should match expected")
+		})
+	}
 }

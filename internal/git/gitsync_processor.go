@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"regexp"
 	"strings"
 	"time"
@@ -47,10 +48,18 @@ type GitSyncProcessor struct {
 
 // stores the Patched files  and their data
 
-type PatchFiles struct {
-	DeletedFiles  map[string][]byte
-	AddedFiles    map[string][]byte
-	ModifiedFiles map[string][]byte
+type PatchedResource struct {
+	Before map[string]string
+	After  map[string]string
+}
+
+type KubernetesResource struct {
+	APIVersion string `yaml:"apiVersion"`
+	Kind       string `yaml:"kind"`
+	Metadata   struct {
+		Name      string `yaml:"name"`
+		Namespace string `yaml:"namespace"` // TODO : what if namespace is not present
+	} `yaml:"metadata"`
 }
 
 func (processor *GitSyncProcessor) watchRepo(ctx context.Context, repo *v1.RepositoryPath, _ /* namespace */ string) error {
@@ -120,16 +129,11 @@ func (processor *GitSyncProcessor) watchRepo(ctx context.Context, repo *v1.Repos
 		for {
 			select {
 			case <-ticker.C:
-				changedFiles, err := CheckForRepoUpdates(r, repo, &processor.gitSync.Status, ctx)
+				_, err := CheckForRepoUpdates(r, repo, &processor.gitSync.Status, ctx)
 				if err != nil {
 					return err
 				}
 				// apply the resources which are updated
-				for _, v := range changedFiles.ModifiedFiles {
-					// split the string on the basis of "---"
-					individualResource := strings.Split(string(v), "---")
-					logger.Debug(individualResource)
-				}
 
 				// delete the resources which are removed from file
 
@@ -146,17 +150,17 @@ func (processor *GitSyncProcessor) watchRepo(ctx context.Context, repo *v1.Repos
 
 // this check for file changes in the repo by comparing the old commit  hash with new commit hash
 
-func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.GitSyncStatus, ctx context.Context) (PatchFiles, error) {
-	var patchedFiles PatchFiles
+func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.GitSyncStatus, ctx context.Context) (PatchedResource, error) {
+	var patchedResources PatchedResource
 	logger := logging.FromContext(ctx)
 	if err := fetchUpdates(r); err != nil {
 		logger.Errorw("error checking for updates in the github repo", "err", err, "repo", repo.RepoUrl)
-		return patchedFiles, err
+		return patchedResources, err
 	}
 	remoteRef, err := getLatestCommit(r, repo.TargetRevision)
 	if err != nil {
 		logger.Errorw("failed to get latest commits in the github repo", "err", err, "repo", repo.RepoUrl)
-		return patchedFiles, err
+		return patchedResources, err
 	}
 	lastCommitStatus := status.CommitStatus[repo.Name]
 	if remoteRef.String() != lastCommitStatus.Hash {
@@ -171,56 +175,107 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 		lastTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, plumbing.NewHash(lastCommitStatus.Hash))
 		if err != nil {
 			logger.Errorw("failed to  get last commit", "err", err, "repo", repo.RepoUrl)
-			return patchedFiles, err
+			return patchedResources, err
 		}
 
 		recentTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, *remoteRef)
 
 		if err != nil {
 			logger.Errorw("failed to  recent commit", "err", err, "repo", repo.RepoUrl)
-			return patchedFiles, err
+			return patchedResources, err
 		}
 
 		patch, err := lastTreeForThePath.Patch(recentTreeForThePath)
 		if err != nil {
 			logger.Errorw("failed to patch commit", "err", err, "repo", repo.RepoUrl)
-			return patchedFiles, err
+			return patchedResources, err
 		}
 
-		deletedFiles := make(map[string][]byte)
-		addedFiles := make(map[string][]byte)
-		modifiedFiles := make(map[string][]byte)
+		beforeMap := make(map[string]string)
+		afterMap := make(map[string]string)
 		//if file exists in both [from] and [to] its modified ,if it exists in [to] its newly added and if it only exists in [from] its deleted
 		for _, filePatch := range patch.FilePatches() {
 			from, to := filePatch.Files()
 			if from != nil && to != nil {
-				contents, err := getBlobFileContents(r, to)
+				finalContent, err := getBlobFileContents(r, to)
 				if err != nil {
-					return patchedFiles, err
+					return patchedResources, err
 				}
-				modifiedFiles[to.Path()] = contents
+				initialContent, err := getBlobFileContents(r, from)
+				if err != nil {
+					return patchedResources, err
+				}
+
+				// split the string by ---
+				resourcesBefore := strings.Split(string(initialContent), "---")
+				err = populateResourceMap(resourcesBefore, beforeMap)
+				if err != nil {
+					return PatchedResource{}, err
+				}
+
+				resourcesAfter := strings.Split(string(finalContent), "---")
+				err = populateResourceMap(resourcesAfter, afterMap)
+				if err != nil {
+					return PatchedResource{}, err
+				}
 
 			} else if from != nil {
 				contents, err := getBlobFileContents(r, from)
 				if err != nil {
-					return patchedFiles, err
+					return patchedResources, err
 				}
-				deletedFiles[from.Path()] = contents
+
+				// split the string by ---
+				resources := strings.Split(string(contents), "---")
+				err = populateResourceMap(resources, beforeMap)
+				if err != nil {
+					return PatchedResource{}, err
+				}
 			} else if to != nil {
 				contents, err := getBlobFileContents(r, from)
 				if err != nil {
-					return patchedFiles, err
+					return patchedResources, err
 				}
-				addedFiles[to.Path()] = contents
+				// split the string by ---
+				resources := strings.Split(string(contents), "---")
+				err = populateResourceMap(resources, afterMap)
+				if err != nil {
+					return PatchedResource{}, err
+				}
 			}
 		}
 
-		patchedFiles.ModifiedFiles = modifiedFiles
-		patchedFiles.AddedFiles = addedFiles
-		patchedFiles.DeletedFiles = deletedFiles
+		patchedResources.Before = beforeMap
+		patchedResources.After = afterMap
 	}
 
-	return patchedFiles, nil
+	return patchedResources, nil
+}
+
+// populateResourceMap fills the resourceMap with resource names as keys and their string representations as values.
+func populateResourceMap(resources []string, resourceMap map[string]string) error {
+	for _, v := range resources {
+		name, err := getResourceName(v)
+		if err != nil {
+			return err
+		}
+		resourceMap[name] = v
+	}
+	return nil
+}
+
+// getResourceName extracts the name and namespace of the Kubernetes resource from YAML content.
+func getResourceName(yamlContent string) (string, error) {
+	var resource KubernetesResource
+	err := yaml.Unmarshal([]byte(yamlContent), &resource)
+	if err != nil {
+		return "", err
+	}
+	namespace := resource.Metadata.Namespace
+	if namespace == "" {
+		namespace = "default"
+	}
+	return namespace + "-" + resource.Metadata.Name, nil
 }
 
 // retrieves a specific tree (or subtree) located at a given path within a specific commit in a Git repository
@@ -272,10 +327,6 @@ func getLatestCommit(repo *git.Repository, refName string) (*plumbing.Hash, erro
 		return nil, err
 	}
 	return commitHash, err
-}
-
-func compareCommits() {
-
 }
 
 func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client client.Client, clusterName string) (*GitSyncProcessor, error) {
