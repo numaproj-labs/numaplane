@@ -233,20 +233,15 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 				if err != nil {
 					return patchedResources, err
 				}
+				err = populateResourceMap(finalContent, afterMap)
+				if err != nil {
+					return PatchedResource{}, err
+				}
 				initialContent, err := getBlobFileContents(r, from)
 				if err != nil {
 					return patchedResources, err
 				}
-
-				// split the string by ---
-				resourcesBefore := strings.Split(string(initialContent), "---")
-				err = populateResourceMap(resourcesBefore, beforeMap)
-				if err != nil {
-					return PatchedResource{}, err
-				}
-
-				resourcesAfter := strings.Split(string(finalContent), "---")
-				err = populateResourceMap(resourcesAfter, afterMap)
+				err = populateResourceMap(initialContent, beforeMap)
 				if err != nil {
 					return PatchedResource{}, err
 				}
@@ -256,10 +251,7 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 				if err != nil {
 					return patchedResources, err
 				}
-
-				// split the string by ---
-				resources := strings.Split(string(contents), "---")
-				err = populateResourceMap(resources, beforeMap)
+				err = populateResourceMap(contents, beforeMap)
 				if err != nil {
 					return PatchedResource{}, err
 				}
@@ -268,9 +260,7 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 				if err != nil {
 					return patchedResources, err
 				}
-				// split the string by ---
-				resources := strings.Split(string(contents), "---")
-				err = populateResourceMap(resources, afterMap)
+				err = populateResourceMap(contents, afterMap)
 				if err != nil {
 					return PatchedResource{}, err
 				}
@@ -285,7 +275,9 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 }
 
 // populateResourceMap fills the resourceMap with resource names as keys and their string representations as values.
-func populateResourceMap(resources []string, resourceMap map[string]string) error {
+func populateResourceMap(content []byte, resourceMap map[string]string) error {
+	// split the string by ---
+	resources := strings.Split(string(content), "---")
 	for _, v := range resources {
 		name, err := getResourceName(v)
 		if err != nil {
