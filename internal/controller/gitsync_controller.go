@@ -229,7 +229,7 @@ func (r *GitSyncReconciler) addGitSyncProcessor(ctx context.Context, gitSync *ap
 		controllerutil.AddFinalizer(gitSync, finalizerName)
 	}
 
-	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.config, r.clusterName)
+	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.Client, r.config, r.clusterName)
 	if err != nil {
 		logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
 		return err

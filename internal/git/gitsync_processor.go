@@ -10,6 +10,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	v1 "github.com/numaproj-labs/numaplane/api/v1"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
@@ -39,6 +40,7 @@ func isRootDir(path string) bool {
 type GitSyncProcessor struct {
 	gitSync     v1.GitSync
 	channels    map[string]chan Message
+	k8Client    client.Client
 	clusterName string
 }
 
@@ -131,13 +133,14 @@ func watchRepo(ctx context.Context, restConfig *rest.Config, repo *v1.Repository
 	return nil
 }
 
-func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, config *rest.Config, clusterName string) (*GitSyncProcessor, error) {
+func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client client.Client, config *rest.Config, clusterName string) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
 
 	channels := make(map[string]chan Message)
 	namespace := gitSync.Spec.GetDestinationNamespace(clusterName)
 	processor := &GitSyncProcessor{
 		gitSync:     *gitSync,
+		k8Client:    k8client,
 		channels:    channels,
 		clusterName: clusterName,
 	}
