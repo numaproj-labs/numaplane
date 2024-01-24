@@ -319,9 +319,9 @@ func yamlUnmarshal(yamlContent string) (KubernetesResource, error) {
 	var resource KubernetesResource
 	err := yaml.Unmarshal([]byte(yamlContent), &resource)
 	if err != nil {
-		return resource, err
+		return KubernetesResource{}, err
 	}
-	return KubernetesResource{}, err
+	return resource, err
 }
 
 // getResourceName extracts the name and namespace of the Kubernetes resource from YAML content.
