@@ -9,9 +9,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	v1 "github.com/numaproj-labs/numaplane/api/v1"
+	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
 
@@ -24,12 +26,12 @@ type Message struct {
 
 var commitSHARegex = regexp.MustCompile("^[0-9A-Fa-f]{40}$")
 
-// isCommitSHA returns whether or not a string is a 40 character SHA-1
+// isCommitSHA returns whether a string is a 40 character SHA-1
 func isCommitSHA(sha string) bool {
 	return commitSHARegex.MatchString(sha)
 }
 
-// isRootDir returns whether or not this given path represents root directory of a repo,
+// isRootDir returns whether this given path represents root directory of a repo,
 // We consider empty string as the root.
 func isRootDir(path string) bool {
 	return len(path) == 0
@@ -42,8 +44,15 @@ type GitSyncProcessor struct {
 	clusterName string
 }
 
-func watchRepo(ctx context.Context, repo *v1.RepositoryPath, _ /* namespace */ string) error {
+func watchRepo(ctx context.Context, restConfig *rest.Config, repo *v1.RepositoryPath, namespace string) error {
 	logger := logging.FromContext(ctx)
+
+	// create kubernetes client
+	k8sClient, err := kubernetes.NewClient(restConfig, logger)
+	if err != nil {
+		logger.Errorw("cannot create kubernetes client", "err", err)
+		return err
+	}
 
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:          repo.RepoUrl,
@@ -99,14 +108,15 @@ func watchRepo(ctx context.Context, repo *v1.RepositoryPath, _ /* namespace */ s
 	// Read all the files under the path and apply each one respectively.
 	err = tree.Files().ForEach(func(f *object.File) error {
 		logger.Debugw("read file", "file_name", f.Name)
-		_, err = f.Contents()
+		//TODO: this currently assumes that one file contains just one manifest - modify for multiple
+		manifest, err := f.Contents()
 		if err != nil {
 			logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
 			return err
 		}
 
-		// TODO: Apply to the resources
-		return nil
+		// Apply manifest in cluster
+		return k8sClient.ApplyResource([]byte(manifest), namespace)
 	})
 	if err != nil {
 		return err
@@ -123,7 +133,7 @@ func watchRepo(ctx context.Context, repo *v1.RepositoryPath, _ /* namespace */ s
 	return nil
 }
 
-func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client client.Client, clusterName string) (*GitSyncProcessor, error) {
+func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client client.Client, config *rest.Config, clusterName string) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
 
 	channels := make(map[string]chan Message)
@@ -139,7 +149,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client clie
 		gitCh := make(chan Message, messageChanLength)
 		channels[repo.Name] = gitCh
 		go func(repo *v1.RepositoryPath) {
-			err := watchRepo(ctx, repo, namespace)
+			err := watchRepo(ctx, config, repo, namespace)
 			if err != nil {
 				// TODO: Retry on non-fatal errors
 				logger.Errorw("error watching the repo", "err", err)

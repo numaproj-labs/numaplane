@@ -90,6 +90,7 @@ func main() {
 
 	reconciler, err := controller.NewGitSyncReconciler(
 		mgr.GetClient(),
+		mgr.GetConfig(),
 		mgr.GetScheme(),
 	)
 	if err != nil {
