@@ -2,27 +2,28 @@ package git
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/stretchr/testify/assert"
 
 	v1 "github.com/numaproj-labs/numaplane/api/v1"
+	"github.com/numaproj-labs/numaplane/tests/utils"
 )
+
+/*
 
 const (
 	fileNameToBeWatched = "k8.yaml"
 	path                = "config"
 )
+
+*/
 
 func Test_watchRepo(t *testing.T) {
 	testCases := []struct {
@@ -30,33 +31,61 @@ func Test_watchRepo(t *testing.T) {
 		repo     v1.RepositoryPath
 		hasError bool
 	}{
-		{
-			name: "branch name as a TargetRevision",
-			repo: v1.RepositoryPath{
-				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
-				Path:           "config/samples",
-				TargetRevision: "main",
-			},
-			hasError: false,
-		},
-		{
-			name: "commit hash as a TargetRevision",
-			repo: v1.RepositoryPath{
-				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
-				Path:           "config/samples",
-				TargetRevision: "8ed04cc87c3ab8f5d7d459f82e587da5a9192d20",
-			},
-			hasError: false,
-		},
-		{
-			name: "tag name as a TargetRevision",
-			repo: v1.RepositoryPath{
-				RepoUrl:        "https://github.com/go-git/go-git.git",
-				Path:           ".github",
-				TargetRevision: "v5.5.1",
-			},
-			hasError: false,
-		},
+		// TODO: Need to have kubernetes fake client for enabling these test cases.
+		//{
+		//	name: "`main` as a TargetRevision",
+		//	repo: v1.RepositoryPath{
+		//		RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
+		//		Path:           "config/samples",
+		//		TargetRevision: "main",
+		//	},
+		//	hasError: false,
+		//},
+		//{
+		//	name: "tag name as a TargetRevision",
+		//	repo: v1.RepositoryPath{
+		//		RepoUrl:        "https://github.com/go-git/go-git.git",
+		//		Path:           ".github",
+		//		TargetRevision: "v5.5.1",
+		//	},
+		//	hasError: false,
+		//},
+		//{
+		//	name: "commit hash as a TargetRevision",
+		//	repo: v1.RepositoryPath{
+		//		RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
+		//		Path:           "config/samples",
+		//		TargetRevision: "8ed04cc87c3ab8f5d7d459f82e587da5a9192d20",
+		//	},
+		//	hasError: false,
+		//},
+		//{
+		//	name: "remote branch name as a TargetRevision",
+		//	repo: v1.RepositoryPath{
+		//		RepoUrl:        "https://github.com/git-fixtures/basic.git",
+		//		Path:           "go",
+		//		TargetRevision: "refs/remotes/origin/branch",
+		//	},
+		//	hasError: false,
+		//},
+		//{
+		//	name: "local branch name as a TargetRevision",
+		//	repo: v1.RepositoryPath{
+		//		RepoUrl:        "https://github.com/git-fixtures/basic.git",
+		//		Path:           "go",
+		//		TargetRevision: "branch",
+		//	},
+		//	hasError: false,
+		//},
+		//{
+		//	name: "root path",
+		//	repo: v1.RepositoryPath{
+		//		RepoUrl:        "https://github.com/git-fixtures/basic.git",
+		//		Path:           "",
+		//		TargetRevision: "branch",
+		//	},
+		//	hasError: false,
+		//},
 		{
 			name: "invalid repo",
 			repo: v1.RepositoryPath{
@@ -86,17 +115,17 @@ func Test_watchRepo(t *testing.T) {
 		},
 	}
 	t.Parallel()
-	gitsyncPr := GitSyncProcessor{
-		gitSync:     v1.GitSync{},
-		channels:    nil,
-		k8Client:    nil,
-		clusterName: "",
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
+	gitSync := v1.GitSync{
+		TypeMeta:   metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{},
+		Spec:       v1.GitSyncSpec{},
+		Status:     v1.GitSyncStatus{},
+	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := gitsyncPr.watchRepo(ctx, &tc.repo, "")
+			err := watchRepo(ctx, utils.GetTestRestConfig(), &gitSync, &tc.repo, "")
 			if tc.hasError {
 				assert.NotNil(t, err)
 			} else {
@@ -106,96 +135,97 @@ func Test_watchRepo(t *testing.T) {
 	}
 }
 
-func updateFileInBranch(repo *git.Repository, branchName, fileName, content string, author *object.Signature, tagName string) error {
-	branchRef, err := repo.Reference(plumbing.NewBranchReferenceName(branchName), true)
-	if err != nil {
-		return fmt.Errorf("could not find branch: %v", err.Error())
-	}
-
-	w, err := repo.Worktree()
-	if err != nil {
-		return fmt.Errorf("could not get working tree: %v", err.Error())
-	}
-
-	err = w.Checkout(&git.CheckoutOptions{
-		Branch: branchRef.Name(),
-		Force:  true,
-	})
-	if err != nil {
-		return fmt.Errorf("could not checkout branch: %v", err)
-	}
-
-	filePath := w.Filesystem.Join("temp", fileName)
-
-	// Read the existing content from the file
-	existingContent, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Errorf("could not read existing file: %v", err)
-	}
-	combinedContent := append(existingContent, []byte(content)...)
-	err = os.WriteFile(filePath, combinedContent, 0644)
-	if err != nil {
-		return fmt.Errorf("could not write to file: %v", err)
-	}
-
-	_, err = w.Add(fileName)
-	if err != nil {
-		return fmt.Errorf("could not stage file: %v", err)
-	}
-
-	commit, err := w.Commit("Update file "+fileName, &git.CommitOptions{
-		Author: author,
-	})
-	if err != nil {
-		return fmt.Errorf("could not commit changes: %v", err)
-	}
-
-	_, err = repo.CreateTag(tagName, commit, &git.CreateTagOptions{
-		Message: "Tag for " + fileName,
-		Tagger:  author,
-	})
-	if err != nil {
-		return fmt.Errorf("could not create tag: %v", err)
-	}
-
-	err = repo.Push(&git.PushOptions{
-		RemoteName: "origin",
-		RefSpecs: []config.RefSpec{
-			config.RefSpec(branchRef.Name() + ":" + branchRef.Name()),
-			config.RefSpec("refs/tags/" + tagName + ":refs/tags/" + tagName),
-		},
-		Auth: &http.BasicAuth{
-			Username: "shubhamdixit863",
-			Password: "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",
-		},
-	})
-	if err != nil {
-		if err == git.NoErrAlreadyUpToDate {
-			return fmt.Errorf("already up-to-date %s", err.Error())
-		} else {
-			return fmt.Errorf("could not push to remote: %v", err)
+/*
+	func updateFileInBranch(repo *git.Repository, branchName, fileName, content string, author *object.Signature, tagName string) error {
+		branchRef, err := repo.Reference(plumbing.NewBranchReferenceName(branchName), true)
+		if err != nil {
+			return fmt.Errorf("could not find branch: %v", err.Error())
 		}
-	}
-	return nil
-}
 
-func getCommitHashAndRepo() (*git.Repository, string, error) {
-	r, err := git.PlainClone("temp", false, &git.CloneOptions{
-		URL:          "https://github.com/shubhamdixit863/testingrepo",
-		SingleBranch: true,
-	})
-	if err != nil {
-		return nil, "", err
+		w, err := repo.Worktree()
+		if err != nil {
+			return fmt.Errorf("could not get working tree: %v", err.Error())
+		}
+
+		err = w.Checkout(&git.CheckoutOptions{
+			Branch: branchRef.Name(),
+			Force:  true,
+		})
+		if err != nil {
+			return fmt.Errorf("could not checkout branch: %v", err)
+		}
+
+		filePath := w.Filesystem.Join("temp", fileName)
+
+		// Read the existing content from the file
+		existingContent, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("could not read existing file: %v", err)
+		}
+		combinedContent := append(existingContent, []byte(content)...)
+		err = os.WriteFile(filePath, combinedContent, 0644)
+		if err != nil {
+			return fmt.Errorf("could not write to file: %v", err)
+		}
+
+		_, err = w.Add(fileName)
+		if err != nil {
+			return fmt.Errorf("could not stage file: %v", err)
+		}
+
+		commit, err := w.Commit("Update file "+fileName, &git.CommitOptions{
+			Author: author,
+		})
+		if err != nil {
+			return fmt.Errorf("could not commit changes: %v", err)
+		}
+
+		_, err = repo.CreateTag(tagName, commit, &git.CreateTagOptions{
+			Message: "Tag for " + fileName,
+			Tagger:  author,
+		})
+		if err != nil {
+			return fmt.Errorf("could not create tag: %v", err)
+		}
+
+		err = repo.Push(&git.PushOptions{
+			RemoteName: "origin",
+			RefSpecs: []config.RefSpec{
+				config.RefSpec(branchRef.Name() + ":" + branchRef.Name()),
+				config.RefSpec("refs/tags/" + tagName + ":refs/tags/" + tagName),
+			},
+			Auth: &http.BasicAuth{
+				Username: "shubhamdixit863",
+				Password: "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",
+			},
+		})
+		if err != nil {
+			if err == git.NoErrAlreadyUpToDate {
+				return fmt.Errorf("already up-to-date %s", err.Error())
+			} else {
+				return fmt.Errorf("could not push to remote: %v", err)
+			}
+		}
+		return nil
 	}
 
-	// The revision can be a branch, a tag, or a commit hash
-	h, err := r.ResolveRevision("main")
-	if err != nil {
-		return nil, "", err
-	}
-	return r, h.String(), nil
-}
+	func getCommitHashAndRepo() (*git.Repository, string, error) {
+		r, err := git.PlainClone("temp", false, &git.CloneOptions{
+			URL:          "https://github.com/shubhamdixit863/testingrepo",
+			SingleBranch: true,
+		})
+		if err != nil {
+			return nil, "", err
+		}
 
+		// The revision can be a branch, a tag, or a commit hash
+		h, err := r.ResolveRevision("main")
+		if err != nil {
+			return nil, "", err
+		}
+		return r, h.String(), nil
+	}
+*/
 func TestGetLatestCommit(t *testing.T) {
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:          "https://github.com/shubhamdixit863/testingrepo",
