@@ -161,15 +161,41 @@ func watchRepo(ctx context.Context, restConfig *rest.Config, gitSync *v1.GitSync
 		for {
 			select {
 			case <-ticker.C:
-				_, err := CheckForRepoUpdates(r, repo, &gitSync.Status, ctx)
+				patchedResources, err := CheckForRepoUpdates(r, repo, &gitSync.Status, ctx)
 				if err != nil {
 					return err
 				}
-				// apply the resources which are updated
 
-				// delete the resources which are removed from file
-
-				// create the new resource
+				for key, afterValue := range patchedResources.After {
+					namespace := strings.Split(key, "-")[0]
+					if beforeValue, ok := patchedResources.Before[key]; ok {
+						if beforeValue != afterValue {
+							err := k8sClient.ApplyResource([]byte(afterValue), namespace)
+							if err != nil {
+								return err
+							}
+						}
+					} else {
+						// Newly Added resource
+						err := k8sClient.ApplyResource([]byte(afterValue), namespace)
+						if err != nil {
+							return err
+						}
+					}
+				}
+				// deleted resources
+				for key, beforeValue := range patchedResources.Before {
+					resource, err := yamlUnmarshal(beforeValue)
+					if err != nil {
+						return err
+					}
+					if _, ok := patchedResources.After[key]; !ok {
+						err := k8sClient.DeleteResource(resource.Kind, resource.Metadata.Name, resource.Metadata.Namespace, metav1.DeleteOptions{})
+						if err != nil {
+							return err
+						}
+					}
+				}
 
 			case <-ctx.Done():
 				logger.Debug("Context canceled, stopping updates check")
@@ -288,10 +314,19 @@ func populateResourceMap(content []byte, resourceMap map[string]string) error {
 	return nil
 }
 
-// getResourceName extracts the name and namespace of the Kubernetes resource from YAML content.
-func getResourceName(yamlContent string) (string, error) {
+// unmarshalls yaml into Kubernetes Resource
+func yamlUnmarshal(yamlContent string) (KubernetesResource, error) {
 	var resource KubernetesResource
 	err := yaml.Unmarshal([]byte(yamlContent), &resource)
+	if err != nil {
+		return resource, err
+	}
+	return KubernetesResource{}, err
+}
+
+// getResourceName extracts the name and namespace of the Kubernetes resource from YAML content.
+func getResourceName(yamlContent string) (string, error) {
+	resource, err := yamlUnmarshal(yamlContent)
 	if err != nil {
 		return "", err
 	}
