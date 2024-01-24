@@ -408,8 +408,11 @@ metadata:
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			resourceMap := make(map[string]string)
-			err := populateResourceMap(tc.resources, resourceMap)
-			assert.Nil(t, err)
+			for _, re := range tc.resources {
+				err := populateResourceMap([]byte(re), resourceMap)
+				assert.Nil(t, err)
+			}
+
 			assert.Equal(t, resourceMap, tc.expected)
 		})
 	}
