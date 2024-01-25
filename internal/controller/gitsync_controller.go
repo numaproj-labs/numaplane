@@ -29,6 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1"
 	"github.com/numaproj-labs/numaplane/internal/git"
@@ -91,7 +92,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	lock.Lock()
 	defer lock.Unlock()
 
-	// get the GitSync CRD - if not found, it may have been deleted in the past
+	// get the GitSync CR - if not found, it may have been deleted in the past
 	gitSync := &apiv1.GitSync{}
 	if err := r.Client.Get(ctx, req.NamespacedName, gitSync); err != nil {
 		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
@@ -271,7 +272,7 @@ func (r *GitSyncReconciler) deleteGitSyncProcessor(ctx context.Context, gitSync 
 // SetupWithManager sets up the controller with the Manager.
 func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&apiv1.GitSync{}).
+		For(&apiv1.GitSync{}).WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
 }
 
