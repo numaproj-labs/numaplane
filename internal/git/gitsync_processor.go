@@ -10,6 +10,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -102,6 +103,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 	// Only create the resources for the first time if not created yet.
 	// Otherwise, monitoring with intervals.
 	if !ok {
+		// TODO: call getCommitTreeAtPath() here instead
 		// Retrieving the commit object matching the hash.
 		commit, err := r.CommitObject(*hash)
 		if err != nil {
@@ -142,32 +144,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 			return err
 		}
 
-		commitStatus := v1.CommitStatus{
-			Hash:     hash.String(),
-			Synced:   true,
-			SyncTime: metav1.NewTime(time.Now()),
-		}
-
-		gitSync = &v1.GitSync{}
-		if err = k8Client.Get(ctx, namespacedName, gitSync); err != nil {
-			// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
-			if apierrors.IsNotFound(err) {
-				return nil
-			} else {
-				logger.Errorw("Unable to get GitSync", "err", err)
-				return err
-			}
-		}
-		if gitSync.Status.CommitStatus == nil {
-			gitSync.Status.CommitStatus = make(map[string]v1.CommitStatus)
-		}
-		gitSync.Status.CommitStatus[repo.Name] = commitStatus
-		// It's Ok to fail here as upon errors the whole process will be retried
-		// until a CommitStatus is persisted.
-		if err = k8Client.Status().Update(ctx, gitSync); err != nil {
-			logger.Errorw("Error Updating GitSync Status", "err", err)
-			return err
-		}
+		return updateCommitStatus(ctx, k8Client, namespacedName, hash.String(), repo, logger)
 	}
 
 	// no monitoring if targetRevision is a specific commit hash
@@ -182,6 +159,43 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 	} else {
 		// TODO: monitoring with intervals
 		logger.Debug("monitoring with intervals")
+	}
+	return nil
+}
+
+func updateCommitStatus(
+	ctx context.Context, k8Client client.Client,
+	namespacedName types.NamespacedName,
+	hash string,
+	repo *v1.RepositoryPath,
+	logger *zap.SugaredLogger,
+) error {
+
+	commitStatus := v1.CommitStatus{
+		Hash:     hash,
+		Synced:   true,
+		SyncTime: metav1.NewTime(time.Now()),
+	}
+
+	gitSync := &v1.GitSync{}
+	if err := k8Client.Get(ctx, namespacedName, gitSync); err != nil {
+		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
+		if apierrors.IsNotFound(err) {
+			return nil
+		} else {
+			logger.Errorw("Unable to get GitSync", "err", err)
+			return err
+		}
+	}
+	if gitSync.Status.CommitStatus == nil {
+		gitSync.Status.CommitStatus = make(map[string]v1.CommitStatus)
+	}
+	gitSync.Status.CommitStatus[repo.Name] = commitStatus
+	// It's Ok to fail here as upon errors the whole process will be retried
+	// until a CommitStatus is persisted.
+	if err := k8Client.Status().Update(ctx, gitSync); err != nil {
+		logger.Errorw("Error Updating GitSync Status", "err", err)
+		return err
 	}
 	return nil
 }
