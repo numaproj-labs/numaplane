@@ -70,6 +70,9 @@ spec:
         - /manager
         args:
         - --leader-elect
+        env:
+          - name: CLUSTER_NAME
+            value: CLUSTER_NAME_VALUE
         image: numaplane-controller:latest
         name: manager
         securityContext:

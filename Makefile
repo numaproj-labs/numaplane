@@ -2,6 +2,8 @@
 # Image URL to use all building/pushing image targets
 IMG ?= numaplane-controller
 VERSION ?= latest
+# Default cluster name where pumaplane get deployed, update it as needed.
+CLUSTER_NAME ?= "staging-usw2-k8s"
 #TODO: add back once ready to push to quay.io
 #IMAGE_NAMESPACE ?= quay.io/numaproj
 #IMAGE_FULL_PATH ?= $(IMAGE_NAMESPACE)/$(IMG):$(VERSION)
@@ -141,7 +143,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image numaplane-controller=${IMAGE_FULL_PATH}
-	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/default | sed 's/CLUSTER_NAME_VALUE/$(CLUSTER_NAME)/g' | $(KUBECTL) apply -f -
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
