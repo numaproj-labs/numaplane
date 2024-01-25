@@ -164,7 +164,7 @@ func watchRepo(ctx context.Context, restConfig *rest.Config, gitSync *v1.GitSync
 		for {
 			select {
 			case <-ticker.C:
-				patchedResources, err := CheckForRepoUpdates(r, repo, &gitSync.Status, ctx)
+				patchedResources, err := CheckForRepoUpdates(ctx, r, repo, &gitSync.Status, namespace)
 				if err != nil {
 					return err
 				}
@@ -211,7 +211,7 @@ func watchRepo(ctx context.Context, restConfig *rest.Config, gitSync *v1.GitSync
 
 // this check for file changes in the repo by comparing the old commit  hash with new commit hash
 
-func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.GitSyncStatus, ctx context.Context) (PatchedResource, error) {
+func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.RepositoryPath, status *v1.GitSyncStatus, defaultNameSpace string) (PatchedResource, error) {
 	var patchedResources PatchedResource
 	logger := logging.FromContext(ctx)
 	if err := fetchUpdates(r); err != nil {
@@ -263,7 +263,7 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 					logger.Errorw("failed to get  initial content", "err", err.Error(), "repo", repo.RepoUrl)
 					return patchedResources, err
 				}
-				err = populateResourceMap(initialContent, beforeMap)
+				err = populateResourceMap(initialContent, beforeMap, defaultNameSpace)
 				if err != nil {
 					logger.Errorw("failed to populate resource map", "err", err.Error(), "repo", repo.RepoUrl)
 					return PatchedResource{}, err
@@ -276,7 +276,7 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 
 					return patchedResources, err
 				}
-				err = populateResourceMap(finalContent, afterMap)
+				err = populateResourceMap(finalContent, afterMap, defaultNameSpace)
 				if err != nil {
 					logger.Errorw("failed to populate resource map", "err", err.Error(), "repo", repo.RepoUrl)
 					return PatchedResource{}, err
@@ -292,11 +292,11 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 }
 
 // populateResourceMap fills the resourceMap with resource names as keys and their string representations as values.
-func populateResourceMap(content []byte, resourceMap map[string]string) error {
+func populateResourceMap(content []byte, resourceMap map[string]string, defaultNameSpace string) error {
 	// split the string by ---
 	resources := strings.Split(string(content), "---")
 	for _, v := range resources {
-		name, err := getResourceName(v)
+		name, err := getResourceName(v, defaultNameSpace)
 		if err != nil {
 			return err
 		}
@@ -316,14 +316,14 @@ func yamlUnmarshal(yamlContent string) (KubernetesResource, error) {
 }
 
 // getResourceName extracts the name and namespace of the Kubernetes resource from YAML content.
-func getResourceName(yamlContent string) (string, error) {
+func getResourceName(yamlContent string, defaultNameSpace string) (string, error) {
 	resource, err := yamlUnmarshal(yamlContent)
 	if err != nil {
 		return "", err
 	}
 	namespace := resource.Metadata.Namespace
 	if namespace == "" {
-		namespace = "default"
+		namespace = defaultNameSpace
 	}
 	return namespace + "/" + resource.Metadata.Name, nil
 }

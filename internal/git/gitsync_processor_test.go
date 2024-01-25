@@ -29,13 +29,11 @@ import (
 )
 
 const (
-	remoteRepo = "temp/remote"
-	localRepo  = "temp/local"
-)
-
-const (
 	fileNameToBeWatched = "k8.yaml"
 	path                = "config"
+	remoteRepo          = "temp/remote"
+	localRepo           = "temp/local"
+	defaultNameSpace    = "numaflowtest"
 )
 
 var kubernetesYamlString = `apiVersion: v1
@@ -402,9 +400,9 @@ func TestCheckForRepoUpdatesBranch(t *testing.T) {
 		CommitStatus: commitStatus,
 	}
 
-	patchedContent, err := CheckForRepoUpdates(r, path, status, context.Background())
+	patchedContent, err := CheckForRepoUpdates(context.Background(), r, path, status, defaultNameSpace)
 	assert.Nil(t, err)
-	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After["default/my-nginx-svc"], patchedContent.After["default/my-nginx"]))
+	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After[fmt.Sprintf("%s/my-nginx-svc", defaultNameSpace)], patchedContent.After[fmt.Sprintf("%s/my-nginx", defaultNameSpace)]))
 
 	err = os.RemoveAll("temp")
 	assert.Nil(t, err)
@@ -452,9 +450,10 @@ func TestCheckForRepoUpdatesVersion(t *testing.T) {
 		CommitStatus: commitStatus,
 	}
 
-	patchedContent, err := CheckForRepoUpdates(r, path, status, context.Background())
+	patchedContent, err := CheckForRepoUpdates(context.Background(), r, path, status, defaultNameSpace)
+
 	assert.Nil(t, err)
-	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After["default/my-nginx-svc"], patchedContent.After["default/my-nginx"]))
+	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After[fmt.Sprintf("%s/my-nginx-svc", defaultNameSpace)], patchedContent.After[fmt.Sprintf("%s/my-nginx", defaultNameSpace)]))
 	err = os.RemoveAll("temp")
 	assert.Nil(t, err)
 
@@ -535,7 +534,7 @@ metadata:
 		t.Run(tc.name, func(t *testing.T) {
 			resourceMap := make(map[string]string)
 			for _, re := range tc.resources {
-				err := populateResourceMap([]byte(re), resourceMap)
+				err := populateResourceMap([]byte(re), resourceMap, defaultNameSpace)
 				assert.Nil(t, err)
 			}
 
@@ -565,13 +564,13 @@ metadata:
 kind: Service
 metadata:
   name: my-service`,
-			expected: "default/my-service",
+			expected: fmt.Sprintf("%s/my-service", defaultNameSpace),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			resourceName, err := getResourceName(tc.yaml)
+			resourceName, err := getResourceName(tc.yaml, defaultNameSpace)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected, resourceName, "Extracted resource name should match expected")
 		})
