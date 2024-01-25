@@ -309,7 +309,7 @@ func getCommitHashAndRepo() (*git.Repository, string, error) {
 	}
 
 	err = w.Checkout(&git.CheckoutOptions{
-		Branch: "main",
+		Branch: "master",
 		Force:  true,
 	})
 	if err != nil {
