@@ -63,13 +63,16 @@ type PatchedResource struct {
 	After  map[string]string
 }
 
+// Kubernetes Yaml Resource structs
+
 type KubernetesResource struct {
-	APIVersion string `yaml:"apiVersion"`
-	Kind       string `yaml:"kind"`
-	Metadata   struct {
-		Name      string `yaml:"name"`
-		Namespace string `yaml:"namespace"` // TODO : what if namespace is not present
-	} `yaml:"metadata"`
+	APIVersion string   `yaml:"apiVersion"`
+	Kind       string   `yaml:"kind"`
+	Metadata   MetaData `yaml:"metadata"`
+}
+type MetaData struct {
+	Name      string `yaml:"name"`
+	Namespace string `yaml:"namespace"`
 }
 
 func watchRepo(ctx context.Context, restConfig *rest.Config, gitSync *v1.GitSync, repo *v1.RepositoryPath, namespace string) error {
@@ -167,7 +170,7 @@ func watchRepo(ctx context.Context, restConfig *rest.Config, gitSync *v1.GitSync
 				}
 
 				for key, afterValue := range patchedResources.After {
-					namespace := strings.Split(key, "-")[0]
+					namespace := strings.Split(key, "/")[0]
 					if beforeValue, ok := patchedResources.Before[key]; ok {
 						if beforeValue != afterValue {
 							err := k8sClient.ApplyResource([]byte(afterValue), namespace)
@@ -254,40 +257,28 @@ func CheckForRepoUpdates(r *git.Repository, repo *v1.RepositoryPath, status *v1.
 		//if file exists in both [from] and [to] its modified ,if it exists in [to] its newly added and if it only exists in [from] its deleted
 		for _, filePatch := range patch.FilePatches() {
 			from, to := filePatch.Files()
-			if from != nil && to != nil {
-				finalContent, err := getBlobFileContents(r, to)
-				if err != nil {
-					return patchedResources, err
-				}
-				err = populateResourceMap(finalContent, afterMap)
-				if err != nil {
-					return PatchedResource{}, err
-				}
+			if from != nil {
 				initialContent, err := getBlobFileContents(r, from)
 				if err != nil {
+					logger.Errorw("failed to get  initial content", "err", err.Error(), "repo", repo.RepoUrl)
 					return patchedResources, err
 				}
 				err = populateResourceMap(initialContent, beforeMap)
 				if err != nil {
+					logger.Errorw("failed to populate resource map", "err", err.Error(), "repo", repo.RepoUrl)
 					return PatchedResource{}, err
 				}
+			}
+			if to != nil {
+				finalContent, err := getBlobFileContents(r, to)
+				if err != nil {
+					logger.Errorw("failed to get  final content", "err", err.Error(), "repo", repo.RepoUrl)
 
-			} else if from != nil {
-				contents, err := getBlobFileContents(r, from)
-				if err != nil {
 					return patchedResources, err
 				}
-				err = populateResourceMap(contents, beforeMap)
+				err = populateResourceMap(finalContent, afterMap)
 				if err != nil {
-					return PatchedResource{}, err
-				}
-			} else if to != nil {
-				contents, err := getBlobFileContents(r, from)
-				if err != nil {
-					return patchedResources, err
-				}
-				err = populateResourceMap(contents, afterMap)
-				if err != nil {
+					logger.Errorw("failed to populate resource map", "err", err.Error(), "repo", repo.RepoUrl)
 					return PatchedResource{}, err
 				}
 			}
@@ -334,7 +325,7 @@ func getResourceName(yamlContent string) (string, error) {
 	if namespace == "" {
 		namespace = "default"
 	}
-	return namespace + "-" + resource.Metadata.Name, nil
+	return namespace + "/" + resource.Metadata.Name, nil
 }
 
 // retrieves a specific tree (or subtree) located at a given path within a specific commit in a Git repository

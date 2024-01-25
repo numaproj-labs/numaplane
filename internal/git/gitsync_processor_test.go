@@ -2,9 +2,21 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"math"
+	"math/rand"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/cache"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/storage/filesystem"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/storage/memory"
@@ -16,14 +28,51 @@ import (
 	"github.com/numaproj-labs/numaplane/tests/utils"
 )
 
-/*
+const (
+	remoteRepo = "temp/remote"
+	localRepo  = "temp/local"
+)
 
 const (
 	fileNameToBeWatched = "k8.yaml"
 	path                = "config"
 )
 
-*/
+var kubernetesYamlString = `apiVersion: v1
+kind: Service
+metadata:
+  name: my-nginx-svc
+  labels:
+    app: nginx
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+  selector:
+    app: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-nginx
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+`
 
 func Test_watchRepo(t *testing.T) {
 	testCases := []struct {
@@ -135,80 +184,76 @@ func Test_watchRepo(t *testing.T) {
 	}
 }
 
-/*
-	func updateFileInBranch(repo *git.Repository, branchName, fileName, content string, author *object.Signature, tagName string) error {
-		branchRef, err := repo.Reference(plumbing.NewBranchReferenceName(branchName), true)
-		if err != nil {
-			return fmt.Errorf("could not find branch: %v", err.Error())
-		}
-
-		w, err := repo.Worktree()
-		if err != nil {
-			return fmt.Errorf("could not get working tree: %v", err.Error())
-		}
-
-		err = w.Checkout(&git.CheckoutOptions{
-			Branch: branchRef.Name(),
-			Force:  true,
-		})
-		if err != nil {
-			return fmt.Errorf("could not checkout branch: %v", err)
-		}
-
-		filePath := w.Filesystem.Join("temp", fileName)
-
-		// Read the existing content from the file
-		existingContent, err := os.ReadFile(filePath)
-		if err != nil {
-			return fmt.Errorf("could not read existing file: %v", err)
-		}
-		combinedContent := append(existingContent, []byte(content)...)
-		err = os.WriteFile(filePath, combinedContent, 0644)
-		if err != nil {
-			return fmt.Errorf("could not write to file: %v", err)
-		}
-
-		_, err = w.Add(fileName)
-		if err != nil {
-			return fmt.Errorf("could not stage file: %v", err)
-		}
-
-		commit, err := w.Commit("Update file "+fileName, &git.CommitOptions{
-			Author: author,
-		})
-		if err != nil {
-			return fmt.Errorf("could not commit changes: %v", err)
-		}
-
-		_, err = repo.CreateTag(tagName, commit, &git.CreateTagOptions{
-			Message: "Tag for " + fileName,
-			Tagger:  author,
-		})
-		if err != nil {
-			return fmt.Errorf("could not create tag: %v", err)
-		}
-
-		err = repo.Push(&git.PushOptions{
-			RemoteName: "origin",
-			RefSpecs: []config.RefSpec{
-				config.RefSpec(branchRef.Name() + ":" + branchRef.Name()),
-				config.RefSpec("refs/tags/" + tagName + ":refs/tags/" + tagName),
-			},
-			Auth: &http.BasicAuth{
-				Username: "shubhamdixit863",
-				Password: "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",
-			},
-		})
-		if err != nil {
-			if err == git.NoErrAlreadyUpToDate {
-				return fmt.Errorf("already up-to-date %s", err.Error())
-			} else {
-				return fmt.Errorf("could not push to remote: %v", err)
-			}
-		}
-		return nil
+func updateFileInBranch(repo *git.Repository, branchName, fileName, content string, author *object.Signature, tagName string) error {
+	branchRef, err := repo.Reference(plumbing.NewBranchReferenceName(branchName), true)
+	if err != nil {
+		return fmt.Errorf("could not find branch: %v", err.Error())
 	}
 
+	w, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("could not get working tree: %v", err.Error())
+	}
+
+	err = w.Checkout(&git.CheckoutOptions{
+		Branch: branchRef.Name(),
+		Force:  true,
+	})
+	if err != nil {
+		return fmt.Errorf("could not checkout branch: %v", err)
+	}
+
+	filePath := w.Filesystem.Join(localRepo, fileName)
+
+	// Read the existing content from the file
+	existingContent, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("could not read existing file: %v", err)
+	}
+	combinedContent := append(existingContent, []byte(content)...)
+	err = os.WriteFile(filePath, combinedContent, 0644)
+	if err != nil {
+		return fmt.Errorf("could not write to file: %v", err)
+	}
+
+	_, err = w.Add(fileName)
+	if err != nil {
+		return fmt.Errorf("could not stage file: %v", err)
+	}
+
+	commit, err := w.Commit("Update file "+fileName, &git.CommitOptions{
+		Author: author,
+	})
+	if err != nil {
+		return fmt.Errorf("could not commit changes: %v", err)
+	}
+
+	_, err = repo.CreateTag(tagName, commit, &git.CreateTagOptions{
+		Message: "Tag for " + fileName,
+		Tagger:  author,
+	})
+	if err != nil {
+		return fmt.Errorf("could not create tag: %v", err)
+	}
+
+	err = repo.Push(&git.PushOptions{
+		RemoteName: "origin",
+		RefSpecs: []config.RefSpec{
+			config.RefSpec(branchRef.Name() + ":" + branchRef.Name()),
+			config.RefSpec("refs/tags/" + tagName + ":refs/tags/" + tagName),
+		},
+	})
+	if err != nil {
+		if err == git.NoErrAlreadyUpToDate {
+			return fmt.Errorf("already up-to-date %s", err.Error())
+		} else {
+			return fmt.Errorf("could not push to remote: %v", err)
+		}
+	}
+	return nil
+}
+
+/*
 	func getCommitHashAndRepo() (*git.Repository, string, error) {
 		r, err := git.PlainClone("temp", false, &git.CloneOptions{
 			URL:          "https://github.com/shubhamdixit863/testingrepo",
@@ -226,6 +271,113 @@ func Test_watchRepo(t *testing.T) {
 		return r, h.String(), nil
 	}
 */
+func getCommitHashAndRepo() (*git.Repository, string, error) {
+	_, err := git.Init(filesystem.NewStorage(osfs.New(remoteRepo), cache.NewObjectLRUDefault()), nil)
+	if err != nil {
+		log.Println("error initializing remote", err)
+		return nil, "", err
+	}
+
+	r, err := git.PlainInit(localRepo, false)
+	if err != nil {
+		log.Println("error initializing local", err)
+
+		return nil, "", err
+	}
+
+	absolutePath, err := filepath.Abs(remoteRepo)
+	if err != nil {
+		log.Println("error getting absolute path ", err)
+
+		return nil, "", err
+	}
+
+	_, err = r.CreateRemote(&config.RemoteConfig{
+		Name: "origin",
+		URLs: []string{fmt.Sprintf("file://%s", absolutePath)},
+	})
+	if err != nil {
+		log.Println("error creating remote", err)
+
+		return nil, "", err
+	}
+
+	w, err := r.Worktree()
+	if err != nil {
+		log.Println("error getting work tree", err)
+		return nil, "", err
+	}
+
+	err = w.Checkout(&git.CheckoutOptions{
+		Branch: "main",
+		Force:  true,
+	})
+	if err != nil {
+		log.Println("error checking out", err)
+		return nil, "", err
+	}
+
+	directory := filepath.Join(localRepo, "config")
+	filename := filepath.Join(directory, "k8.yaml")
+
+	err = os.MkdirAll(directory, 0755)
+	if err != nil {
+		log.Println("error creating directory", err)
+		return nil, "", err
+	}
+	err = os.WriteFile(filename, []byte(""), 0644)
+	if err != nil {
+		log.Println(err)
+
+		return nil, "", err
+	}
+
+	// Add the file and commit
+	_, err = w.Add("config/k8.yaml")
+	if err != nil {
+		log.Println("error adding file", err)
+
+		return nil, "", err
+	}
+	commit, err := w.Commit("Initial commit", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "test",
+			Email: "test@test.com",
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		log.Println(err)
+
+		return nil, "", err
+	}
+
+	log.Println(commit)
+	// push to main branch in remote
+	branch := "master"
+	branchRe := fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch)
+	err = r.Push(&git.PushOptions{
+		RemoteName: "origin",
+		RefSpecs: []config.RefSpec{
+			config.RefSpec(branchRe),
+		},
+	})
+	if err != nil {
+		log.Println("error pushing to remote", err)
+
+		return nil, "", err
+	}
+
+	h, err := r.ResolveRevision("master")
+	if err != nil {
+		log.Println("reference resolving issue", err)
+
+		return nil, "", err
+	}
+
+	return r, h.String(), nil
+}
+
 func TestGetLatestCommit(t *testing.T) {
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:          "https://github.com/shubhamdixit863/testingrepo",
@@ -238,7 +390,6 @@ func TestGetLatestCommit(t *testing.T) {
 	assert.Equal(t, 40, len(commit.String()))
 }
 
-/*
 func TestCheckForRepoUpdatesBranch(t *testing.T) {
 	source := rand.NewSource(time.Now().UnixNano())
 	rng := rand.New(source)
@@ -250,17 +401,18 @@ func TestCheckForRepoUpdatesBranch(t *testing.T) {
 
 	signature := &object.Signature{
 		Name:  "test",
-		Email: "shubhamdixit863@gmail.com",
+		Email: "test@test.com",
 		When:  time.Now(),
 	}
-	err = updateFileInBranch(r, "main", fmt.Sprintf("%s/%s", path, fileNameToBeWatched), "test 12-2-2 test", signature, tag)
+	err = updateFileInBranch(r, "master", fmt.Sprintf("%s/%s", path, fileNameToBeWatched), kubernetesYamlString, signature, tag)
 	assert.Nil(t, err)
-
+	absolutePath, err := filepath.Abs(remoteRepo)
+	assert.Nil(t, err)
 	path := &v1.RepositoryPath{
 		Name:           "test",
-		RepoUrl:        "https://github.com/shubhamdixit863/testingrepo",
+		RepoUrl:        fmt.Sprintf("file:///%s", absolutePath),
 		Path:           "config",
-		TargetRevision: "main",
+		TargetRevision: "master",
 	}
 
 	commitStatus := make(map[string]v1.CommitStatus)
@@ -277,8 +429,9 @@ func TestCheckForRepoUpdatesBranch(t *testing.T) {
 		CommitStatus: commitStatus,
 	}
 
-	_, err = CheckForRepoUpdates(r, path, status, context.Background())
+	patchedContent, err := CheckForRepoUpdates(r, path, status, context.Background())
 	assert.Nil(t, err)
+	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After["default/my-nginx-svc"], patchedContent.After["default/my-nginx"]))
 
 	err = os.RemoveAll("temp")
 	assert.Nil(t, err)
@@ -296,15 +449,18 @@ func TestCheckForRepoUpdatesVersion(t *testing.T) {
 
 	signature := &object.Signature{
 		Name:  "test",
-		Email: "shubhamdixit863@gmail.com",
+		Email: "test@test.com",
 		When:  time.Now(),
 	}
-	err = updateFileInBranch(r, "main", fmt.Sprintf("%s/%s", path, fileNameToBeWatched), "test 12-2-2 test", signature, tag)
+	err = updateFileInBranch(r, "master", fmt.Sprintf("%s/%s", path, fileNameToBeWatched), kubernetesYamlString, signature, tag)
+	assert.Nil(t, err)
+	absolutePath, err := filepath.Abs(remoteRepo)
+
 	assert.Nil(t, err)
 
 	path := &v1.RepositoryPath{
 		Name:           "test",
-		RepoUrl:        "https://github.com/shubhamdixit863/testingrepo",
+		RepoUrl:        fmt.Sprintf("file:///%s", absolutePath),
 		Path:           "config",
 		TargetRevision: tag,
 	}
@@ -323,16 +479,13 @@ func TestCheckForRepoUpdatesVersion(t *testing.T) {
 		CommitStatus: commitStatus,
 	}
 
-	_, err = CheckForRepoUpdates(r, path, status, context.Background())
+	patchedContent, err := CheckForRepoUpdates(r, path, status, context.Background())
 	assert.Nil(t, err)
-
+	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After["default/my-nginx-svc"], patchedContent.After["default/my-nginx"]))
 	err = os.RemoveAll("temp")
 	assert.Nil(t, err)
 
 }
-
-
-*/
 
 func TestPopulateResourceMap(t *testing.T) {
 	testCases := []struct {
@@ -374,7 +527,7 @@ metadata:
   name: my-service
   namespace: numaflow`,
 			},
-			expected: map[string]string{"numaflow-frontend": `apiVersion: v1
+			expected: map[string]string{"numaflow/frontend": `apiVersion: v1
 kind: Pod
 metadata:
   name: frontend
@@ -398,7 +551,7 @@ spec:
           cpu: "250m"
         limits:
           memory: "128Mi"
-          cpu: "500m"`, "numaflow-my-service": `apiVersion: v1
+          cpu: "500m"`, "numaflow/my-service": `apiVersion: v1
 kind: Service
 metadata:
   name: my-service
@@ -431,7 +584,7 @@ kind: Pod
 metadata:
   name: frontend
   namespace: production`,
-			expected: "production-frontend",
+			expected: "production/frontend",
 		},
 		{
 			name: "Service without namespace",
@@ -439,7 +592,7 @@ metadata:
 kind: Service
 metadata:
   name: my-service`,
-			expected: "default-my-service",
+			expected: "default/my-service",
 		},
 	}
 
