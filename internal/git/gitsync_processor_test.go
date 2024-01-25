@@ -253,24 +253,6 @@ func updateFileInBranch(repo *git.Repository, branchName, fileName, content stri
 	return nil
 }
 
-/*
-	func getCommitHashAndRepo() (*git.Repository, string, error) {
-		r, err := git.PlainClone("temp", false, &git.CloneOptions{
-			URL:          "https://github.com/shubhamdixit863/testingrepo",
-			SingleBranch: true,
-		})
-		if err != nil {
-			return nil, "", err
-		}
-
-		// The revision can be a branch, a tag, or a commit hash
-		h, err := r.ResolveRevision("main")
-		if err != nil {
-			return nil, "", err
-		}
-		return r, h.String(), nil
-	}
-*/
 func getCommitHashAndRepo() (*git.Repository, string, error) {
 	_, err := git.Init(filesystem.NewStorage(osfs.New(remoteRepo), cache.NewObjectLRUDefault()), nil)
 	if err != nil {
@@ -305,15 +287,6 @@ func getCommitHashAndRepo() (*git.Repository, string, error) {
 	w, err := r.Worktree()
 	if err != nil {
 		log.Println("error getting work tree", err)
-		return nil, "", err
-	}
-
-	err = w.Checkout(&git.CheckoutOptions{
-		Branch: "master",
-		Force:  true,
-	})
-	if err != nil {
-		log.Println("error checking out", err)
 		return nil, "", err
 	}
 
