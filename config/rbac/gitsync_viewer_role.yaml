@@ -12,7 +12,7 @@ metadata:
   name: gitsync-viewer-role
 rules:
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - gitsyncs
   verbs:
@@ -20,7 +20,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - gitsyncs/status
   verbs:
