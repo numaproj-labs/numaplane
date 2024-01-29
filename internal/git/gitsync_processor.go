@@ -10,14 +10,16 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/go-git/go-git/v5/plumbing/format/diff"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -75,22 +77,20 @@ type MetaData struct {
 	Namespace string `yaml:"namespace"`
 }
 
-func watchRepo(ctx context.Context, restConfig *rest.Config, gitSync *v1.GitSync, repo *v1.RepositoryPath, namespace string) error {
-	logger := logging.FromContext(ctx)
+func cloneRepo(repo *v1.RepositoryPath) (*git.Repository, error) {
+	return git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
+		URL: repo.RepoUrl,
+	})
+}
+
+func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, restConfig *rest.Config, k8Client client.Client, repo *v1.RepositoryPath, namespace string) error {
+	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name,
+		"RepositoryPath Name", repo.Name)
 
 	// create kubernetes client
-	k8sClient, err := kubernetes.NewClient(restConfig, logger)
+	client, err := kubernetes.NewClient(restConfig, logger)
 	if err != nil {
 		logger.Errorw("cannot create kubernetes client", "err", err)
-		return err
-	}
-
-	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
-		URL:          repo.RepoUrl,
-		SingleBranch: false,
-	})
-	if err != nil {
-		logger.Errorw("error cloning the repository", "err", err, "repo", repo.RepoUrl)
 		return err
 	}
 
@@ -107,64 +107,96 @@ func watchRepo(ctx context.Context, restConfig *rest.Config, gitSync *v1.GitSync
 	}
 
 	// The revision can be a branch, a tag, or a commit hash
-	h, err := r.ResolveRevision(plumbing.Revision(repo.TargetRevision))
+	hash, err := r.ResolveRevision(plumbing.Revision(repo.TargetRevision))
 	if err != nil {
 		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err, "repo", repo.RepoUrl)
 		return err
 	}
 	// TODO save the commit hash in the gitSync status
 
-	// Retrieving the commit object matching the hash.
-	commit, err := r.CommitObject(*h)
-	if err != nil {
-		logger.Errorw("error checkout the commit", "hash", h.String(), "err", err)
-		return err
+	namespacedName := types.NamespacedName{
+		Namespace: gitSync.Namespace,
+		Name:      gitSync.Name,
 	}
-
-	// Retrieve the tree from the commit.
-	tree, err := commit.Tree()
-	if err != nil {
-		logger.Errorw("error get the commit tree", "err", err)
-		return err
-	}
-
-	if !isRootDir(repo.Path) {
-		// Locate the tree with the given path.
-		tree, err = tree.Tree(repo.Path)
-		if err != nil {
-			logger.Errorw("error locate the path", "err", err)
+	gitSync = &v1.GitSync{}
+	if err = k8Client.Get(ctx, namespacedName, gitSync); err != nil {
+		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
+		if apierrors.IsNotFound(err) {
+			return nil
+		} else {
+			logger.Errorw("Unable to get GitSync", "err", err)
 			return err
 		}
 	}
-
-	// Read all the files under the path and apply each one respectively.
-	err = tree.Files().ForEach(func(f *object.File) error {
-		logger.Debugw("read file", "file_name", f.Name)
-		//TODO: this currently assumes that one file contains just one manifest - modify for multiple
-		manifest, err := f.Contents()
+	val, ok := gitSync.Status.CommitStatus[repo.Name]
+	// Only create the resources for the first time if not created yet.
+	// Otherwise, monitoring with intervals.
+	if !ok {
+		// TODO: call getCommitTreeAtPath() here instead
+		// Retrieving the commit object matching the hash.
+		commit, err := r.CommitObject(*hash)
 		if err != nil {
-			logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
+			logger.Errorw("error checkout the commit", "hash", hash.String(), "err", err)
 			return err
 		}
 
-		// Apply manifest in cluster
-		return k8sClient.ApplyResource([]byte(manifest), namespace)
-	})
-	if err != nil {
-		return err
+		// Retrieve the tree from the commit.
+		tree, err := commit.Tree()
+		if err != nil {
+			logger.Errorw("error get the commit tree", "err", err)
+			return err
+		}
+
+		if !isRootDir(repo.Path) {
+			// Locate the tree with the given path.
+			tree, err = tree.Tree(repo.Path)
+			if err != nil {
+				logger.Errorw("error locate the path", "repository path", repo.Path, "err", err)
+				return err
+			}
+		}
+
+		// Read all the files under the path and apply each one respectively.
+		err = tree.Files().ForEach(func(f *object.File) error {
+			logger.Debugw("read file", "file_name", f.Name)
+			// TODO: this currently assumes that one file contains just one manifest - modify for multiple
+			manifest, err := f.Contents()
+			if err != nil {
+				logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
+				return err
+			}
+
+			// Apply manifest in cluster
+			return client.ApplyResource([]byte(manifest), namespace)
+		})
+		if err != nil {
+			return err
+		}
+
+		return updateCommitStatus(ctx, k8Client, namespacedName, hash.String(), repo, logger)
 	}
 
+	// no monitoring if targetRevision is a specific commit hash
 	if isCommitSHA(repo.TargetRevision) {
-		// TODO: no monitoring
-		logger.Debug("no monitoring")
-
+		if val.Hash != hash.String() {
+			logger.Errorw(
+				"synced commit hash doesn't match desired one",
+				"synced commit hash", val.Hash,
+				"desired commit hash", hash.String())
+			return err
+		}
 	} else {
 		ticker := time.NewTicker(timeInterval * time.Minute)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				patchedResources, err := CheckForRepoUpdates(ctx, r, repo, &gitSync.Status, namespace)
+				patchedResources, recentHash, err := CheckForRepoUpdates(ctx, r, repo, &gitSync.Status, namespace)
+				if err != nil {
+					return err
+				}
+
+				err = updateCommitStatus(ctx, k8Client, namespacedName, recentHash, repo, logger)
 				if err != nil {
 					return err
 				}
@@ -173,14 +205,14 @@ func watchRepo(ctx context.Context, restConfig *rest.Config, gitSync *v1.GitSync
 					namespace := strings.Split(key, "/")[0]
 					if beforeValue, ok := patchedResources.Before[key]; ok {
 						if beforeValue != afterValue {
-							err := k8sClient.ApplyResource([]byte(afterValue), namespace)
+							err := client.ApplyResource([]byte(afterValue), namespace)
 							if err != nil {
 								return err
 							}
 						}
 					} else {
 						// Newly Added resource
-						err := k8sClient.ApplyResource([]byte(afterValue), namespace)
+						err := client.ApplyResource([]byte(afterValue), namespace)
 						if err != nil {
 							return err
 						}
@@ -193,7 +225,7 @@ func watchRepo(ctx context.Context, restConfig *rest.Config, gitSync *v1.GitSync
 						return err
 					}
 					if _, ok := patchedResources.After[key]; !ok {
-						err := k8sClient.DeleteResource(resource.Kind, resource.Metadata.Name, resource.Metadata.Namespace, metav1.DeleteOptions{})
+						err := client.DeleteResource(resource.Kind, resource.Metadata.Name, resource.Metadata.Namespace, metav1.DeleteOptions{})
 						if err != nil {
 							return err
 						}
@@ -209,47 +241,41 @@ func watchRepo(ctx context.Context, restConfig *rest.Config, gitSync *v1.GitSync
 	return nil
 }
 
-// this check for file changes in the repo by comparing the old commit  hash with new commit hash
+// this check for file changes in the repo by comparing the old commit  hash with new commit hash and returns the recent hash with PatchedResources map
 
-func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.RepositoryPath, status *v1.GitSyncStatus, defaultNameSpace string) (PatchedResource, error) {
+func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.RepositoryPath, status *v1.GitSyncStatus, defaultNameSpace string) (PatchedResource, string, error) {
 	var patchedResources PatchedResource
+	var recentHash string
 	logger := logging.FromContext(ctx)
 	if err := fetchUpdates(r); err != nil {
 		logger.Errorw("error checking for updates in the github repo", "err", err, "repo", repo.RepoUrl)
-		return patchedResources, err
+		return patchedResources, recentHash, err
 	}
 	remoteRef, err := getLatestCommit(r, repo.TargetRevision)
 	if err != nil {
 		logger.Errorw("failed to get latest commits in the github repo", "err", err, "repo", repo.RepoUrl)
-		return patchedResources, err
+		return patchedResources, recentHash, err
 	}
 	lastCommitStatus := status.CommitStatus[repo.Name]
 	if remoteRef.String() != lastCommitStatus.Hash {
-
-		status.CommitStatus[repo.Name] = v1.CommitStatus{
-			Hash:     remoteRef.String(),
-			Synced:   true,
-			SyncTime: metav1.Time{Time: time.Now()},
-			Error:    "",
-		}
-
+		recentHash = remoteRef.String()
 		lastTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, plumbing.NewHash(lastCommitStatus.Hash))
 		if err != nil {
 			logger.Errorw("failed to  get last commit", "err", err, "repo", repo.RepoUrl)
-			return patchedResources, err
+			return patchedResources, recentHash, err
 		}
 
 		recentTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, *remoteRef)
 
 		if err != nil {
 			logger.Errorw("failed to  recent commit", "err", err, "repo", repo.RepoUrl)
-			return patchedResources, err
+			return patchedResources, recentHash, err
 		}
 
 		patch, err := lastTreeForThePath.Patch(recentTreeForThePath)
 		if err != nil {
 			logger.Errorw("failed to patch commit", "err", err, "repo", repo.RepoUrl)
-			return patchedResources, err
+			return patchedResources, recentHash, err
 		}
 
 		beforeMap := make(map[string]string)
@@ -261,12 +287,12 @@ func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.Reposi
 				initialContent, err := getBlobFileContents(r, from)
 				if err != nil {
 					logger.Errorw("failed to get  initial content", "err", err.Error(), "repo", repo.RepoUrl)
-					return patchedResources, err
+					return patchedResources, recentHash, err
 				}
 				err = populateResourceMap(initialContent, beforeMap, defaultNameSpace)
 				if err != nil {
 					logger.Errorw("failed to populate resource map", "err", err.Error(), "repo", repo.RepoUrl)
-					return PatchedResource{}, err
+					return PatchedResource{}, recentHash, err
 				}
 			}
 			if to != nil {
@@ -274,12 +300,12 @@ func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.Reposi
 				if err != nil {
 					logger.Errorw("failed to get  final content", "err", err.Error(), "repo", repo.RepoUrl)
 
-					return patchedResources, err
+					return patchedResources, recentHash, err
 				}
 				err = populateResourceMap(finalContent, afterMap, defaultNameSpace)
 				if err != nil {
 					logger.Errorw("failed to populate resource map", "err", err.Error(), "repo", repo.RepoUrl)
-					return PatchedResource{}, err
+					return PatchedResource{}, recentHash, err
 				}
 			}
 		}
@@ -288,7 +314,7 @@ func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.Reposi
 		patchedResources.After = afterMap
 	}
 
-	return patchedResources, nil
+	return patchedResources, recentHash, nil
 }
 
 // populateResourceMap fills the resourceMap with resource names as keys and their string representations as values.
@@ -369,6 +395,44 @@ func fetchUpdates(repo *git.Repository) error {
 	})
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return err
+
+	}
+	return nil
+}
+
+func updateCommitStatus(
+	ctx context.Context, k8Client client.Client,
+	namespacedName types.NamespacedName,
+	hash string,
+	repo *v1.RepositoryPath,
+	logger *zap.SugaredLogger,
+) error {
+
+	commitStatus := v1.CommitStatus{
+		Hash:     hash,
+		Synced:   true,
+		SyncTime: metav1.NewTime(time.Now()),
+	}
+
+	gitSync := &v1.GitSync{}
+	if err := k8Client.Get(ctx, namespacedName, gitSync); err != nil {
+		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
+		if apierrors.IsNotFound(err) {
+			return nil
+		} else {
+			logger.Errorw("Unable to get GitSync", "err", err)
+			return err
+		}
+	}
+	if gitSync.Status.CommitStatus == nil {
+		gitSync.Status.CommitStatus = make(map[string]v1.CommitStatus)
+	}
+	gitSync.Status.CommitStatus[repo.Name] = commitStatus
+	// It's Ok to fail here as upon errors the whole process will be retried
+	// until a CommitStatus is persisted.
+	if err := k8Client.Status().Update(ctx, gitSync); err != nil {
+		logger.Errorw("Error Updating GitSync Status", "err", err)
+		return err
 	}
 	return nil
 }
@@ -396,10 +460,18 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client clie
 		gitCh := make(chan Message, messageChanLength)
 		channels[repo.Name] = gitCh
 		go func(repo *v1.RepositoryPath) {
-			err := watchRepo(ctx, config, nil, repo, namespace) //
+
+			r, err := cloneRepo(repo)
 			if err != nil {
-				// TODO: Retry on non-fatal errors
-				logger.Errorw("error watching the repo", "err", err)
+				logger.Errorw("error cloning the repo", "err", err)
+			} else {
+				for ok := true; ok; {
+					err = watchRepo(ctx, r, gitSync, config, k8client, repo, namespace)
+					// TODO: terminate the goroutine on fatal errors from 'watchRepo'
+					if err != nil {
+						logger.Errorw("error watching the repo", "err", err)
+					}
+				}
 			}
 		}(&repo)
 	}
