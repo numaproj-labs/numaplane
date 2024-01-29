@@ -1,4 +1,4 @@
-apiVersion: numaplane.numaproj.io.github.com.numaproj-labs/v1
+apiVersion: numaplane.numaproj.io/v1alpha1
 kind: GitSync
 metadata:
   labels:

@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	v1 "github.com/numaproj-labs/numaplane/api/v1"
+	v1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 )
 
 func init() {
