@@ -2,7 +2,7 @@
 # Image URL to use all building/pushing image targets
 IMG ?= numaplane-controller
 VERSION ?= latest
-# Default cluster name where pumaplane get deployed, update it as needed.
+# Default cluster name where numaplane get deployed, update it as needed.
 CLUSTER_NAME ?= "staging-usw2-k8s"
 #TODO: add back once ready to push to quay.io
 #IMAGE_NAMESPACE ?= quay.io/numaproj
