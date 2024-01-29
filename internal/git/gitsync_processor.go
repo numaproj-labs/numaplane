@@ -105,9 +105,8 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 	if err = remote.Fetch(opts); err != nil {
 		return err
 	}
-
 	// The revision can be a branch, a tag, or a commit hash
-	hash, err := r.ResolveRevision(plumbing.Revision(repo.TargetRevision))
+	hash, err := getLatestCommitHash(r, repo.TargetRevision)
 	if err != nil {
 		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err, "repo", repo.RepoUrl)
 		return err
@@ -251,7 +250,7 @@ func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.Reposi
 		logger.Errorw("error checking for updates in the github repo", "err", err, "repo", repo.RepoUrl)
 		return patchedResources, recentHash, err
 	}
-	remoteRef, err := getLatestCommit(r, repo.TargetRevision)
+	remoteRef, err := getLatestCommitHash(r, repo.TargetRevision)
 	if err != nil {
 		logger.Errorw("failed to get latest commits in the github repo", "err", err, "repo", repo.RepoUrl)
 		return patchedResources, recentHash, err
@@ -437,8 +436,8 @@ func updateCommitStatus(
 	return nil
 }
 
-// getLatestCommit retrieves the latest commit hash of a given branch or tag
-func getLatestCommit(repo *git.Repository, refName string) (*plumbing.Hash, error) {
+// getLatestCommitHash retrieves the latest commit hash of a given branch or tag
+func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, error) {
 	commitHash, err := repo.ResolveRevision(plumbing.Revision(refName))
 	if err != nil {
 		return nil, err

@@ -289,13 +289,13 @@ func getCommitHashAndRepo() (*git.Repository, string, error) {
 	return r, h.String(), nil
 }
 
-func TestGetLatestCommit(t *testing.T) {
+func TestGetLatestCommitHash(t *testing.T) {
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:          "https://github.com/shubhamdixit863/testingrepo",
 		SingleBranch: true,
 	})
 	assert.Nil(t, err)
-	commit, err := getLatestCommit(r, "main")
+	commit, err := getLatestCommitHash(r, "main")
 	assert.Nil(t, err)
 	log.Println(commit.String())
 	assert.Equal(t, 40, len(commit.String()))
