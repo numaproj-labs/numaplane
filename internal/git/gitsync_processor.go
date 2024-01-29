@@ -200,40 +200,52 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 					return err
 				}
 
-				for key, afterValue := range patchedResources.After {
-					namespace := strings.Split(key, "/")[0]
-					if beforeValue, ok := patchedResources.Before[key]; ok {
-						if beforeValue != afterValue {
-							err := client.ApplyResource([]byte(afterValue), namespace)
-							if err != nil {
-								return err
-							}
-						}
-					} else {
-						// Newly Added resource
-						err := client.ApplyResource([]byte(afterValue), namespace)
-						if err != nil {
-							return err
-						}
-					}
-				}
-				// deleted resources
-				for key, beforeValue := range patchedResources.Before {
-					resource, err := yamlUnmarshal(beforeValue)
-					if err != nil {
-						return err
-					}
-					if _, ok := patchedResources.After[key]; !ok {
-						err := client.DeleteResource(resource.Kind, resource.Metadata.Name, resource.Metadata.Namespace, metav1.DeleteOptions{})
-						if err != nil {
-							return err
-						}
-					}
+				err = ApplyPatchToResources(patchedResources, client)
+				if err != nil {
+					return err
 				}
 
 			case <-ctx.Done():
 				logger.Debug("Context canceled, stopping updates check")
 				return nil
+			}
+		}
+	}
+	return nil
+}
+
+// ApplyPatchToResources applies changes to Kubernetes resources based on the provided PatchedResource.
+// It uses a Kubernetes client to apply changes to each resource and handles creation and deletion of resources as needed.
+
+func ApplyPatchToResources(patchedResources PatchedResource, client kubernetes.Client) error {
+	for key, afterValue := range patchedResources.After {
+		namespace := strings.Split(key, "/")[0]
+		if beforeValue, ok := patchedResources.Before[key]; ok {
+			if beforeValue != afterValue {
+				err := client.ApplyResource([]byte(afterValue), namespace)
+				if err != nil {
+					return errors.New("failed to apply resource: " + err.Error())
+				}
+			}
+		} else {
+			// Handle newly added resources
+			err := client.ApplyResource([]byte(afterValue), namespace)
+			if err != nil {
+				return errors.New("failed to apply new resource: " + err.Error())
+			}
+		}
+	}
+
+	// Handle deleted resources
+	for key, beforeValue := range patchedResources.Before {
+		resource, err := yamlUnmarshal(beforeValue)
+		if err != nil {
+			return errors.New("failed to unmarshal YAML: " + err.Error())
+		}
+		if _, ok := patchedResources.After[key]; !ok {
+			err := client.DeleteResource(resource.Kind, resource.Metadata.Name, resource.Metadata.Namespace, metav1.DeleteOptions{})
+			if err != nil {
+				return errors.New("failed to delete resource: " + err.Error())
 			}
 		}
 	}
