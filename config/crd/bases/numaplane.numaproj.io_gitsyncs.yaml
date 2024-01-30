@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.13.0
-  name: gitsyncs.numaplane.numaproj.io.github.com.numaproj-labs
+  name: gitsyncs.numaplane.numaproj.io
 spec:
-  group: numaplane.numaproj.io.github.com.numaproj-labs
+  group: numaplane.numaproj.io
   names:
     kind: GitSync
     listKind: GitSyncList
@@ -14,7 +14,7 @@ spec:
     singular: gitsync
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: GitSync is the Schema for the gitsyncs API

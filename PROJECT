@@ -9,12 +9,12 @@ projectName: numaplane
 repo: github.com/numaproj-labs/numaplane
 resources:
 - api:
-    crdVersion: v1
+    crdVersion: v1alpha1
     namespaced: true
   controller: true
   domain: github.com.numaproj-labs
   group: numaplane.numaproj.io
   kind: GitSync
-  path: github.com/numaproj-labs/numaplane/api/v1
-  version: v1
+  path: github.com/numaproj-labs/numaplane/api/v1alpha1
+  version: v1alpha1
 version: "3"

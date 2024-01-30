@@ -70,6 +70,9 @@ spec:
         - /manager
         args:
         - --leader-elect
+        env:
+          - name: CLUSTER_NAME
+            value: CLUSTER_NAME_VALUE # Replace it with the cluster name where numaplane will get deployed.
         image: numaplane-controller:latest
         name: manager
         securityContext:

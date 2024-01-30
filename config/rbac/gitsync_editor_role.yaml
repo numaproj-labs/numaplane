@@ -12,7 +12,7 @@ metadata:
   name: gitsync-editor-role
 rules:
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - gitsyncs
   verbs:
@@ -24,7 +24,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - gitsyncs/status
   verbs:

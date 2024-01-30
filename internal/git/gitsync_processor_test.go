@@ -27,7 +27,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	v1 "github.com/numaproj-labs/numaplane/api/v1"
+	v1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 )
 
 const (
