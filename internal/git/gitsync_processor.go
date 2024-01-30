@@ -2,12 +2,18 @@ package git
 
 import (
 	"context"
+	"errors"
+	"io"
 	"regexp"
+	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"go.uber.org/zap"
@@ -22,7 +28,10 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
 
-const messageChanLength = 5
+const (
+	messageChanLength = 5
+	timeInterval      = 3
+)
 
 type Message struct {
 	Updates bool
@@ -47,6 +56,25 @@ type GitSyncProcessor struct {
 	channels    map[string]chan Message
 	k8Client    client.Client
 	clusterName string
+}
+
+// stores the Patched files  and their data
+
+type PatchedResource struct {
+	Before map[string]string
+	After  map[string]string
+}
+
+// Kubernetes Yaml Resource structs
+
+type KubernetesResource struct {
+	APIVersion string   `yaml:"apiVersion"`
+	Kind       string   `yaml:"kind"`
+	Metadata   MetaData `yaml:"metadata"`
+}
+type MetaData struct {
+	Name      string `yaml:"name"`
+	Namespace string `yaml:"namespace"`
 }
 
 func cloneRepo(repo *v1.RepositoryPath) (*git.Repository, error) {
@@ -77,13 +105,13 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 	if err = remote.Fetch(opts); err != nil && err != git.NoErrAlreadyUpToDate {
 		return err
 	}
-
 	// The revision can be a branch, a tag, or a commit hash
-	hash, err := r.ResolveRevision(plumbing.Revision(repo.TargetRevision))
+	hash, err := getLatestCommitHash(r, repo.TargetRevision)
 	if err != nil {
-		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err)
+		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err, "repo", repo.RepoUrl)
 		return err
 	}
+	// TODO save the commit hash in the gitSync status
 
 	namespacedName := types.NamespacedName{
 		Namespace: gitSync.Namespace,
@@ -103,30 +131,11 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 	// Only create the resources for the first time if not created yet.
 	// Otherwise, monitoring with intervals.
 	if !ok {
-		// TODO: call getCommitTreeAtPath() here instead
 		// Retrieving the commit object matching the hash.
-		commit, err := r.CommitObject(*hash)
+		tree, err := getCommitTreeAtPath(r, repo.Path, *hash)
 		if err != nil {
-			logger.Errorw("error checkout the commit", "hash", hash.String(), "err", err)
 			return err
 		}
-
-		// Retrieve the tree from the commit.
-		tree, err := commit.Tree()
-		if err != nil {
-			logger.Errorw("error get the commit tree", "err", err)
-			return err
-		}
-
-		if !isRootDir(repo.Path) {
-			// Locate the tree with the given path.
-			tree, err = tree.Tree(repo.Path)
-			if err != nil {
-				logger.Errorw("error locate the path", "repository path", repo.Path, "err", err)
-				return err
-			}
-		}
-
 		// Read all the files under the path and apply each one respectively.
 		err = tree.Files().ForEach(func(f *object.File) error {
 			logger.Debugw("read file", "file_name", f.Name)
@@ -146,7 +155,6 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 
 		return updateCommitStatus(ctx, k8Client, namespacedName, hash.String(), repo, logger)
 	}
-
 	// no monitoring if targetRevision is a specific commit hash
 	if isCommitSHA(repo.TargetRevision) {
 		if val.Hash != hash.String() {
@@ -157,8 +165,231 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 			return err
 		}
 	} else {
-		// TODO: monitoring with intervals
-		logger.Debug("monitoring with intervals")
+		ticker := time.NewTicker(timeInterval * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				patchedResources, recentHash, err := CheckForRepoUpdates(ctx, r, repo, &gitSync.Status, namespace)
+				if err != nil {
+					return err
+				}
+
+				err = updateCommitStatus(ctx, k8Client, namespacedName, recentHash, repo, logger)
+				if err != nil {
+					return err
+				}
+				// recentHash would be an empty string if there is no update in the  repository
+				if len(recentHash) > 0 {
+					err = ApplyPatchToResources(patchedResources, client)
+					if err != nil {
+						return err
+					}
+
+				}
+			case <-ctx.Done():
+				logger.Debug("Context canceled, stopping updates check")
+				return nil
+			}
+		}
+	}
+	return nil
+}
+
+// ApplyPatchToResources applies changes to Kubernetes resources based on the provided PatchedResource.
+// It uses a Kubernetes client to apply changes to each resource and handles creation and deletion of resources as needed.
+
+func ApplyPatchToResources(patchedResources PatchedResource, client kubernetes.Client) error {
+	for key, afterValue := range patchedResources.After {
+		namespace := strings.Split(key, "/")[0]
+		if beforeValue, ok := patchedResources.Before[key]; ok {
+			if beforeValue != afterValue {
+				err := client.ApplyResource([]byte(afterValue), namespace)
+				if err != nil {
+					return errors.New("failed to apply resource: " + err.Error())
+				}
+			}
+		} else {
+			// Handle newly added resources
+			err := client.ApplyResource([]byte(afterValue), namespace)
+			if err != nil {
+				return errors.New("failed to apply new resource: " + err.Error())
+			}
+		}
+	}
+
+	// Handle deleted resources
+	for key, beforeValue := range patchedResources.Before {
+		resource, err := yamlUnmarshal(beforeValue)
+		if err != nil {
+			return errors.New("failed to unmarshal YAML: " + err.Error())
+		}
+		if _, ok := patchedResources.After[key]; !ok {
+			err := client.DeleteResource(resource.Kind, resource.Metadata.Name, resource.Metadata.Namespace, metav1.DeleteOptions{})
+			if err != nil {
+				return errors.New("failed to delete resource: " + err.Error())
+			}
+		}
+	}
+	return nil
+}
+
+// this check for file changes in the repo by comparing the old commit  hash with new commit hash and returns the recent hash with PatchedResources map
+
+func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.RepositoryPath, status *v1.GitSyncStatus, defaultNameSpace string) (PatchedResource, string, error) {
+	var patchedResources PatchedResource
+	var recentHash string
+	logger := logging.FromContext(ctx).With("RepositoryPath Name", repo.Name, "Repository Url", repo.RepoUrl)
+	if err := fetchUpdates(r); err != nil {
+		logger.Errorw("error checking for updates in the github repo", "err", err)
+		return patchedResources, recentHash, err
+	}
+	remoteRef, err := getLatestCommitHash(r, repo.TargetRevision)
+	if err != nil {
+		logger.Errorw("failed to get latest commits in the github repo", "err", err)
+		return patchedResources, recentHash, err
+	}
+	lastCommitStatus := status.CommitStatus[repo.Name]
+	if remoteRef.String() != lastCommitStatus.Hash {
+		recentHash = remoteRef.String()
+		lastTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, plumbing.NewHash(lastCommitStatus.Hash))
+		if err != nil {
+			logger.Errorw("failed to  get last commit", "err", err)
+			return patchedResources, recentHash, err
+		}
+
+		recentTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, *remoteRef)
+
+		if err != nil {
+			logger.Errorw("failed to  recent commit", "err", err)
+			return patchedResources, recentHash, err
+		}
+		// get the diff between the previous and current
+		difference, err := lastTreeForThePath.Patch(recentTreeForThePath)
+		if err != nil {
+			logger.Errorw("failed to take diff of commit", "err", err)
+			return patchedResources, recentHash, err
+		}
+
+		beforeMap := make(map[string]string)
+		afterMap := make(map[string]string)
+		//if file exists in both [from] and [to] its modified ,if it exists in [to] its newly added and if it only exists in [from] its deleted
+		for _, filePatch := range difference.FilePatches() {
+			from, to := filePatch.Files()
+			if from != nil {
+				initialContent, err := getBlobFileContents(r, from)
+				if err != nil {
+					logger.Errorw("failed to get  initial content", "err", err)
+					return patchedResources, recentHash, err
+				}
+				err = populateResourceMap(initialContent, beforeMap, defaultNameSpace)
+				if err != nil {
+					logger.Errorw("failed to populate resource map", "err", err)
+					return PatchedResource{}, recentHash, err
+				}
+			}
+			if to != nil {
+				finalContent, err := getBlobFileContents(r, to)
+				if err != nil {
+					logger.Errorw("failed to get  final content", "err", err)
+
+					return patchedResources, recentHash, err
+				}
+				err = populateResourceMap(finalContent, afterMap, defaultNameSpace)
+				if err != nil {
+					logger.Errorw("failed to populate resource map", "err", err)
+					return PatchedResource{}, recentHash, err
+				}
+			}
+		}
+		patchedResources.Before = beforeMap
+		patchedResources.After = afterMap
+	}
+	return patchedResources, recentHash, nil
+}
+
+// populateResourceMap fills the resourceMap with resource names as keys and their string representations as values.
+func populateResourceMap(content []byte, resourceMap map[string]string, defaultNameSpace string) error {
+	// split the string by ---
+	resources := strings.Split(string(content), "---")
+	for _, v := range resources {
+		name, err := getResourceName(v, defaultNameSpace)
+		if err != nil {
+			return err
+		}
+		resourceMap[name] = v
+	}
+	return nil
+}
+
+// unmarshalls yaml into Kubernetes Resource
+func yamlUnmarshal(yamlContent string) (KubernetesResource, error) {
+	var resource KubernetesResource
+	err := yaml.Unmarshal([]byte(yamlContent), &resource)
+	if err != nil {
+		return KubernetesResource{}, err
+	}
+	return resource, err
+}
+
+// getResourceName extracts the name and namespace of the Kubernetes resource from YAML content.
+func getResourceName(yamlContent string, defaultNameSpace string) (string, error) {
+	resource, err := yamlUnmarshal(yamlContent)
+	if err != nil {
+		return "", err
+	}
+	namespace := resource.Metadata.Namespace
+	if namespace == "" {
+		namespace = defaultNameSpace
+	}
+	return namespace + "/" + resource.Metadata.Name, nil
+}
+
+// retrieves a specific tree (or subtree) located at a given path within a specific commit in a Git repository
+func getCommitTreeAtPath(r *git.Repository, path string, hash plumbing.Hash) (*object.Tree, error) {
+	commit, err := r.CommitObject(hash)
+	if err != nil {
+		return nil, err
+	}
+	commitTree, err := commit.Tree()
+	if err != nil {
+		return nil, err
+	}
+	if !isRootDir(path) {
+		commitTreeForPath, err := commitTree.Tree(path)
+		if err != nil {
+			return nil, err
+		}
+		return commitTreeForPath, nil
+	}
+	return commitTree, nil
+}
+
+// gets the file content from the repository with file hash
+func getBlobFileContents(r *git.Repository, file diff.File) ([]byte, error) {
+	fileBlob, err := r.BlobObject(file.Hash())
+	if err != nil {
+		return nil, err
+	}
+	reader, err := fileBlob.Reader()
+	if err != nil {
+		return nil, err
+	}
+	fileContent, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	return fileContent, nil
+}
+
+// fetchUpdates fetches updates from the 'origin' remote, returning nil if already up-to-date or an error otherwise.
+func fetchUpdates(repo *git.Repository) error {
+	err := repo.Fetch(&git.FetchOptions{
+		RemoteName: "origin",
+	})
+	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+		return err
+
 	}
 	return nil
 }
@@ -200,9 +431,17 @@ func updateCommitStatus(
 	return nil
 }
 
+// getLatestCommitHash retrieves the latest commit hash of a given branch or tag
+func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, error) {
+	commitHash, err := repo.ResolveRevision(plumbing.Revision(refName))
+	if err != nil {
+		return nil, err
+	}
+	return commitHash, err
+}
+
 func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client client.Client, config *rest.Config, clusterName string) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
-
 	channels := make(map[string]chan Message)
 	namespace := gitSync.Spec.GetDestinationNamespace(clusterName)
 	processor := &GitSyncProcessor{
@@ -211,11 +450,11 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client clie
 		channels:    channels,
 		clusterName: clusterName,
 	}
-
 	for _, repo := range gitSync.Spec.RepositoryPaths {
 		gitCh := make(chan Message, messageChanLength)
 		channels[repo.Name] = gitCh
 		go func(repo *v1.RepositoryPath) {
+
 			r, err := cloneRepo(repo)
 			if err != nil {
 				logger.Errorw("error cloning the repo", "err", err)
