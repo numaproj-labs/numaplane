@@ -10,11 +10,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/git"
-	"github.com/numaproj-labs/numaplane/tests/utils"
+	"github.com/numaproj-labs/numaplane/internal/kubernetes/fakes"
 )
 
 const (
@@ -68,10 +67,10 @@ func Test_GitSyncLifecycle(t *testing.T) {
 	t.Run("GitSync lifecycle", func(t *testing.T) {
 		gitSync := defaultGitSync.DeepCopy()
 
-		client := fake.NewClientBuilder().Build()
+		kubeClient := &fakes.FakeClient{}
 		err := os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
 		assert.Nil(t, err)
-		r, err := NewGitSyncReconciler(client, utils.GetTestRestConfig(), scheme.Scheme)
+		r, err := NewGitSyncReconciler(kubeClient, scheme.Scheme)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 
@@ -106,10 +105,10 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 			},
 		}
 
-		client := fake.NewClientBuilder().Build()
+		kubeClient := &fakes.FakeClient{}
 		err := os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
 		assert.Nil(t, err)
-		r, err := NewGitSyncReconciler(client, utils.GetTestRestConfig(), scheme.Scheme)
+		r, err := NewGitSyncReconciler(kubeClient, scheme.Scheme)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 

@@ -4,8 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/numaproj-labs/numaplane/tests/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/numaproj-labs/numaplane/tests/utils"
 )
 
 func TestToUnstructured(t *testing.T) {

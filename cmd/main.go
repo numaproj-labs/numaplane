@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,6 +32,7 @@ import (
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller"
+	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 	//+kubebuilder:scaffold:imports
 )
@@ -88,9 +90,14 @@ func main() {
 		logger.Fatalw("Unable to get a controller-runtime manager", err)
 	}
 
+	// create kubernetes client
+	kubeClient, err := kubernetes.NewClient(mgr.GetConfig(), mgr.GetClient(), logger)
+	if err != nil {
+		logger.Fatalw("failed to create kubernetes client", err)
+	}
+
 	reconciler, err := controller.NewGitSyncReconciler(
-		mgr.GetClient(),
-		mgr.GetConfig(),
+		kubeClient,
 		mgr.GetScheme(),
 	)
 	if err != nil {
