@@ -569,7 +569,7 @@ metadata:
 		t.Run(tc.name, func(t *testing.T) {
 			resourceMap := make(map[string]string)
 			for _, re := range tc.resources {
-				err := populateResourceMap([]byte(re), resourceMap, "default")
+				err := populateResourceMap([]byte(re), resourceMap, defaultNameSpace)
 				assert.Nil(t, err)
 			}
 
