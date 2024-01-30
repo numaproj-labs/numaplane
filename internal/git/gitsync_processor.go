@@ -131,30 +131,11 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 	// Only create the resources for the first time if not created yet.
 	// Otherwise, monitoring with intervals.
 	if !ok {
-		// TODO: call getCommitTreeAtPath() here instead
 		// Retrieving the commit object matching the hash.
-		commit, err := r.CommitObject(*hash)
+		tree, err := getCommitTreeAtPath(r, repo.Path, *hash)
 		if err != nil {
-			logger.Errorw("error checkout the commit", "hash", hash.String(), "err", err)
 			return err
 		}
-
-		// Retrieve the tree from the commit.
-		tree, err := commit.Tree()
-		if err != nil {
-			logger.Errorw("error get the commit tree", "err", err)
-			return err
-		}
-
-		if !isRootDir(repo.Path) {
-			// Locate the tree with the given path.
-			tree, err = tree.Tree(repo.Path)
-			if err != nil {
-				logger.Errorw("error locate the path", "repository path", repo.Path, "err", err)
-				return err
-			}
-		}
-
 		// Read all the files under the path and apply each one respectively.
 		err = tree.Files().ForEach(func(f *object.File) error {
 			logger.Debugw("read file", "file_name", f.Name)
@@ -174,7 +155,6 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 
 		return updateCommitStatus(ctx, k8Client, namespacedName, hash.String(), repo, logger)
 	}
-
 	// no monitoring if targetRevision is a specific commit hash
 	if isCommitSHA(repo.TargetRevision) {
 		if val.Hash != hash.String() {
@@ -199,12 +179,14 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 				if err != nil {
 					return err
 				}
+				// recentHash would be an empty string if there is no update in the  repository
+				if len(recentHash) > 0 {
+					err = ApplyPatchToResources(patchedResources, client)
+					if err != nil {
+						return err
+					}
 
-				err = ApplyPatchToResources(patchedResources, client)
-				if err != nil {
-					return err
 				}
-
 			case <-ctx.Done():
 				logger.Debug("Context canceled, stopping updates check")
 				return nil
@@ -257,14 +239,14 @@ func ApplyPatchToResources(patchedResources PatchedResource, client kubernetes.C
 func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.RepositoryPath, status *v1.GitSyncStatus, defaultNameSpace string) (PatchedResource, string, error) {
 	var patchedResources PatchedResource
 	var recentHash string
-	logger := logging.FromContext(ctx)
+	logger := logging.FromContext(ctx).With("RepositoryPath Name", repo.Name, "Repository Url", repo.RepoUrl)
 	if err := fetchUpdates(r); err != nil {
-		logger.Errorw("error checking for updates in the github repo", "err", err, "repo", repo.RepoUrl)
+		logger.Errorw("error checking for updates in the github repo", "err", err)
 		return patchedResources, recentHash, err
 	}
 	remoteRef, err := getLatestCommitHash(r, repo.TargetRevision)
 	if err != nil {
-		logger.Errorw("failed to get latest commits in the github repo", "err", err, "repo", repo.RepoUrl)
+		logger.Errorw("failed to get latest commits in the github repo", "err", err)
 		return patchedResources, recentHash, err
 	}
 	lastCommitStatus := status.CommitStatus[repo.Name]
@@ -272,59 +254,57 @@ func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.Reposi
 		recentHash = remoteRef.String()
 		lastTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, plumbing.NewHash(lastCommitStatus.Hash))
 		if err != nil {
-			logger.Errorw("failed to  get last commit", "err", err, "repo", repo.RepoUrl)
+			logger.Errorw("failed to  get last commit", "err", err)
 			return patchedResources, recentHash, err
 		}
 
 		recentTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, *remoteRef)
 
 		if err != nil {
-			logger.Errorw("failed to  recent commit", "err", err, "repo", repo.RepoUrl)
+			logger.Errorw("failed to  recent commit", "err", err)
 			return patchedResources, recentHash, err
 		}
-
-		patch, err := lastTreeForThePath.Patch(recentTreeForThePath)
+		// get the diff between the previous and current
+		difference, err := lastTreeForThePath.Patch(recentTreeForThePath)
 		if err != nil {
-			logger.Errorw("failed to patch commit", "err", err, "repo", repo.RepoUrl)
+			logger.Errorw("failed to take diff of commit", "err", err)
 			return patchedResources, recentHash, err
 		}
 
 		beforeMap := make(map[string]string)
 		afterMap := make(map[string]string)
 		//if file exists in both [from] and [to] its modified ,if it exists in [to] its newly added and if it only exists in [from] its deleted
-		for _, filePatch := range patch.FilePatches() {
+		for _, filePatch := range difference.FilePatches() {
 			from, to := filePatch.Files()
 			if from != nil {
 				initialContent, err := getBlobFileContents(r, from)
 				if err != nil {
-					logger.Errorw("failed to get  initial content", "err", err.Error(), "repo", repo.RepoUrl)
+					logger.Errorw("failed to get  initial content", "err", err)
 					return patchedResources, recentHash, err
 				}
 				err = populateResourceMap(initialContent, beforeMap, defaultNameSpace)
 				if err != nil {
-					logger.Errorw("failed to populate resource map", "err", err.Error(), "repo", repo.RepoUrl)
+					logger.Errorw("failed to populate resource map", "err", err)
 					return PatchedResource{}, recentHash, err
 				}
 			}
 			if to != nil {
 				finalContent, err := getBlobFileContents(r, to)
 				if err != nil {
-					logger.Errorw("failed to get  final content", "err", err.Error(), "repo", repo.RepoUrl)
+					logger.Errorw("failed to get  final content", "err", err)
 
 					return patchedResources, recentHash, err
 				}
 				err = populateResourceMap(finalContent, afterMap, defaultNameSpace)
 				if err != nil {
-					logger.Errorw("failed to populate resource map", "err", err.Error(), "repo", repo.RepoUrl)
+					logger.Errorw("failed to populate resource map", "err", err)
 					return PatchedResource{}, recentHash, err
 				}
 			}
 		}
-
 		patchedResources.Before = beforeMap
 		patchedResources.After = afterMap
 	}
-
 	return patchedResources, recentHash, nil
 }
 
@@ -375,11 +355,14 @@ func getCommitTreeAtPath(r *git.Repository, path string, hash plumbing.Hash) (*o
 	if err != nil {
 		return nil, err
 	}
-	commitTreeForPath, err := commitTree.Tree(path)
-	if err != nil {
-		return nil, err
+	if !isRootDir(path) {
+		commitTreeForPath, err := commitTree.Tree(path)
+		if err != nil {
+			return nil, err
+		}
+		return commitTreeForPath, nil
 	}
-	return commitTreeForPath, nil
+	return commitTree, nil
 }
 
 // gets the file content from the repository with file hash
