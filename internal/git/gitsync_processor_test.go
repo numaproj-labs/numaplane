@@ -484,6 +484,100 @@ metadata:
 	}
 }
 
+func TestPopulateResourceMapWithExtraNewLineInResourceDefinition(t *testing.T) {
+	testCases := []struct {
+		name      string
+		resources []string
+		expected  map[string]string
+	}{
+
+		{
+			name: "Test with extra newlines",
+			resources: []string{
+				`apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: numaflow
+
+spec:
+  containers:
+    - name: app
+      image: images.my-company.example/app:v4
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+
+    - name: log-aggregator
+      image: images.my-company.example/log-aggregator:v6
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"`,
+				`apiVersion: v1
+kind: Service
+
+metadata:
+  name: my-service
+  namespace: numaflow`,
+			},
+			expected: map[string]string{
+				"numaflow/frontend": `apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: numaflow
+
+spec:
+  containers:
+    - name: app
+      image: images.my-company.example/app:v4
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+
+    - name: log-aggregator
+      image: images.my-company.example/log-aggregator:v6
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"`,
+				"numaflow/my-service": `apiVersion: v1
+kind: Service
+
+metadata:
+  name: my-service
+  namespace: numaflow`,
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resourceMap := make(map[string]string)
+			for _, re := range tc.resources {
+				err := populateResourceMap([]byte(re), resourceMap, "default")
+				assert.Nil(t, err)
+			}
+
+			assert.Equal(t, tc.expected, resourceMap)
+		})
+	}
+}
+
 func TestGetResourceName(t *testing.T) {
 	testCases := []struct {
 		name     string
