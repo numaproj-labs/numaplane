@@ -102,7 +102,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 	opts := &git.FetchOptions{
 		RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
 	}
-	if err = remote.Fetch(opts); err != nil {
+	if err = remote.Fetch(opts); err != nil && err != git.NoErrAlreadyUpToDate {
 		return err
 	}
 	// The revision can be a branch, a tag, or a commit hash
