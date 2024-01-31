@@ -704,12 +704,16 @@ func Test_watchRepo(t *testing.T) {
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)
 
-			gitSync := &v1alpha1.GitSync{}
-			client.EXPECT().Get(context.Background(), getNamespacedName(), gitSync).AnyTimes()
-			client.EXPECT().ApplyResource(gomock.Any(), testNamespace).AnyTimes()
-			client.EXPECT().StatusUpdate(context.Background(), gomock.Any()).AnyTimes()
+			// To break the continuous check of repo update, added the context timeout.
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
 
-			watchErr := watchRepo(context.Background(), r, tc.gitSync, client, repo, testNamespace)
+			gitSync := &v1alpha1.GitSync{}
+			client.EXPECT().Get(ctx, getNamespacedName(), gitSync).AnyTimes()
+			client.EXPECT().ApplyResource(gomock.Any(), testNamespace).AnyTimes()
+			client.EXPECT().StatusUpdate(ctx, gomock.Any()).AnyTimes()
+
+			watchErr := watchRepo(ctx, r, tc.gitSync, client, repo, testNamespace)
 			if tc.hasErr {
 				assert.NotNil(t, watchErr)
 			} else {
