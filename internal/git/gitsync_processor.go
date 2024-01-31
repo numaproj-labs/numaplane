@@ -172,9 +172,9 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 				if err != nil {
 					return err
 				}
-				lastCommitHash = recentHash
 				// recentHash would be an empty string if there is no update in the  repository
 				if len(recentHash) > 0 {
+					lastCommitHash = recentHash
 					err = ApplyPatchToResources(patchedResources, client)
 					if err != nil {
 						return err
