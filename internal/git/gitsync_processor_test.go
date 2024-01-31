@@ -3,8 +3,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"github.com/golang/mock/gomock"
-
 	"log"
 	"math"
 	"math/rand"
@@ -21,13 +19,16 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/go-git/go-git/v5/storage/memory"
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
-	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+
+	"github.com/numaproj-labs/numaplane/api/v1alpha1"
+	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
 )
 
 const (
@@ -588,6 +589,13 @@ const (
 	testNamespace   = "test-ns"
 )
 
+func getNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      testGitSyncName,
+	}
+}
+
 func newGitSync(repo v1alpha1.RepositoryPath) *v1alpha1.GitSync {
 	return &v1alpha1.GitSync{
 		TypeMeta: metav1.TypeMeta{},
@@ -687,21 +695,25 @@ func Test_watchRepo(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	client := mocksClient.NewMockClient(ctrl)
 
 	for _, tc := range testCases {
 
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &tc.gitSync.Spec.RepositoryPaths[0]
-			r, err := cloneRepo(repo)
-			assert.Nil(t, err)
+			r, cloneErr := cloneRepo(repo)
+			assert.Nil(t, cloneErr)
+			client := mocksClient.NewMockClient(ctrl)
 
-			err = watchRepo(context.Background(), r, tc.gitSync, client, repo, "")
-			err = fmt.Errorf("")
+			gitSync := &v1alpha1.GitSync{}
+			client.EXPECT().Get(context.Background(), getNamespacedName(), gitSync).AnyTimes()
+			client.EXPECT().ApplyResource(gomock.Any(), testNamespace).AnyTimes()
+			client.EXPECT().StatusUpdate(context.Background(), gomock.Any()).AnyTimes()
+
+			watchErr := watchRepo(context.Background(), r, tc.gitSync, client, repo, testNamespace)
 			if tc.hasErr {
-				assert.NotNil(t, err)
+				assert.NotNil(t, watchErr)
 			} else {
-				assert.Nil(t, err)
+				assert.Nil(t, watchErr)
 			}
 		})
 	}

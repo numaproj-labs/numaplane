@@ -72,7 +72,7 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: manifests generate fmt vet envtest codegen ## Run tests.
+test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./... -coverprofile cover.out
 
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
@@ -84,7 +84,7 @@ golangci-lint:
 	}
 
 .PHONY: lint
-lint: golangci-lint ## Run golangci-lint linter & yamllint
+lint: generate golangci-lint ## Run golangci-lint linter & yamllint
 	$(GOLANGCI_LINT) run
 
 .PHONY: lint-fix
