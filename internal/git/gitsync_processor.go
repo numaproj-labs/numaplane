@@ -106,7 +106,6 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err, "repo", repo.RepoUrl)
 		return err
 	}
-	lastCommitHash = hash.String()
 	namespacedName := types.NamespacedName{
 		Namespace: gitSync.Namespace,
 		Name:      gitSync.Name,
@@ -149,6 +148,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 		if err != nil {
 			return err
 		}
+		lastCommitHash = hash.String()
 
 		err = updateCommitStatus(ctx, k8Client, namespacedName, hash.String(), repo, logger)
 		if err != nil {
