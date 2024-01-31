@@ -121,9 +121,6 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 		}
 	}
 	val, ok := gitSync.Status.CommitStatus[repo.Name]
-	if ok {
-		lastCommitHash = gitSync.Status.CommitStatus[repo.Name].Hash
-	}
 	// Only create the resources for the first time if not created yet.
 	// Otherwise, monitoring with intervals.
 	if !ok {
@@ -148,12 +145,15 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 		if err != nil {
 			return err
 		}
-		lastCommitHash = hash.String()
 
 		err = updateCommitStatus(ctx, k8Client, namespacedName, hash.String(), repo, logger)
 		if err != nil {
 			return err
 		}
+
+		lastCommitHash = hash.String()
+	} else {
+		lastCommitHash = gitSync.Status.CommitStatus[repo.Name].Hash
 	}
 	// no monitoring if targetRevision is a specific commit hash
 	if isCommitSHA(repo.TargetRevision) {
@@ -254,14 +254,14 @@ func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.Reposi
 		recentHash = remoteRef.String()
 		lastTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, plumbing.NewHash(lastCommitHash))
 		if err != nil {
-			logger.Errorw("failed to  get last commit", "err", err)
+			logger.Errorw("failed to get last commit", "err", err)
 			return patchedResources, recentHash, err
 		}
 
 		recentTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, *remoteRef)
 
 		if err != nil {
-			logger.Errorw("failed to  recent commit", "err", err)
+			logger.Errorw("failed to get recent commit", "err", err)
 			return patchedResources, recentHash, err
 		}
 		// get the diff between the previous and current
