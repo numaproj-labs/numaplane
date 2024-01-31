@@ -86,7 +86,7 @@ func cloneRepo(repo *v1.RepositoryPath) (*git.Repository, error) {
 func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, restConfig *rest.Config, k8Client client.Client, repo *v1.RepositoryPath, namespace string) error {
 	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name,
 		"RepositoryPath Name", repo.Name)
-
+	var lastCommitHash string
 	// create kubernetes client
 	client, err := kubernetes.NewClient(restConfig, logger)
 	if err != nil {
@@ -106,7 +106,6 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err, "repo", repo.RepoUrl)
 		return err
 	}
-
 	namespacedName := types.NamespacedName{
 		Namespace: gitSync.Namespace,
 		Name:      gitSync.Name,
@@ -151,6 +150,10 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 		if err != nil {
 			return err
 		}
+
+		lastCommitHash = hash.String()
+	} else {
+		lastCommitHash = gitSync.Status.CommitStatus[repo.Name].Hash
 	}
 	// no monitoring if targetRevision is a specific commit hash
 	if isCommitSHA(repo.TargetRevision) {
@@ -168,18 +171,18 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 			select {
 			case <-ticker.C:
 				logger.Debug("checking for new updates")
-				patchedResources, recentHash, err := CheckForRepoUpdates(ctx, r, repo, &gitSync.Status, namespace)
-				if err != nil {
-					return err
-				}
-
-				err = updateCommitStatus(ctx, k8Client, namespacedName, recentHash, repo, logger)
+				patchedResources, recentHash, err := CheckForRepoUpdates(ctx, r, repo, lastCommitHash, namespace)
 				if err != nil {
 					return err
 				}
 				// recentHash would be an empty string if there is no update in the  repository
 				if len(recentHash) > 0 {
+					lastCommitHash = recentHash
 					err = ApplyPatchToResources(patchedResources, client)
+					if err != nil {
+						return err
+					}
+					err = updateCommitStatus(ctx, k8Client, namespacedName, recentHash, repo, logger)
 					if err != nil {
 						return err
 					}
@@ -234,7 +237,7 @@ func ApplyPatchToResources(patchedResources PatchedResource, client kubernetes.C
 
 // this check for file changes in the repo by comparing the old commit  hash with new commit hash and returns the recent hash with PatchedResources map
 
-func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.RepositoryPath, status *v1.GitSyncStatus, defaultNameSpace string) (PatchedResource, string, error) {
+func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.RepositoryPath, lastCommitHash string, defaultNameSpace string) (PatchedResource, string, error) {
 	var patchedResources PatchedResource
 	var recentHash string
 	logger := logging.FromContext(ctx).With("RepositoryPath Name", repo.Name, "Repository Url", repo.RepoUrl)
@@ -247,19 +250,18 @@ func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.Reposi
 		logger.Errorw("failed to get latest commits in the github repo", "err", err)
 		return patchedResources, recentHash, err
 	}
-	lastCommitStatus := status.CommitStatus[repo.Name]
-	if remoteRef.String() != lastCommitStatus.Hash {
+	if remoteRef.String() != lastCommitHash {
 		recentHash = remoteRef.String()
-		lastTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, plumbing.NewHash(lastCommitStatus.Hash))
+		lastTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, plumbing.NewHash(lastCommitHash))
 		if err != nil {
-			logger.Errorw("failed to  get last commit", "err", err)
+			logger.Errorw("failed to get last commit", "err", err)
 			return patchedResources, recentHash, err
 		}
 
 		recentTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, *remoteRef)
 
 		if err != nil {
-			logger.Errorw("failed to  recent commit", "err", err)
+			logger.Errorw("failed to get recent commit", "err", err)
 			return patchedResources, recentHash, err
 		}
 		// get the diff between the previous and current
