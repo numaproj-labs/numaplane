@@ -9,7 +9,7 @@ import (
 
 // Generate a new client using the kubernetes controller.
 
-//go:generate counterfeiter -o ./fakes . Client
+//go:generate mockgen -destination=mocks/mock_client.go -package=mocks . Client
 type Client interface {
 	// ApplyResource will create if resource is not already in cluster or update the resource if it's already in cluster then
 	// do patch of annotation with key as "kubectl.kubernetes.io/last-applied-configuration".

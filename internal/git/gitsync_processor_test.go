@@ -3,6 +3,8 @@ package git
 import (
 	"context"
 	"fmt"
+	"github.com/golang/mock/gomock"
+
 	"log"
 	"math"
 	"math/rand"
@@ -20,7 +22,7 @@ import (
 	"github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
-	"github.com/numaproj-labs/numaplane/internal/kubernetes/fakes"
+	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
 	"github.com/stretchr/testify/assert"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -581,7 +583,6 @@ metadata:
 	}
 }
 
-// TODO: re-enable after https://github.com/numaproj-labs/numaplane/issues/56
 const (
 	testGitSyncName = "test-gitsync"
 	testNamespace   = "test-ns"
@@ -683,6 +684,11 @@ func Test_watchRepo(t *testing.T) {
 		},
 	}
 	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mocksClient.NewMockClient(ctrl)
+
 	for _, tc := range testCases {
 
 		t.Run(tc.name, func(t *testing.T) {
@@ -690,8 +696,8 @@ func Test_watchRepo(t *testing.T) {
 			r, err := cloneRepo(repo)
 			assert.Nil(t, err)
 
-			fakeClient := &fakes.FakeClient{}
-			err = watchRepo(context.Background(), r, tc.gitSync, fakeClient, repo, "")
+			err = watchRepo(context.Background(), r, tc.gitSync, client, repo, "")
+			err = fmt.Errorf("")
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {

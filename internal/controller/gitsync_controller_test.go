@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -13,7 +14,7 @@ import (
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/git"
-	"github.com/numaproj-labs/numaplane/internal/kubernetes/fakes"
+	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
 )
 
 const (
@@ -67,10 +68,12 @@ func Test_GitSyncLifecycle(t *testing.T) {
 	t.Run("GitSync lifecycle", func(t *testing.T) {
 		gitSync := defaultGitSync.DeepCopy()
 
-		kubeClient := &fakes.FakeClient{}
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		client := mocksClient.NewMockClient(ctrl)
 		err := os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
 		assert.Nil(t, err)
-		r, err := NewGitSyncReconciler(kubeClient, scheme.Scheme)
+		r, err := NewGitSyncReconciler(client, scheme.Scheme)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 
@@ -105,10 +108,12 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 			},
 		}
 
-		kubeClient := &fakes.FakeClient{}
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		client := mocksClient.NewMockClient(ctrl)
 		err := os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
 		assert.Nil(t, err)
-		r, err := NewGitSyncReconciler(kubeClient, scheme.Scheme)
+		r, err := NewGitSyncReconciler(client, scheme.Scheme)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 
