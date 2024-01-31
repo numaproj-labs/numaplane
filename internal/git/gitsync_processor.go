@@ -95,23 +95,17 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 	}
 
 	// Fetch all remote branches
-	remote, err := r.Remote("origin")
+	err = fetchUpdates(r)
 	if err != nil {
 		return err
 	}
-	opts := &git.FetchOptions{
-		RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
-	}
-	if err = remote.Fetch(opts); err != nil && err != git.NoErrAlreadyUpToDate {
-		return err
-	}
+
 	// The revision can be a branch, a tag, or a commit hash
 	hash, err := getLatestCommitHash(r, repo.TargetRevision)
 	if err != nil {
 		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err, "repo", repo.RepoUrl)
 		return err
 	}
-	// TODO save the commit hash in the gitSync status
 
 	namespacedName := types.NamespacedName{
 		Namespace: gitSync.Namespace,
@@ -153,7 +147,10 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 			return err
 		}
 
-		return updateCommitStatus(ctx, k8Client, namespacedName, hash.String(), repo, logger)
+		err = updateCommitStatus(ctx, k8Client, namespacedName, hash.String(), repo, logger)
+		if err != nil {
+			return err
+		}
 	}
 	// no monitoring if targetRevision is a specific commit hash
 	if isCommitSHA(repo.TargetRevision) {
@@ -170,6 +167,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 		for {
 			select {
 			case <-ticker.C:
+				logger.Debug("checking for new updates")
 				patchedResources, recentHash, err := CheckForRepoUpdates(ctx, r, repo, &gitSync.Status, namespace)
 				if err != nil {
 					return err
@@ -382,14 +380,17 @@ func getBlobFileContents(r *git.Repository, file diff.File) ([]byte, error) {
 	return fileContent, nil
 }
 
-// fetchUpdates fetches updates from the 'origin' remote, returning nil if already up-to-date or an error otherwise.
+// fetchUpdates fetches all the remote branches, returning nil if already up-to-date or an error otherwise.
 func fetchUpdates(repo *git.Repository) error {
-	err := repo.Fetch(&git.FetchOptions{
-		RemoteName: "origin",
-	})
-	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+	remote, err := repo.Remote("origin")
+	if err != nil {
 		return err
-
+	}
+	opts := &git.FetchOptions{
+		RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
+	}
+	if err = remote.Fetch(opts); err != nil && err != git.NoErrAlreadyUpToDate {
+		return err
 	}
 	return nil
 }
