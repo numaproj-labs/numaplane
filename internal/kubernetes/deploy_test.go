@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
@@ -81,6 +82,7 @@ func Test_client_ApplyResource(t *testing.T) {
 		},
 	}
 
+	t.Parallel()
 	ctrl := gomock.NewController(t)
 	c := mocksClient.NewMockClient(ctrl)
 	defer ctrl.Finish()
@@ -91,6 +93,56 @@ func Test_client_ApplyResource(t *testing.T) {
 			if err := c.ApplyResource(tt.args.data, tt.args.namespaceOverride); (err != nil) != tt.wantErr {
 				Expect(err.Error()).To(Equal(tt.err))
 				t.Errorf("ApplyResource() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_client_DeleteResource(t *testing.T) {
+	type args struct {
+		kind      string
+		name      string
+		namespace string
+		do        metav1.DeleteOptions
+	}
+	tests := []struct {
+		name    string
+		args    args
+		err     error
+		wantErr bool
+	}{
+		{
+			name: "name is empty",
+			args: args{
+				kind:      "Deployment",
+				name:      "",
+				namespace: "numaflow-pipeline",
+			},
+			err:     fmt.Errorf("name is empty"),
+			wantErr: true,
+		},
+		{
+			name: "Delete resource",
+			args: args{
+				kind:      "Deployment",
+				name:      "test-app",
+				namespace: "numaflow-pipeline",
+			},
+			err:     nil,
+			wantErr: false,
+		},
+	}
+
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+	defer ctrl.Finish()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c.EXPECT().DeleteResource(tt.args.kind, tt.args.name, tt.args.namespace, tt.args.do).Return(tt.err)
+			if err := c.DeleteResource(tt.args.kind, tt.args.name, tt.args.namespace, tt.args.do); (err != nil) != tt.wantErr {
+				Expect(err.Error()).To(Equal(tt.err))
+				t.Errorf("DeleteResource() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
