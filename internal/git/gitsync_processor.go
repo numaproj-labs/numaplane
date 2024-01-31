@@ -109,7 +109,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 	lastCommitHash = hash.String()
 	namespacedName := types.NamespacedName{
 		Namespace: gitSync.Namespace,
-		Name:      gitSync.Name,
+		Name:      gitSync.Name,/
 	}
 	gitSync = &v1.GitSync{}
 	if err = k8Client.Get(ctx, namespacedName, gitSync); err != nil {
@@ -172,17 +172,18 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 				if err != nil {
 					return err
 				}
-
+                lastCommitHash=recentHash
 				// recentHash would be an empty string if there is no update in the  repository
 				if len(recentHash) > 0 {
-					err = updateCommitStatus(ctx, k8Client, namespacedName, recentHash, repo, logger)
-					if err != nil {
-						return err
-					}
 					err = ApplyPatchToResources(patchedResources, client)
 					if err != nil {
 						return err
 					}
+					err = updateCommitStatus(ctx, k8Client, namespacedName, recentHash, repo, logger)
+					if err != nil {
+						return err
+					}
+
 
 				}
 			case <-ctx.Done():
