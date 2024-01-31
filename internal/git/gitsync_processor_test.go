@@ -23,8 +23,6 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/storage/memory"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/stretchr/testify/assert"
 
 	v1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
@@ -326,21 +324,7 @@ func TestCheckForRepoUpdatesBranch(t *testing.T) {
 		TargetRevision: "master",
 	}
 
-	commitStatus := make(map[string]v1.CommitStatus)
-	commitStatus["test"] = v1.CommitStatus{
-		Hash:     lastCommitHash,
-		Synced:   true,
-		SyncTime: metav1.Time{},
-		Error:    "",
-	}
-	status := &v1.GitSyncStatus{
-		Phase:        "",
-		Conditions:   nil,
-		Message:      "",
-		CommitStatus: commitStatus,
-	}
-
-	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, path, status, defaultNameSpace)
+	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, path, lastCommitHash, defaultNameSpace)
 	assert.Nil(t, err)
 	assert.Equal(t, hash.String(), recentHash)
 	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After[fmt.Sprintf("%s/my-nginx-svc", defaultNameSpace)], patchedContent.After[fmt.Sprintf("%s/my-nginx", defaultNameSpace)]))
@@ -376,22 +360,7 @@ func TestCheckForRepoUpdatesVersion(t *testing.T) {
 		Path:           "config",
 		TargetRevision: tag,
 	}
-
-	commitStatus := make(map[string]v1.CommitStatus)
-	commitStatus["test"] = v1.CommitStatus{
-		Hash:     lastCommitHash,
-		Synced:   true,
-		SyncTime: metav1.Time{},
-		Error:    "",
-	}
-	status := &v1.GitSyncStatus{
-		Phase:        "",
-		Conditions:   nil,
-		Message:      "",
-		CommitStatus: commitStatus,
-	}
-
-	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, path, status, defaultNameSpace)
+	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, path, lastCommitHash, defaultNameSpace)
 	assert.Nil(t, err)
 	assert.Equal(t, hash.String(), recentHash)
 	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After[fmt.Sprintf("%s/my-nginx-svc", defaultNameSpace)], patchedContent.After[fmt.Sprintf("%s/my-nginx", defaultNameSpace)]))
