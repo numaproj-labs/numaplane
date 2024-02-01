@@ -54,7 +54,7 @@ func TestIsValidName(t *testing.T) {
 		{
 			name:         "Valid name",
 			resourceName: "my-pipelines",
-			expected:     false,
+			expected:     true,
 		},
 	}
 	for _, tc := range testCases {
