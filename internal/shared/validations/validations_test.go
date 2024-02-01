@@ -59,7 +59,7 @@ func TestIsValidName(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ok := CheckGitURL(tc.resourceName)
+			ok := IsValidName(tc.resourceName)
 			assert.Equal(t, tc.expected, ok)
 		})
 	}
