@@ -34,6 +34,7 @@ import (
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	"github.com/numaproj-labs/numaplane/internal/shared/validations"
 )
 
 // GitSyncReconciler reconciles a GitSync object
@@ -276,8 +277,33 @@ func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// TODO: add validation
 func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
+	// validate gitSync repositoryPaths
+	repositoryPaths := gitSync.Spec.RepositoryPaths
+	for i := 0; i < len(repositoryPaths); i++ {
+		if ok := validations.CheckGitURL(repositoryPaths[i].RepoUrl); !ok {
+			return fmt.Errorf("invalid remote repository url %s", repositoryPaths[i].RepoUrl)
+		}
+		// TODO : make this error message for informative
+		if !validations.IsValidName(repositoryPaths[i].Name) {
+			return fmt.Errorf("invalid name for repositoryPath %s", repositoryPaths[i].Name)
+		}
+		if len(repositoryPaths[i].TargetRevision) == 0 {
+			return fmt.Errorf("targetRevsion cannot be empty for repository Path %s", repositoryPaths[i].Name)
+		}
+
+	}
+	// validate destination for gitSync
+	destinations := gitSync.Spec.Destinations
+	for i := 0; i < len(destinations); i++ {
+		if len(destinations[i].Cluster) == 0 {
+			return fmt.Errorf("cluster name cannot be empty")
+		}
+
+		if !validations.IsValidName(destinations[i].Namespace) {
+			return fmt.Errorf("namespace is not a valid string for cluster %s", destinations[i].Cluster)
+		}
+	}
 	return nil
 }
 
