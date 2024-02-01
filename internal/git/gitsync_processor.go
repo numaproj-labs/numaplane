@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -20,10 +18,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
-	v1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
@@ -52,9 +49,9 @@ func isRootDir(path string) bool {
 }
 
 type GitSyncProcessor struct {
-	gitSync     v1.GitSync
+	gitSync     v1alpha1.GitSync
 	channels    map[string]chan Message
-	k8Client    client.Client
+	kubeClient  kubernetes.Client
 	clusterName string
 }
 
@@ -77,25 +74,19 @@ type MetaData struct {
 	Namespace string `yaml:"namespace"`
 }
 
-func cloneRepo(repo *v1.RepositoryPath) (*git.Repository, error) {
+func cloneRepo(repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
 	return git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL: repo.RepoUrl,
 	})
 }
 
-func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, restConfig *rest.Config, k8Client client.Client, repo *v1.RepositoryPath, namespace string) error {
+func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, repo *v1alpha1.RepositoryPath, namespace string) error {
 	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name,
 		"RepositoryPath Name", repo.Name)
 	var lastCommitHash string
-	// create kubernetes client
-	client, err := kubernetes.NewClient(restConfig, logger)
-	if err != nil {
-		logger.Errorw("cannot create kubernetes client", "err", err)
-		return err
-	}
 
 	// Fetch all remote branches
-	err = fetchUpdates(r)
+	err := fetchUpdates(r)
 	if err != nil {
 		return err
 	}
@@ -110,8 +101,8 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 		Namespace: gitSync.Namespace,
 		Name:      gitSync.Name,
 	}
-	gitSync = &v1.GitSync{}
-	if err = k8Client.Get(ctx, namespacedName, gitSync); err != nil {
+	gitSync = &v1alpha1.GitSync{}
+	if err = kubeClient.Get(ctx, namespacedName, gitSync); err != nil {
 		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -140,13 +131,13 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 			}
 
 			// Apply manifest in cluster
-			return client.ApplyResource([]byte(manifest), namespace)
+			return kubeClient.ApplyResource([]byte(manifest), namespace)
 		})
 		if err != nil {
 			return err
 		}
 
-		err = updateCommitStatus(ctx, k8Client, namespacedName, hash.String(), repo, logger)
+		err = updateCommitStatus(ctx, kubeClient, namespacedName, hash.String(), repo, logger)
 		if err != nil {
 			return err
 		}
@@ -178,11 +169,11 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 				// recentHash would be an empty string if there is no update in the  repository
 				if len(recentHash) > 0 {
 					lastCommitHash = recentHash
-					err = ApplyPatchToResources(patchedResources, client)
+					err = ApplyPatchToResources(patchedResources, kubeClient)
 					if err != nil {
 						return err
 					}
-					err = updateCommitStatus(ctx, k8Client, namespacedName, recentHash, repo, logger)
+					err = updateCommitStatus(ctx, kubeClient, namespacedName, recentHash, repo, logger)
 					if err != nil {
 						return err
 					}
@@ -200,19 +191,19 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1.GitSync, rest
 // ApplyPatchToResources applies changes to Kubernetes resources based on the provided PatchedResource.
 // It uses a Kubernetes client to apply changes to each resource and handles creation and deletion of resources as needed.
 
-func ApplyPatchToResources(patchedResources PatchedResource, client kubernetes.Client) error {
+func ApplyPatchToResources(patchedResources PatchedResource, kubeClient kubernetes.Client) error {
 	for key, afterValue := range patchedResources.After {
 		namespace := strings.Split(key, "/")[0]
 		if beforeValue, ok := patchedResources.Before[key]; ok {
 			if beforeValue != afterValue {
-				err := client.ApplyResource([]byte(afterValue), namespace)
+				err := kubeClient.ApplyResource([]byte(afterValue), namespace)
 				if err != nil {
 					return errors.New("failed to apply resource: " + err.Error())
 				}
 			}
 		} else {
 			// Handle newly added resources
-			err := client.ApplyResource([]byte(afterValue), namespace)
+			err := kubeClient.ApplyResource([]byte(afterValue), namespace)
 			if err != nil {
 				return errors.New("failed to apply new resource: " + err.Error())
 			}
@@ -226,7 +217,7 @@ func ApplyPatchToResources(patchedResources PatchedResource, client kubernetes.C
 			return errors.New("failed to unmarshal YAML: " + err.Error())
 		}
 		if _, ok := patchedResources.After[key]; !ok {
-			err := client.DeleteResource(resource.Kind, resource.Metadata.Name, resource.Metadata.Namespace, metav1.DeleteOptions{})
+			err := kubeClient.DeleteResource(resource.Kind, resource.Metadata.Name, resource.Metadata.Namespace, metav1.DeleteOptions{})
 			if err != nil {
 				return errors.New("failed to delete resource: " + err.Error())
 			}
@@ -237,7 +228,7 @@ func ApplyPatchToResources(patchedResources PatchedResource, client kubernetes.C
 
 // this check for file changes in the repo by comparing the old commit  hash with new commit hash and returns the recent hash with PatchedResources map
 
-func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1.RepositoryPath, lastCommitHash string, defaultNameSpace string) (PatchedResource, string, error) {
+func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1alpha1.RepositoryPath, lastCommitHash string, defaultNameSpace string) (PatchedResource, string, error) {
 	var patchedResources PatchedResource
 	var recentHash string
 	logger := logging.FromContext(ctx).With("RepositoryPath Name", repo.Name, "Repository Url", repo.RepoUrl)
@@ -398,21 +389,21 @@ func fetchUpdates(repo *git.Repository) error {
 }
 
 func updateCommitStatus(
-	ctx context.Context, k8Client client.Client,
+	ctx context.Context, kubeClient kubernetes.Client,
 	namespacedName types.NamespacedName,
 	hash string,
-	repo *v1.RepositoryPath,
+	repo *v1alpha1.RepositoryPath,
 	logger *zap.SugaredLogger,
 ) error {
 
-	commitStatus := v1.CommitStatus{
+	commitStatus := v1alpha1.CommitStatus{
 		Hash:     hash,
 		Synced:   true,
 		SyncTime: metav1.NewTime(time.Now()),
 	}
 
-	gitSync := &v1.GitSync{}
-	if err := k8Client.Get(ctx, namespacedName, gitSync); err != nil {
+	gitSync := &v1alpha1.GitSync{}
+	if err := kubeClient.Get(ctx, namespacedName, gitSync); err != nil {
 		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -422,12 +413,12 @@ func updateCommitStatus(
 		}
 	}
 	if gitSync.Status.CommitStatus == nil {
-		gitSync.Status.CommitStatus = make(map[string]v1.CommitStatus)
+		gitSync.Status.CommitStatus = make(map[string]v1alpha1.CommitStatus)
 	}
 	gitSync.Status.CommitStatus[repo.Name] = commitStatus
 	// It's Ok to fail here as upon errors the whole process will be retried
 	// until a CommitStatus is persisted.
-	if err := k8Client.Status().Update(ctx, gitSync); err != nil {
+	if err := kubeClient.StatusUpdate(ctx, gitSync); err != nil {
 		logger.Errorw("Error Updating GitSync Status", "err", err)
 		return err
 	}
@@ -443,27 +434,27 @@ func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, 
 	return commitHash, err
 }
 
-func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client client.Client, config *rest.Config, clusterName string) (*GitSyncProcessor, error) {
+func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
 	channels := make(map[string]chan Message)
 	namespace := gitSync.Spec.GetDestinationNamespace(clusterName)
 	processor := &GitSyncProcessor{
 		gitSync:     *gitSync,
-		k8Client:    k8client,
+		kubeClient:  kubeClient,
 		channels:    channels,
 		clusterName: clusterName,
 	}
 	for _, repo := range gitSync.Spec.RepositoryPaths {
 		gitCh := make(chan Message, messageChanLength)
 		channels[repo.Name] = gitCh
-		go func(repo *v1.RepositoryPath) {
+		go func(repo *v1alpha1.RepositoryPath) {
 
 			r, err := cloneRepo(repo)
 			if err != nil {
 				logger.Errorw("error cloning the repo", "err", err)
 			} else {
 				for ok := true; ok; {
-					err = watchRepo(ctx, r, gitSync, config, k8client, repo, namespace)
+					err = watchRepo(ctx, r, gitSync, kubeClient, repo, namespace)
 					// TODO: terminate the goroutine on fatal errors from 'watchRepo'
 					if err != nil {
 						logger.Errorw("error watching the repo", "err", err)
@@ -476,7 +467,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1.GitSync, k8client clie
 	return processor, nil
 }
 
-func (processor *GitSyncProcessor) Update(gitSync *v1.GitSync) error {
+func (processor *GitSyncProcessor) Update(gitSync *v1alpha1.GitSync) error {
 	return nil
 }
 
