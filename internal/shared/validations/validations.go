@@ -9,6 +9,7 @@ import (
 )
 
 // CheckGitURL checks whether the given git url is a valid git url or not by fetching remote references
+// TODO: for private repository
 func CheckGitURL(gitURL string) bool {
 	rem := gogit.NewRemote(nil, &config.RemoteConfig{
 		Name: "origin",
