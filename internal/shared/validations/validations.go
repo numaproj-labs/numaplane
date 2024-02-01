@@ -2,9 +2,10 @@ package validations
 
 import (
 	"fmt"
+	"regexp"
+
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
-	"regexp"
 )
 
 // CheckGitURL checks whether the given git url is a valid git url or not by fetching remote references
