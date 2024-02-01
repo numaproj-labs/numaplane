@@ -1,7 +1,6 @@
 package validations
 
 import (
-	"fmt"
 	"regexp"
 
 	gogit "github.com/go-git/go-git/v5"
@@ -19,7 +18,6 @@ func CheckGitURL(gitURL string) bool {
 	// running git ls-remote
 	_, err := rem.List(&gogit.ListOptions{})
 	if err != nil {
-		fmt.Printf("Error listing references: %s\n", err)
 		return false
 	}
 	return true
