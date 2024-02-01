@@ -170,17 +170,17 @@ func SetNamespaceIfScoped(namespaceOverride string, u *unstructured.Unstructured
 	return nil
 }
 
-// Get the resource in kubernetes cluster
+// Get the resource from kubernetes cluster.
 func (c *client) Get(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
 	return c.kubeClient.Get(ctx, key, obj, opts...)
 }
 
-// Update the resource in kubernetes cluster
+// Update the resource in kubernetes cluster.
 func (c *client) Update(ctx context.Context, obj k8sClient.Object, opts ...k8sClient.UpdateOption) error {
 	return c.kubeClient.Update(ctx, obj, opts...)
 }
 
-// StatusUpdate will update the status of kubernetes resource
+// StatusUpdate will update the status of kubernetes resource.
 func (c *client) StatusUpdate(ctx context.Context, obj k8sClient.Object, opts ...k8sClient.SubResourceUpdateOption) error {
 	return c.kubeClient.Status().Update(ctx, obj, opts...)
 }

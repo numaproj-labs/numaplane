@@ -21,9 +21,9 @@ type Client interface {
 	// Get the resource from kubernetes cluster of the specified resource.
 	Get(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error
 
-	// Update of resource of kubernetes cluster.
+	// Update the resource of kubernetes cluster.
 	Update(ctx context.Context, obj k8sClient.Object, opts ...k8sClient.UpdateOption) error
 
-	// StatusUpdate will update the status of kubernetes resource
+	// StatusUpdate will update the status of kubernetes resource.
 	StatusUpdate(ctx context.Context, obj k8sClient.Object, opts ...k8sClient.SubResourceUpdateOption) error
 }
