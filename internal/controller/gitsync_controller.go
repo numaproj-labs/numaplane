@@ -22,6 +22,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -277,31 +278,35 @@ func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 	// validate gitSync repositoryPaths
 	repositoryPaths := gitSync.Spec.RepositoryPaths
-	for i := 0; i < len(repositoryPaths); i++ {
-		if ok := validations.CheckGitURL(repositoryPaths[i].RepoUrl); !ok {
-			return fmt.Errorf("invalid remote repository url %s", repositoryPaths[i].RepoUrl)
-		}
-		// TODO : make this error message for informative
-		if !validations.IsValidName(repositoryPaths[i].Name) {
-			return fmt.Errorf("invalid name for repositoryPath %s", repositoryPaths[i].Name)
-		}
-		if len(repositoryPaths[i].TargetRevision) == 0 {
-			return fmt.Errorf("targetRevsion cannot be empty for repository Path %s", repositoryPaths[i].Name)
-		}
-
-	}
-	// validate destination for gitSync
 	destinations := gitSync.Spec.Destinations
-	for i := 0; i < len(destinations); i++ {
-		if len(destinations[i].Cluster) == 0 {
-			return fmt.Errorf("cluster name cannot be empty")
-		}
+	if len(repositoryPaths) > 0 && len(destinations) > 0 {
+		for i := 0; i < len(repositoryPaths); i++ {
+			if ok := validations.CheckGitURL(repositoryPaths[i].RepoUrl); !ok {
+				return fmt.Errorf("invalid remote repository url %s", repositoryPaths[i].RepoUrl)
+			}
+			// TODO : make this error message for informative
+			if !validations.IsValidName(repositoryPaths[i].Name) {
+				return fmt.Errorf("invalid name for repositoryPath %s", repositoryPaths[i].Name)
+			}
+			if len(repositoryPaths[i].TargetRevision) == 0 {
+				return fmt.Errorf("targetRevsion cannot be empty for repository Path %s", repositoryPaths[i].Name)
+			}
 
-		if !validations.IsValidName(destinations[i].Namespace) {
-			return fmt.Errorf("namespace is not a valid string for cluster %s", destinations[i].Cluster)
 		}
+		// validate destination for gitSync
+		for i := 0; i < len(destinations); i++ {
+			if len(destinations[i].Cluster) == 0 {
+				return fmt.Errorf("cluster name cannot be empty")
+			}
+
+			if !validations.IsValidName(destinations[i].Namespace) {
+				return fmt.Errorf("namespace is not a valid string for cluster %s", destinations[i].Cluster)
+			}
+		}
+		return nil
 	}
-	return nil
+	return errors.New("repositoryPaths and destinations cannot be empty")
+
 }
 
 func needsUpdate(old, new *apiv1.GitSync) bool {
