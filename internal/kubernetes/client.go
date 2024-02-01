@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/kubectl/pkg/util"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -31,6 +32,7 @@ var (
 )
 
 type client struct {
+	kubeClient    k8sClient.Client
 	dynamicClient dynamic.Interface
 	config        *rest.Config
 	mapper        *restmapper.DeferredDiscoveryRESTMapper
@@ -45,11 +47,8 @@ func (c *client) apply(u *unstructured.Unstructured, namespaceOverride string) e
 		return err
 	}
 
-	gv := gvk.GroupVersion()
-	c.config.GroupVersion = &gv
-
 	// TODO: Make this as reusable REST Client rather than needing generating new client everytime.
-	restClient, err := newRestClient(*c.config, gv)
+	restClient, err := newRestClient(*c.config, gvk.GroupVersion())
 	if err != nil {
 		return err
 	}
@@ -169,4 +168,19 @@ func SetNamespaceIfScoped(namespaceOverride string, u *unstructured.Unstructured
 	}
 
 	return nil
+}
+
+// Get the resource from kubernetes cluster.
+func (c *client) Get(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
+	return c.kubeClient.Get(ctx, key, obj, opts...)
+}
+
+// Update the resource in kubernetes cluster.
+func (c *client) Update(ctx context.Context, obj k8sClient.Object, opts ...k8sClient.UpdateOption) error {
+	return c.kubeClient.Update(ctx, obj, opts...)
+}
+
+// StatusUpdate will update the status of kubernetes resource.
+func (c *client) StatusUpdate(ctx context.Context, obj k8sClient.Object, opts ...k8sClient.SubResourceUpdateOption) error {
+	return c.kubeClient.Status().Update(ctx, obj, opts...)
 }

@@ -14,10 +14,11 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // NewClient creates a new kubernetes client.
-func NewClient(config *rest.Config, logger *zap.SugaredLogger) (Client, error) {
+func NewClient(config *rest.Config, kubeClient k8sClient.Client, logger *zap.SugaredLogger) (Client, error) {
 	config.Timeout = defaultTimeout
 
 	dynamicClient, err := dynamic.NewForConfig(config)
@@ -35,6 +36,7 @@ func NewClient(config *rest.Config, logger *zap.SugaredLogger) (Client, error) {
 	}
 
 	return &client{
+		kubeClient:    kubeClient,
 		dynamicClient: dynamicClient,
 		config:        config,
 		mapper:        restmapper.NewDeferredDiscoveryRESTMapper(cdc),
