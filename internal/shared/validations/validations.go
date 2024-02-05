@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/url"
 	"regexp"
-	"unicode/utf8"
 )
 
 // Valid git transports url
@@ -57,7 +56,7 @@ func CheckGitURL(gitURL string, ctx context.Context) bool {
 }
 
 func IsValidName(name string) bool {
-	if utf8.RuneCountInString(name) > 253 { // to avoid special characters length
+	if len(name) > 253 {
 		return false
 	}
 	// names can only contain lowercase alphanumeric characters, '-', and '.', but must start and end with an alphanumeric
