@@ -32,13 +32,13 @@ var (
 			RepositoryPaths: []apiv1.RepositoryPath{
 				{
 					Name:           "my-controller",
-					RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests",
+					RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 					Path:           "./numaflowController/",
 					TargetRevision: "main",
 				},
 				{
 					Name:           "my-pipelines",
-					RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests",
+					RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 					Path:           "./pipelines/",
 					TargetRevision: "main",
 				},

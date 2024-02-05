@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -279,9 +280,11 @@ func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 	// validate gitSync repositoryPaths
 	repositoryPaths := gitSync.Spec.RepositoryPaths
 	destinations := gitSync.Spec.Destinations
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	if len(repositoryPaths) > 0 && len(destinations) > 0 {
 		for i := 0; i < len(repositoryPaths); i++ {
-			if ok := validations.CheckGitURL(repositoryPaths[i].RepoUrl); !ok {
+			if ok := validations.CheckGitURL(repositoryPaths[i].RepoUrl, ctx); !ok {
 				return fmt.Errorf("invalid remote repository url %s", repositoryPaths[i].RepoUrl)
 			}
 			// TODO : make this error message for informative
@@ -299,7 +302,7 @@ func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 				return fmt.Errorf("cluster name cannot be empty")
 			}
 
-			if !validations.IsValidName(destinations[i].Namespace) {
+			if !validations.IsValidName(destinations[i].Namespace) || validations.IsReservedName(destinations[i].Namespace) {
 				return fmt.Errorf("namespace is not a valid string for cluster %s", destinations[i].Cluster)
 			}
 		}

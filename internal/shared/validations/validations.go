@@ -1,23 +1,55 @@
 package validations
 
 import (
+	"context"
+	"net/url"
 	"regexp"
-
-	gogit "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
 )
 
-// CheckGitURL checks whether the given git url is a valid git url or not by fetching remote references
-// TODO: for private repository
-func CheckGitURL(gitURL string) bool {
-	rem := gogit.NewRemote(nil, &config.RemoteConfig{
-		Name: "origin",
-		URLs: []string{gitURL},
-	})
+// Valid git transports url
 
-	// running git ls-remote
-	_, err := rem.List(&gogit.ListOptions{})
-	if err != nil {
+var (
+	Transports = NewTransportSet(
+		"ssh",
+		"git",
+		"git+ssh",
+		"http",
+		"https",
+		"ftp",
+		"ftps",
+		"rsync",
+		"file",
+	)
+)
+
+// Checks for valid remote repository
+
+type TransportSet struct {
+	Transports map[string]struct{}
+}
+
+// NewTransportSet returns a TransportSet with the items keys mapped
+// to empty struct values.
+func NewTransportSet(items ...string) *TransportSet {
+	t := &TransportSet{
+		Transports: map[string]struct{}{},
+	}
+	for _, i := range items {
+		t.Transports[i] = struct{}{}
+	}
+	return t
+}
+
+// Valid returns true if transport is a known Git URL scheme and false
+// if not.
+func (t *TransportSet) Valid(transport string) bool {
+	_, ok := t.Transports[transport]
+	return ok
+}
+
+func CheckGitURL(gitURL string, ctx context.Context) bool {
+	u, err := url.Parse(gitURL)
+	if err == nil && !Transports.Valid(u.Scheme) {
 		return false
 	}
 	return true
@@ -26,9 +58,11 @@ func CheckGitURL(gitURL string) bool {
 func IsValidName(name string) bool {
 	// names can only contain lowercase alphanumeric characters, '-', and '.', but must start and end with an alphanumeric
 	validNameRegex := regexp.MustCompile(`^[a-z0-9][a-z0-9\-.]*[a-z0-9]$`)
+	return validNameRegex.MatchString(name)
+}
 
-	//cant contain names starting with kubernetes-, kube-, as these are reserved names
+func IsReservedName(name string) bool {
 	reservedNamesRegex := regexp.MustCompile(`^(kubernetes-|kube-)`)
+	return reservedNamesRegex.MatchString(name)
 
-	return validNameRegex.MatchString(name) && !reservedNamesRegex.MatchString(name)
 }
