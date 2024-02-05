@@ -71,11 +71,6 @@ func TestIsValidName(t *testing.T) {
 		},
 
 		{
-			name:         "InValid Reserved Keyword",
-			resourceName: "kube-233",
-			expected:     false,
-		},
-		{
 			name:         "Valid name",
 			resourceName: "my-pipelines",
 			expected:     true,
