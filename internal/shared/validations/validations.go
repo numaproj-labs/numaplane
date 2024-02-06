@@ -55,12 +55,12 @@ func CheckGitURL(gitURL string, ctx context.Context) bool {
 	return true
 }
 
-func IsValidName(name string) bool {
-	if len(name) > 253 {
+func IsValidKubernetesNamespace(name string) bool {
+	if len(name) > 63 {
 		return false
 	}
-	// names can only contain lowercase alphanumeric characters, '-', and '.', but must start and end with an alphanumeric
-	validNameRegex := regexp.MustCompile(`^[a-z0-9][a-z0-9\-.]*[a-z0-9]$`)
+	// names can only contain lowercase alphanumeric characters, '-', but must start and end with an alphanumeric
+	validNameRegex := regexp.MustCompile(`^[a-z0-9][a-z0-9\-]*[a-z0-9]$`)
 	return validNameRegex.MatchString(name)
 }
 

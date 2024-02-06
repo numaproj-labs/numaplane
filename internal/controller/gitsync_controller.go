@@ -312,7 +312,7 @@ func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 		if len(dest.Cluster) == 0 {
 			return fmt.Errorf("cluster name cannot be empty")
 		}
-		if !validations.IsValidName(dest.Namespace) || validations.IsReservedName(dest.Namespace) {
+		if !validations.IsValidKubernetesNamespace(dest.Namespace) || validations.IsReservedName(dest.Namespace) {
 			return fmt.Errorf("namespace is not a valid string for cluster %s", dest.Cluster)
 		}
 	}

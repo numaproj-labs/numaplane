@@ -71,6 +71,18 @@ func TestIsValidName(t *testing.T) {
 		},
 
 		{
+			name:         "Invalid Name Contains period",
+			resourceName: "my.pipeline",
+			expected:     false,
+		},
+
+		{
+			name:         "Invalid Name more than 63 chars",
+			resourceName: "mypipeline89898yhgfrt12346tyuh78716tqgfh789765trty12tgy78981278uhyg1qty78",
+			expected:     false,
+		},
+
+		{
 			name:         "Valid name",
 			resourceName: "my-pipelines",
 			expected:     true,
@@ -78,7 +90,7 @@ func TestIsValidName(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ok := IsValidName(tc.resourceName)
+			ok := IsValidKubernetesNamespace(tc.resourceName)
 			assert.Equal(t, tc.expected, ok)
 		})
 	}
