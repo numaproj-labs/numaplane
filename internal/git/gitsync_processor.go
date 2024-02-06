@@ -3,6 +3,8 @@ package git
 import (
 	"context"
 	"errors"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"io"
 	"regexp"
 	"strings"
@@ -75,8 +77,18 @@ type MetaData struct {
 }
 
 func cloneRepo(repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
+	// Adding Endpoint here to manage more advanced git options
+	endpoint, err := transport.NewEndpoint(repo.RepoUrl)
+	if err != nil {
+		return nil, err
+	}
+   
 	return git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
-		URL: repo.RepoUrl,
+		URL: endpoint.String(),
+		Auth: &http.BasicAuth{
+			Username: "anything",
+			Password: "yourPersonalAccessToken",
+		},
 	})
 }
 

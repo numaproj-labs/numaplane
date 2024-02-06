@@ -96,9 +96,18 @@ func main() {
 		logger.Fatalw("failed to create kubernetes client", err)
 	}
 
+	// Load Config For the pod
+	config, err := controller.LoadConfig(func(err error) {
+		logger.Errorw("Failed to reload global configuration file", err)
+	})
+	if err != nil {
+		logger.Fatalw("Failed to load config file", err)
+	}
+
 	reconciler, err := controller.NewGitSyncReconciler(
 		kubeClient,
 		mgr.GetScheme(),
+		config,
 	)
 	if err != nil {
 		logger.Fatalw("Unable to create GitSync controller", err)

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: numaplane-controller-config
+  namespace: default
+data:
+  clusterName: "numaplanecluster"
+  timeInterval: "3m"
+  repositoryPathPrefix: "{}"

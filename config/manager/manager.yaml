@@ -74,6 +74,7 @@ spec:
           - name: CLUSTER_NAME
             value: CLUSTER_NAME_VALUE # Replace it with the cluster name where numaplane will get deployed.
         image: numaplane-controller:latest
+        imagePullPolicy: IfNotPresent
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
@@ -101,5 +102,12 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
+        volumeMounts: # Add this section within the container spec
+          - name: config-volume
+            mountPath: /etc/numaflow
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+        - name: config-volume
+          configMap:
+            name: numaplane-controller-config

@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 
@@ -39,6 +40,7 @@ import (
 type GitSyncReconciler struct {
 	Client kubernetes.Client
 	Scheme *runtime.Scheme
+	Config *GlobalConfig
 
 	// gitSyncLocks maps GitSync namespaced name to Mutex, to prevent processing the same GitSync at the same time
 	// note that if other goroutines outside of this struct need to share the lock in the future, it can be moved
@@ -55,7 +57,8 @@ const (
 	finalizerName = "numaplane-controller"
 )
 
-func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme) (*GitSyncReconciler, error) {
+func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme, config *GlobalConfig) (*GitSyncReconciler, error) {
+	log.Println("%%%%%%%%%%%%%5---", config.ClusterName)
 	clusterName, found := os.LookupEnv("CLUSTER_NAME") // TODO: if we incorporate a ConfigMap later, could include this in it
 	if !found {
 		return nil, fmt.Errorf("environment variable CLUSTER_NAME not found")
@@ -64,6 +67,7 @@ func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme) (*Git
 		Client:      kubeClient,
 		Scheme:      s,
 		clusterName: clusterName,
+		Config:      config,
 	}, nil
 }
 
