@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
@@ -22,7 +23,7 @@ type CredentialRef struct {
 
 func LoadConfig(onErrorReloading func(error)) (*GlobalConfig, error) {
 	v := viper.New()
-	v.SetConfigName("controller-config")
+	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath("/etc/numaplane")
 	err := v.ReadInConfig()

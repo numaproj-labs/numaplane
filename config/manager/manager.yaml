@@ -102,9 +102,9 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
-        volumeMounts: # Add this section within the container spec
+        volumeMounts: 
           - name: config-volume
-            mountPath: /etc/numaflow
+            mountPath: /etc/numaplane
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:

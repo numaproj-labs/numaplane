@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: numaplane-controller-config
-  namespace: default
+  namespace: numaplane-system
 data:
   clusterName: "numaplanecluster"
   timeInterval: "3m"
