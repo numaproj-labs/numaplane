@@ -18,9 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
-	"log"
-	"os"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -58,15 +55,11 @@ const (
 )
 
 func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme, config *GlobalConfig) (*GitSyncReconciler, error) {
-	log.Println("%%%%%%%%%%%%%5---", config.ClusterName)
-	clusterName, found := os.LookupEnv("CLUSTER_NAME") // TODO: if we incorporate a ConfigMap later, could include this in it
-	if !found {
-		return nil, fmt.Errorf("environment variable CLUSTER_NAME not found")
-	}
+
 	return &GitSyncReconciler{
 		Client:      kubeClient,
 		Scheme:      s,
-		clusterName: clusterName,
+		clusterName: config.ClusterName,
 		Config:      config,
 	}, nil
 }

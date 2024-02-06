@@ -101,18 +101,12 @@ func main() {
 		logger.Errorw("Failed to reload global configuration file", err)
 	})
 	if err != nil {
-		logger.Errorw("Failed to load config file", err)
+		logger.Fatalw("Failed to load config file", err)
 	}
-	logger.Info(config)
-
 	reconciler, err := controller.NewGitSyncReconciler(
 		kubeClient,
 		mgr.GetScheme(),
-		&controller.GlobalConfig{
-			ClusterName:     "",
-			TimeInterval:    0,
-			RepoCredentials: nil,
-		},
+		config,
 	)
 	if err != nil {
 		logger.Fatalw("Unable to create GitSync controller", err)
