@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -279,9 +278,6 @@ func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 	repositoryPaths := gitSync.Spec.RepositoryPaths
 	destinations := gitSync.Spec.Destinations
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	// Make sure there's at least one RepositoryPath and at least one Destination
 	if len(repositoryPaths) == 0 || len(destinations) == 0 {
 		return errors.New("both repositoryPaths and destinations must have at least one item")
@@ -289,7 +285,7 @@ func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 
 	// Validate each repositoryPath
 	for i := range repositoryPaths {
-		if ok := validations.CheckGitURL(repositoryPaths[i].RepoUrl, ctx); !ok {
+		if ok := validations.CheckGitURL(repositoryPaths[i].RepoUrl); !ok {
 			return fmt.Errorf("invalid remote repository url %s", repositoryPaths[i].RepoUrl)
 		}
 		if len(repositoryPaths[i].Name) == 0 {
@@ -312,7 +308,7 @@ func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 		if len(dest.Cluster) == 0 {
 			return fmt.Errorf("cluster name cannot be empty")
 		}
-		if !validations.IsValidKubernetesNamespace(dest.Namespace) || validations.IsReservedName(dest.Namespace) {
+		if !validations.IsValidKubernetesNamespace(dest.Namespace) {
 			return fmt.Errorf("namespace is not a valid string for cluster %s", dest.Cluster)
 		}
 	}

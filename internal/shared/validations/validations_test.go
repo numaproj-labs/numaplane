@@ -1,7 +1,6 @@
 package validations
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,7 +49,7 @@ func TestCheckGitURL(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ok := CheckGitURL(tc.gitUrl, context.Background())
+			ok := CheckGitURL(tc.gitUrl)
 			assert.Equal(t, tc.expected, ok)
 		})
 	}
@@ -87,38 +86,15 @@ func TestIsValidName(t *testing.T) {
 			resourceName: "my-pipelines",
 			expected:     true,
 		},
+		{
+			name:         "Reserved Keyword",
+			resourceName: "kube-233",
+			expected:     false,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ok := IsValidKubernetesNamespace(tc.resourceName)
-			assert.Equal(t, tc.expected, ok)
-		})
-	}
-
-}
-
-func TestIsReservedName(t *testing.T) {
-
-	testCases := []struct {
-		name         string
-		resourceName string
-		expected     bool
-	}{
-
-		{
-			name:         "Reserved Keyword",
-			resourceName: "kube-233",
-			expected:     true,
-		},
-		{
-			name:         "Reserved KeyWord",
-			resourceName: "kubernetes-123",
-			expected:     true,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			ok := IsReservedName(tc.resourceName)
 			assert.Equal(t, tc.expected, ok)
 		})
 	}

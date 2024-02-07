@@ -1,9 +1,10 @@
 package validations
 
 import (
-	"context"
 	"net/url"
 	"regexp"
+
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 // Valid git transports url
@@ -47,7 +48,7 @@ func (t *TransportSet) Valid(transport string) bool {
 	return ok
 }
 
-func CheckGitURL(gitURL string, ctx context.Context) bool {
+func CheckGitURL(gitURL string) bool {
 	u, err := url.Parse(gitURL)
 	if err == nil && !Transports.Valid(u.Scheme) {
 		return false
@@ -56,16 +57,11 @@ func CheckGitURL(gitURL string, ctx context.Context) bool {
 }
 
 func IsValidKubernetesNamespace(name string) bool {
-	if len(name) > 63 {
-		return false
-	}
-	// names can only contain lowercase alphanumeric characters, '-', but must start and end with an alphanumeric
-	validNameRegex := regexp.MustCompile(`^[a-z0-9][a-z0-9\-]*[a-z0-9]$`)
-	return validNameRegex.MatchString(name)
-}
-
-func IsReservedName(name string) bool {
+	// All namespace names must be valid RFC 1123 DNS labels.
+	errs := validation.IsDNS1123Label(name)
 	reservedNamesRegex := regexp.MustCompile(`^(kubernetes-|kube-)`)
-	return reservedNamesRegex.MatchString(name)
-
+	if len(errs) == 0 && !reservedNamesRegex.MatchString(name) {
+		return true
+	}
+	return false
 }
