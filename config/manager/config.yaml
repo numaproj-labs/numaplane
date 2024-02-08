@@ -5,10 +5,10 @@ metadata:
   namespace: numaplane-system
 data:
   config.yaml: |
-    clusterName: "my-cluster"
+    clusterName: "staging-usw2-k8s"
     timeInterval: 5
     repoCredentials:
-      "testGit":
-          secretKeyRef:
+      "https://github.com/xdevxy/numaflow-example-pipelines.git":
+            name: secret-name
             key: secret-basic-auth
        

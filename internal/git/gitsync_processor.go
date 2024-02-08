@@ -6,10 +6,10 @@ import (
 	"io"
 	"log"
 	"regexp"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
-
 	"strings"
 	"time"
+
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
@@ -81,6 +81,7 @@ type MetaData struct {
 	Namespace string `yaml:"namespace"`
 }
 
+// this gets secret using the kubernetes client
 func getSecret(ctx context.Context, kubeClient kubernetes.Client, namespace, secretName string) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
 	key := k8sClient.ObjectKey{
@@ -463,7 +464,7 @@ func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, 
 	return commitHash, err
 }
 
-func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string, repoCred map[string]corev1.SecretKeySelector) (*GitSyncProcessor, error) {
+func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string, repoCred map[string]*corev1.SecretKeySelector) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
 	channels := make(map[string]chan Message)
 	namespace := gitSync.Spec.GetDestinationNamespace(clusterName)
@@ -478,13 +479,16 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		channels[repo.Name] = gitCh
 		go func(repo *v1alpha1.RepositoryPath) {
 			// read k8 secrets
+			log.Println(repo.Name)
 			secretName := repoCred[repo.RepoUrl]
+			log.Println("secretName --------", secretName.Key)
+
 			secret, err := getSecret(ctx, kubeClient, namespace, secretName.Key)
 			if err != nil {
 				logger.Errorw("error getting the repository secrets", "err", err)
 				return
 			}
-			log.Println("secretData --------", secret.Data["username"], secret.Data["password"])
+			log.Println("secretData --------", string(secret.Data["username"]), string(secret.Data["password"]))
 
 			r, err := cloneRepo(repo)
 			if err != nil {

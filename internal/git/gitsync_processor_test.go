@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
@@ -721,4 +722,16 @@ func Test_watchRepo(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetSecret(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	secret := &corev1.Secret{}
+
+	c := mocksClient.NewMockClient(ctrl)
+	key := k8sClient.ObjectKey{
+		Namespace: "testNamespace",
+		Name:      "test-secret",
+	}
+	c.EXPECT().Get(context.Background(), key, secret).Return()
 }

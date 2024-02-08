@@ -12,9 +12,9 @@ import (
 // supposed to be populated from the configmap attached to the
 // controller manager.
 type GlobalConfig struct {
-	ClusterName     string                              `yaml:"clusterName" json:"clusterName"`
-	TimeInterval    uint                                `yaml:"timeInterval" json:"timeInterval"`
-	RepoCredentials map[string]corev1.SecretKeySelector `json:"repoCredentials"`
+	ClusterName     string                               `yaml:"clusterName" json:"clusterName"`
+	TimeInterval    uint                                 `yaml:"timeInterval" json:"timeInterval"`
+	RepoCredentials map[string]*corev1.SecretKeySelector `json:"repoCredentials"`
 }
 
 func LoadConfig(onErrorReloading func(error)) (*GlobalConfig, error) {

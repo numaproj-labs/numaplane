@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"log"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -55,7 +56,7 @@ const (
 )
 
 func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme, config *GlobalConfig) (*GitSyncReconciler, error) {
-
+	log.Println(config.RepoCredentials)
 	return &GitSyncReconciler{
 		Client:      kubeClient,
 		Scheme:      s,
