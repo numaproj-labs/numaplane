@@ -18,9 +18,11 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +34,7 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	"github.com/numaproj-labs/numaplane/internal/shared/validations"
 )
 
 // GitSyncReconciler reconciles a GitSync object
@@ -271,8 +274,44 @@ func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// TODO: add validation
 func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
+	repositoryPaths := gitSync.Spec.RepositoryPaths
+	destinations := gitSync.Spec.Destinations
+	// Make sure there's at least one RepositoryPath and at least one Destination
+	if len(repositoryPaths) == 0 || len(destinations) == 0 {
+		return errors.New("both repositoryPaths and destinations must have at least one item")
+	}
+
+	// Validate each repositoryPath
+	for i := range repositoryPaths {
+		if ok := validations.CheckGitURL(repositoryPaths[i].RepoUrl); !ok {
+			return fmt.Errorf("invalid remote repository url %s", repositoryPaths[i].RepoUrl)
+		}
+		if len(repositoryPaths[i].Name) == 0 {
+			return fmt.Errorf("repositoryPath name cannot be empty %s", repositoryPaths[i].Name)
+		}
+		if len(repositoryPaths[i].TargetRevision) == 0 {
+			return fmt.Errorf("targetRevision cannot be empty for repository Path %s", repositoryPaths[i].Name)
+		}
+	}
+
+	// Validate destinations and ensure no duplicates
+	destinationSet := make(map[string]struct{})
+	for _, dest := range destinations {
+		key := fmt.Sprintf("%s-%s", dest.Cluster, dest.Namespace)
+		if _, exists := destinationSet[key]; exists {
+			return fmt.Errorf("duplicate destination found for cluster %s and namespace %s", dest.Cluster, dest.Namespace)
+		}
+		destinationSet[key] = struct{}{}
+
+		if len(dest.Cluster) == 0 {
+			return fmt.Errorf("cluster name cannot be empty")
+		}
+		if !validations.IsValidKubernetesNamespace(dest.Namespace) {
+			return fmt.Errorf("namespace is not a valid string for cluster %s", dest.Cluster)
+		}
+	}
+
 	return nil
 }
 
