@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
 	"regexp"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"strings"
 	"time"
 
@@ -76,6 +79,18 @@ type KubernetesResource struct {
 type MetaData struct {
 	Name      string `yaml:"name"`
 	Namespace string `yaml:"namespace"`
+}
+
+func getSecret(ctx context.Context, kubeClient kubernetes.Client, namespace, secretName string) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	key := k8sClient.ObjectKey{
+		Namespace: namespace,
+		Name:      secretName,
+	}
+	if err := kubeClient.Get(ctx, key, secret); err != nil {
+		return nil, err
+	}
+	return secret, nil
 }
 
 func cloneRepo(repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
@@ -463,6 +478,13 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		channels[repo.Name] = gitCh
 		go func(repo *v1alpha1.RepositoryPath) {
 			// read k8 secrets
+			secretName := repoCred[repo.RepoUrl]
+			secret, err := getSecret(ctx, kubeClient, namespace, secretName.Key)
+			if err != nil {
+				logger.Errorw("error getting the repository secrets", "err", err)
+				return
+			}
+			log.Println("secretData --------", secret.Data["username"], secret.Data["password"])
 
 			r, err := cloneRepo(repo)
 			if err != nil {
