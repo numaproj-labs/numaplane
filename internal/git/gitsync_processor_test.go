@@ -726,12 +726,17 @@ func Test_watchRepo(t *testing.T) {
 
 func TestGetSecret(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	secret := &corev1.Secret{}
-
 	c := mocksClient.NewMockClient(ctrl)
 	key := k8sClient.ObjectKey{
 		Namespace: "testNamespace",
 		Name:      "test-secret",
 	}
-	c.EXPECT().Get(context.Background(), key, secret).Return()
+	c.EXPECT().Get(context.TODO(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
+		s := obj.(*corev1.Secret)
+		s.Data = map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
+		return nil
+	})
+	secret, err := getSecret(context.TODO(), c, "testNamespace", "test-secret")
+	assert.Nil(t, err)
+	assert.Equal(t, "admin", string(secret.Data["username"]))
 }

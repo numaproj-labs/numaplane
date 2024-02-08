@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -479,17 +478,11 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		channels[repo.Name] = gitCh
 		go func(repo *v1alpha1.RepositoryPath) {
 			// read k8 secrets
-			log.Println(repo.Name)
 			secretName := repoCred[repo.RepoUrl]
-			log.Println("secretName --------", secretName.Key)
-
-			secret, err := getSecret(ctx, kubeClient, namespace, secretName.Key)
+			_, err := getSecret(ctx, kubeClient, namespace, secretName.Key)
 			if err != nil {
 				logger.Errorw("error getting the repository secrets", "err", err)
-				return
 			}
-			log.Println("secretData --------", string(secret.Data["username"]), string(secret.Data["password"]))
-
 			r, err := cloneRepo(repo)
 			if err != nil {
 				logger.Errorw("error cloning the repo", "err", err)
