@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -59,7 +58,6 @@ const (
 )
 
 func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme, config *GlobalConfig) (*GitSyncReconciler, error) {
-	log.Println(config.RepoCredentials)
 	return &GitSyncReconciler{
 		Client:      kubeClient,
 		Scheme:      s,

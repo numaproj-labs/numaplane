@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -71,9 +70,11 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		err := os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
-		assert.Nil(t, err)
-		r, err := NewGitSyncReconciler(client, scheme.Scheme)
+		r, err := NewGitSyncReconciler(client, scheme.Scheme, &GlobalConfig{
+			ClusterName:     "staging-usw2-k8s",
+			TimeInterval:    0,
+			RepoCredentials: make(map[string]*corev1.SecretKeySelector),
+		})
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 
@@ -111,9 +112,11 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		err := os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
-		assert.Nil(t, err)
-		r, err := NewGitSyncReconciler(client, scheme.Scheme)
+		r, err := NewGitSyncReconciler(client, scheme.Scheme, &GlobalConfig{
+			ClusterName:     "staging-usw2-k8s",
+			TimeInterval:    0,
+			RepoCredentials: make(map[string]*corev1.SecretKeySelector),
+		})
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 

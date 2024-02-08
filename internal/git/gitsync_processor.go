@@ -11,7 +11,6 @@ import (
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/go-git/go-git/v5"
@@ -99,13 +98,8 @@ func cloneRepo(repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL: endpoint.String(),
-		Auth: &http.BasicAuth{
-			Username: "anything",
-			Password: "yourPersonalAccessToken",
-		},
 	})
 }
 
@@ -478,11 +472,14 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		channels[repo.Name] = gitCh
 		go func(repo *v1alpha1.RepositoryPath) {
 			// read k8 secrets
-			secretName := repoCred[repo.RepoUrl]
-			_, err := getSecret(ctx, kubeClient, namespace, secretName.Key)
-			if err != nil {
-				logger.Errorw("error getting the repository secrets", "err", err)
-			}
+			/*
+				secretName := repoCred[repo.RepoUrl]
+				_, err := getSecret(ctx, kubeClient, namespace, secretName.Key)
+				if err != nil {
+					logger.Errorw("error getting the repository secrets", "err", err)
+				}
+
+			*/
 			r, err := cloneRepo(repo)
 			if err != nil {
 				logger.Errorw("error cloning the repo", "err", err)
