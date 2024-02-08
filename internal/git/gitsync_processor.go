@@ -3,12 +3,14 @@ package git
 import (
 	"context"
 	"errors"
-	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"io"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -82,7 +84,7 @@ func cloneRepo(repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-   
+
 	return git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL: endpoint.String(),
 		Auth: &http.BasicAuth{
@@ -446,7 +448,7 @@ func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, 
 	return commitHash, err
 }
 
-func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string) (*GitSyncProcessor, error) {
+func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string, repoCred map[string]corev1.SecretKeySelector) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
 	channels := make(map[string]chan Message)
 	namespace := gitSync.Spec.GetDestinationNamespace(clusterName)
@@ -460,6 +462,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		gitCh := make(chan Message, messageChanLength)
 		channels[repo.Name] = gitCh
 		go func(repo *v1alpha1.RepositoryPath) {
+			// read k8 secrets
 
 			r, err := cloneRepo(repo)
 			if err != nil {
