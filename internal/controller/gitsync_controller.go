@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
@@ -40,7 +41,7 @@ import (
 type GitSyncReconciler struct {
 	Client kubernetes.Client
 	Scheme *runtime.Scheme
-	Config *GlobalConfig
+	Config *config.GlobalConfig
 
 	// gitSyncLocks maps GitSync namespaced name to Mutex, to prevent processing the same GitSync at the same time
 	// note that if other goroutines outside of this struct need to share the lock in the future, it can be moved
@@ -57,7 +58,7 @@ const (
 	finalizerName = "numaplane-controller"
 )
 
-func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme, config *GlobalConfig) (*GitSyncReconciler, error) {
+func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme, config *config.GlobalConfig) (*GitSyncReconciler, error) {
 	return &GitSyncReconciler{
 		Client:      kubeClient,
 		Scheme:      s,

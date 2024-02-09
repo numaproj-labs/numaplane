@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/git"
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
 )
@@ -70,7 +71,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		r, err := NewGitSyncReconciler(client, scheme.Scheme, &GlobalConfig{
+		r, err := NewGitSyncReconciler(client, scheme.Scheme, &config.GlobalConfig{
 			ClusterName:     "staging-usw2-k8s",
 			TimeInterval:    0,
 			RepoCredentials: make(map[string]*corev1.SecretKeySelector),
@@ -112,7 +113,7 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		r, err := NewGitSyncReconciler(client, scheme.Scheme, &GlobalConfig{
+		r, err := NewGitSyncReconciler(client, scheme.Scheme, &config.GlobalConfig{
 			ClusterName:     "staging-usw2-k8s",
 			TimeInterval:    0,
 			RepoCredentials: make(map[string]*corev1.SecretKeySelector),

@@ -32,6 +32,7 @@ import (
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller"
+	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 	//+kubebuilder:scaffold:imports
@@ -97,7 +98,7 @@ func main() {
 	}
 
 	// Load Config For the pod
-	config, err := controller.LoadConfig(func(err error) {
+	config, err := config.LoadConfig(func(err error) {
 		logger.Errorw("Failed to reload global configuration file", err)
 	})
 	if err != nil {

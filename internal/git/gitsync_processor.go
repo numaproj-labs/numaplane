@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
+	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
@@ -457,7 +458,7 @@ func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, 
 	return commitHash, err
 }
 
-func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string, repoCred map[string]*corev1.SecretKeySelector) (*GitSyncProcessor, error) {
+func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string, repoCred map[string]*controllerconfig.GitCredential) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
 	channels := make(map[string]chan Message)
 	namespace := gitSync.Spec.GetDestinationNamespace(clusterName)
