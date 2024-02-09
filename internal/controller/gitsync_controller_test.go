@@ -73,8 +73,8 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		client := mocksClient.NewMockClient(ctrl)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, &config.GlobalConfig{
 			ClusterName:     "staging-usw2-k8s",
-			TimeInterval:    0,
-			RepoCredentials: make(map[string]*corev1.SecretKeySelector),
+			TimeIntervalSec: 0,
+			RepoCredentials: make(map[string]*config.GitCredential),
 		})
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
@@ -115,8 +115,8 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		client := mocksClient.NewMockClient(ctrl)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, &config.GlobalConfig{
 			ClusterName:     "staging-usw2-k8s",
-			TimeInterval:    0,
-			RepoCredentials: make(map[string]*corev1.SecretKeySelector),
+			TimeIntervalSec: 0,
+			RepoCredentials: make(map[string]*config.GitCredential),
 		})
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
