@@ -100,7 +100,7 @@ func main() {
 
 	// Load Config For the pod
 	configManager := config.NewConfigManager()
-	config, err := configManager.LoadConfig(func(err error) {
+	err = configManager.LoadConfig(func(err error) {
 		logger.Errorw("Failed to reload global configuration file", err)
 	}, configPath)
 	if err != nil {
@@ -109,7 +109,7 @@ func main() {
 	reconciler, err := controller.NewGitSyncReconciler(
 		kubeClient,
 		mgr.GetScheme(),
-		config,
+		configManager.GetConfig(),
 	)
 	if err != nil {
 		logger.Fatalw("Unable to create GitSync controller", err)
