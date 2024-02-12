@@ -1,6 +1,7 @@
 package validations
 
 import (
+	"fmt"
 	"net/url"
 	"regexp"
 
@@ -54,6 +55,13 @@ func CheckGitURL(gitURL string) bool {
 		return false
 	}
 	return true
+}
+func GetTransportScheme(gitURL string) (string, error) {
+	u, err := url.Parse(gitURL)
+	if err != nil {
+		return u.Scheme, fmt.Errorf("invalid git url %s", err.Error())
+	}
+	return u.Scheme, err
 }
 
 func IsValidKubernetesNamespace(name string) bool {

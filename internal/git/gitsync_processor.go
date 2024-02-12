@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
@@ -29,6 +31,7 @@ import (
 	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	"github.com/numaproj-labs/numaplane/internal/shared/validations"
 )
 
 const (
@@ -93,14 +96,35 @@ func getSecret(ctx context.Context, kubeClient kubernetes.Client, namespace, sec
 	return secret, nil
 }
 
-func cloneRepo(repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
+func cloneRepo(repo *v1alpha1.RepositoryPath, credential *controllerconfig.GitCredential) (*git.Repository, error) {
 	// Adding Endpoint here to manage more advanced git options
+	scheme, err := validations.GetTransportScheme(repo.RepoUrl)
+	if err != nil {
+		return nil, err
+	}
+	var authMethod transport.AuthMethod
+	switch scheme {
+	case "ssh":
+		authMethod, err = ssh.NewPublicKeys("git", []byte(key), "")
+		if err != nil {
+			return nil, err
+		}
+
+	case "http":
+		authMethod = &http.BasicAuth{
+			Username: "",
+			Password: "",
+		}
+	}
+
+	// Add any certificates if its required
 	endpoint, err := transport.NewEndpoint(repo.RepoUrl)
 	if err != nil {
 		return nil, err
 	}
 	return git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
-		URL: endpoint.String(),
+		URL:  endpoint.String(),
+		Auth: authMethod,
 	})
 }
 
@@ -473,15 +497,8 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		channels[repo.Name] = gitCh
 		go func(repo *v1alpha1.RepositoryPath) {
 			// read k8 secrets
-			/*
-				secretName := repoCred[repo.RepoUrl]
-				_, err := getSecret(ctx, kubeClient, namespace, secretName.Key)
-				if err != nil {
-					logger.Errorw("error getting the repository secrets", "err", err)
-				}
-
-			*/
-			r, err := cloneRepo(repo)
+			gitCredential := repoCred[repo.RepoUrl] // TODO : should we pass name here
+			r, err := cloneRepo(repo, gitCredential)
 			if err != nil {
 				logger.Errorw("error cloning the repo", "err", err)
 			} else {
