@@ -58,7 +58,12 @@ func TestConfigManager_LoadConfigNoRace(t *testing.T) {
 	configContent := []byte("initial: value\n")
 	err = os.WriteFile(configPath, configContent, 0644)
 	assert.NoError(t, err)
-	defer os.Remove(configPath)
+	defer func(name string) {
+		err := os.Remove(name)
+		if err != nil {
+
+		}
+	}(configPath)
 
 	// configManager
 	cm := NewConfigManager()
