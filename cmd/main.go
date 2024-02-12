@@ -42,7 +42,8 @@ var (
 	// scheme is the runtime.Scheme to which all Numaplane API types are registered.
 	scheme = runtime.NewScheme()
 	// logger is the global logger for the controller-manager.
-	logger = logging.NewLogger().Named("controller-manager")
+	logger     = logging.NewLogger().Named("controller-manager")
+	configPath = "/etc/numaplane" // Path in the volume mounted in the pod where yaml is present
 )
 
 func init() {
@@ -100,7 +101,7 @@ func main() {
 	// Load Config For the pod
 	config, err := config.LoadConfig(func(err error) {
 		logger.Errorw("Failed to reload global configuration file", err)
-	})
+	}, configPath)
 	if err != nil {
 		logger.Fatalw("Failed to load config file", err)
 	}

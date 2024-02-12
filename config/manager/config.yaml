@@ -5,10 +5,29 @@ metadata:
   namespace: numaplane-system
 data:
   config.yaml: |
-    clusterName: "staging-usw2-k8s"
-    timeInterval: 5
+    clusterName: "example-cluster"
+    timeIntervalSec: 60
     repoCredentials:
-      "https://github.com/xdevxy/numaflow-example-pipelines.git":
-            name: secret-name
-            key: secret-basic-auth
-       
+      https://bitbucket.org/numaplane:
+        HTTPCredential:
+          Username: "exampleUser"
+          Password:
+            name: "http-creds"
+            key: "password"
+      https://gitlab.org/numaplane:
+        SSHCredential:
+          SSHKey:
+            name: "ssh-creds"
+            key: "sshKey"
+      https://github.org/numaplane:
+        TLS:
+          insecureSkipVerify: true
+          CACertSecret:
+            name: "ca-cert-secret"
+            key: "ca.crt"
+          CertSecret:
+            name: "cert-secret"
+            key: "tls.crt"
+          KeySecret:
+            name: "key-secret"
+            key: "tls.key"
