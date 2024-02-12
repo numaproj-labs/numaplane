@@ -75,7 +75,7 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath str
 	v.WatchConfig()
 	v.OnConfigChange(func(e fsnotify.Event) {
 		cm.lock.RLock()
-		cm.lock.RUnlock()
+		defer cm.lock.RUnlock()
 		err = v.Unmarshal(r)
 		if err != nil {
 			onErrorReloading(err)
