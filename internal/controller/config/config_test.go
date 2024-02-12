@@ -1,12 +1,14 @@
 package config
 
 import (
+	"fmt"
+	"github.com/stretchr/testify/assert"
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
+	"time"
 )
 
 func TestLoadConfigMatchValues(t *testing.T) {
@@ -44,6 +46,55 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Equal(t, "tls.key", config.RepoCredentials["key3"].TLS.KeySecret.Key, "KeySecret Key for TLS does not match")
 }
 
+// to verify this test run with go test -race ./... it  won't give a race condition as we have used mutex.RwLock
+// in onConfigChange in LoadConfig
 func TestConfigManager_LoadConfigNoRace(t *testing.T) {
+	configDir := os.TempDir()
 
+	configPath := filepath.Join(configDir, "config.yaml")
+	_, err := os.Create(configPath)
+	assert.NoError(t, err)
+
+	configContent := []byte("initial: value\n")
+	err = os.WriteFile(configPath, configContent, 0644)
+	assert.NoError(t, err)
+	defer os.Remove(configPath)
+
+	// configManager
+	cm := NewConfigManager()
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	errors := make([]error, 0)
+
+	onError := func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		errors = append(errors, err)
+	}
+	// concurrent Access of files
+	goroutines := 10
+	wg.Add(goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer wg.Done()
+			_, err := cm.LoadConfig(onError, configDir)
+			assert.NoError(t, err)
+		}()
+	}
+	triggers := 10
+	wg.Add(triggers)
+	// Modification Trigger
+	for i := 0; i < triggers; i++ {
+		go func() {
+			defer wg.Done()
+			time.Sleep(1 * time.Second)
+			newConfigContent := []byte("modified: value\n")
+			err := os.WriteFile(configPath, newConfigContent, 0644)
+			assert.NoError(t, err)
+		}()
+	}
+
+	wg.Wait()
+	assert.Len(t, errors, 0, fmt.Sprintf("There should be no errors, got: %v", errors))
 }
