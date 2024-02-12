@@ -60,9 +60,7 @@ func TestConfigManager_LoadConfigNoRace(t *testing.T) {
 	assert.NoError(t, err)
 	defer func(name string) {
 		err := os.Remove(name)
-		if err != nil {
-
-		}
+		assert.Nil(t, err)
 	}(configPath)
 
 	// configManager
