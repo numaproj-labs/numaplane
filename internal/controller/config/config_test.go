@@ -17,7 +17,8 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Nil(t, err, "Failed to get working directory")
 	configPath := filepath.Join(getwd, "../../../", "config", "samples")
 	configManager := NewConfigManager()
-	config, err := configManager.LoadConfig(func(err error) {
+	config := configManager.GetConfig()
+	err = configManager.LoadConfig(func(err error) {
 	}, configPath)
 	assert.Nil(t, err, "Failed to load configuration")
 
@@ -82,7 +83,7 @@ func TestConfigManager_LoadConfigNoRace(t *testing.T) {
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
-			_, err := cm.LoadConfig(onError, configDir)
+			err := cm.LoadConfig(onError, configDir)
 			assert.NoError(t, err)
 		}()
 	}

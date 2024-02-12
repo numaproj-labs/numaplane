@@ -10,13 +10,13 @@ import (
 )
 
 type ConfigManager struct {
-	config GlobalConfig
+	config *GlobalConfig
 	lock   *sync.RWMutex
 }
 
 func NewConfigManager() *ConfigManager {
 	return &ConfigManager{
-		config: GlobalConfig{},
+		config: &GlobalConfig{},
 		lock:   new(sync.RWMutex),
 	}
 }
@@ -58,28 +58,31 @@ type SecretKeySelector struct {
 	Optional                    *bool                    `json:"optional,omitempty" `
 }
 
-func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath string) (*GlobalConfig, error) {
+func (cm *ConfigManager) GetConfig() *GlobalConfig {
+	return cm.config
+}
+
+func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath string) error {
 	v := viper.New()
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath(configPath)
 	err := v.ReadInConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load configuration file. %w", err)
+		return fmt.Errorf("failed to load configuration file. %w", err)
 	}
-	r := &GlobalConfig{}
-	err = v.Unmarshal(r)
+	err = v.Unmarshal(cm.config)
 	if err != nil {
-		return nil, fmt.Errorf("failed unmarshal configuration file. %w", err)
+		return fmt.Errorf("failed unmarshal configuration file. %w", err)
 	}
 	v.WatchConfig()
 	v.OnConfigChange(func(e fsnotify.Event) {
 		cm.lock.RLock()
 		defer cm.lock.RUnlock()
-		err = v.Unmarshal(r)
+		err = v.Unmarshal(cm.config)
 		if err != nil {
 			onErrorReloading(err)
 		}
 	})
-	return r, nil
+	return nil
 }
