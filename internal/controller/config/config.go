@@ -2,11 +2,24 @@ package config
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 )
+
+type ConfigManager struct {
+	config GlobalConfig
+	lock   *sync.RWMutex
+}
+
+func NewConfigManager() *ConfigManager {
+	return &ConfigManager{
+		config: GlobalConfig{},
+		lock:   new(sync.RWMutex),
+	}
+}
 
 // GlobalConfig is the configuration for the controllers, it is
 // supposed to be populated from the configmap attached to the
@@ -24,22 +37,28 @@ type GitCredential struct {
 }
 
 type HTTPCredential struct {
-	Username string                   `json:"username"`
-	Password corev1.SecretKeySelector `mapstructure:",squash"`
+	Username string            `json:"username"`
+	Password SecretKeySelector `json:"password"`
 }
 
 type SSHCredential struct {
-	SSHKey *corev1.SecretKeySelector `json:"SSHKey" yaml:"SSHKey" `
+	SSHKey SecretKeySelector `json:"SSHKey" yaml:"SSHKey" `
 }
 
 type TLS struct {
-	InsecureSkipVerify bool                      `json:"insecureSkipVerify"`
-	CACertSecret       *corev1.SecretKeySelector `json:"CACertSecret"`
-	CertSecret         *corev1.SecretKeySelector `json:"CertSecret"`
-	KeySecret          *corev1.SecretKeySelector `json:"keySecret"`
+	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
+	CACertSecret       SecretKeySelector `json:"CACertSecret"`
+	CertSecret         SecretKeySelector `json:"CertSecret"`
+	KeySecret          SecretKeySelector `json:"keySecret"`
 }
 
-func LoadConfig(onErrorReloading func(error), configPath string) (*GlobalConfig, error) {
+type SecretKeySelector struct {
+	corev1.LocalObjectReference `mapstructure:",squash"` // for viper to correctly parse the config
+	Key                         string                   `json:"key" `
+	Optional                    *bool                    `json:"optional,omitempty" `
+}
+
+func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath string) (*GlobalConfig, error) {
 	v := viper.New()
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
@@ -55,6 +74,8 @@ func LoadConfig(onErrorReloading func(error), configPath string) (*GlobalConfig,
 	}
 	v.WatchConfig()
 	v.OnConfigChange(func(e fsnotify.Event) {
+		cm.lock.RLock()
+		cm.lock.RUnlock()
 		err = v.Unmarshal(r)
 		if err != nil {
 			onErrorReloading(err)

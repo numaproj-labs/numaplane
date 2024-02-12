@@ -99,7 +99,8 @@ func main() {
 	}
 
 	// Load Config For the pod
-	config, err := config.LoadConfig(func(err error) {
+	configManager := config.NewConfigManager()
+	config, err := configManager.LoadConfig(func(err error) {
 		logger.Errorw("Failed to reload global configuration file", err)
 	}, configPath)
 	if err != nil {
