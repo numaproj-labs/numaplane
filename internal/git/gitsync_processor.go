@@ -96,27 +96,7 @@ func getSecret(ctx context.Context, kubeClient kubernetes.Client, namespace, sec
 	return secret, nil
 }
 
-func cloneRepo(repo *v1alpha1.RepositoryPath, credential *controllerconfig.GitCredential) (*git.Repository, error) {
-	// Adding Endpoint here to manage more advanced git options
-	scheme, err := validations.GetTransportScheme(repo.RepoUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	switch scheme {
-	case "ssh":
-		authMethod, err = ssh.NewPublicKeys("git", []byte(key), "")
-		if err != nil {
-			return nil, err
-		}
-
-	case "http":
-		authMethod = &http.BasicAuth{
-			Username: "",
-			Password: "",
-		}
-	}
-
+func cloneRepo(repo *v1alpha1.RepositoryPath, authMethod transport.AuthMethod) (*git.Repository, error) {
 	// Add any certificates if its required
 	endpoint, err := transport.NewEndpoint(repo.RepoUrl)
 	if err != nil {
@@ -482,7 +462,7 @@ func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, 
 	return commitHash, err
 }
 
-func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string, repoCred map[string]*controllerconfig.GitCredential) (*GitSyncProcessor, error) {
+func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
 	channels := make(map[string]chan Message)
 	namespace := gitSync.Spec.GetDestinationNamespace(clusterName)
@@ -496,9 +476,13 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		gitCh := make(chan Message, messageChanLength)
 		channels[repo.Name] = gitCh
 		go func(repo *v1alpha1.RepositoryPath) {
-			// read k8 secrets
-			gitCredential := repoCred[repo.RepoUrl] // TODO : should we pass name here
-			r, err := cloneRepo(repo, gitCredential)
+
+			repoCred := controllerconfig.GetConfigManagerInstance().GetConfig().RepoCredentials
+			authMethod, err := GetAuthMethod(ctx, repo.Name, kubeClient, namespace, repoCred)
+			if err != nil {
+				logger.Errorw("error getting the auth method for git authentication", "err", err)
+			}
+			r, err := cloneRepo(repo, authMethod)
 			if err != nil {
 				logger.Errorw("error cloning the repo", "err", err)
 			} else {
@@ -514,6 +498,39 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 	}
 
 	return processor, nil
+}
+
+func GetAuthMethod(ctx context.Context, repoUrl string, kubeClient kubernetes.Client, namespace string, repoCred map[string]*controllerconfig.GitCredential) (transport.AuthMethod, error) {
+	scheme, err := validations.GetTransportScheme(repoUrl)
+	if err != nil {
+		return nil, err
+	}
+	var authMethod transport.AuthMethod
+	switch scheme {
+	case "ssh":
+		key := repoCred[repoUrl].SSHCredential.SSHKey.Key
+		// Get ssh public key from the k8 secret
+		secret, err := getSecret(ctx, kubeClient, namespace, key)
+		if err != nil {
+			return nil, err
+		}
+		authMethod, err = ssh.NewPublicKeys("git", secret.Data["publicKey"], "")
+		if err != nil {
+			return nil, err
+		}
+
+	case "http":
+		key := repoCred[repoUrl].SSHCredential.SSHKey.Key
+		secret, err := getSecret(ctx, kubeClient, namespace, key)
+		if err != nil {
+			return nil, err
+		}
+		authMethod = &http.BasicAuth{
+			Username: string(secret.Data["username"]),
+			Password: string(secret.Data["password"]),
+		}
+	}
+	return authMethod, nil
 }
 
 func (processor *GitSyncProcessor) Update(gitSync *v1alpha1.GitSync) error {

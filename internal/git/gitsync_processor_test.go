@@ -108,7 +108,7 @@ func Test_cloneRepo(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			r, err := cloneRepo(&tc.repo)
+			r, err := cloneRepo(&tc.repo, nil)
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
@@ -701,7 +701,7 @@ func Test_watchRepo(t *testing.T) {
 
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &tc.gitSync.Spec.RepositoryPaths[0]
-			r, cloneErr := cloneRepo(repo)
+			r, cloneErr := cloneRepo(repo, nil)
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)
 
@@ -739,4 +739,20 @@ func TestGetSecret(t *testing.T) {
 	secret, err := getSecret(context.TODO(), c, "testNamespace", "test-secret")
 	assert.Nil(t, err)
 	assert.Equal(t, "admin", string(secret.Data["username"]))
+}
+
+func TestGetAuthMethod(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+	key := k8sClient.ObjectKey{
+		Namespace: "testNamespace",
+		Name:      "test-secret",
+	}
+	c.EXPECT().Get(context.TODO(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
+		s := obj.(*corev1.Secret)
+		s.Data = map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
+		return nil
+	})
+
+	//GetAuthMethod(context.Background())
 }

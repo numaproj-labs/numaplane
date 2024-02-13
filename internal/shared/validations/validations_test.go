@@ -46,6 +46,11 @@ func TestCheckGitURL(t *testing.T) {
 			gitUrl:   "someinvalid",
 			expected: false,
 		},
+		{
+			name:     "valid github url",
+			gitUrl:   "git@github.com:username/repository.git",
+			expected: true,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

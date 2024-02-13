@@ -2,6 +2,7 @@ package validations
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"regexp"
 
@@ -54,6 +55,7 @@ func CheckGitURL(gitURL string) bool {
 	if err == nil && !Transports.Valid(u.Scheme) {
 		return false
 	}
+	log.Println(u)
 	return true
 }
 func GetTransportScheme(gitURL string) (string, error) {
