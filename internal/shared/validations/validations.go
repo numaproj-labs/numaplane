@@ -59,6 +59,10 @@ func CheckGitURL(gitURL string) bool {
 	return true
 }
 func GetTransportScheme(gitURL string) (string, error) {
+
+	if matched, _ := regexp.MatchString(`^[a-zA-Z]+@[\w\.]+:[\w\/\-\.~]+`, gitURL); matched {
+		return "ssh", nil
+	}
 	u, err := url.Parse(gitURL)
 	if err != nil {
 		return u.Scheme, fmt.Errorf("invalid git url %s", err.Error())

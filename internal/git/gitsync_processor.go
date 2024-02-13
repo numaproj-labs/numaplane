@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -510,6 +511,7 @@ func GetAuthMethod(ctx context.Context, repoUrl string, kubeClient kubernetes.Cl
 	switch scheme {
 	case "ssh", "git+ssh":
 		key := repoCred.SSHCredential.SSHKey.Key
+		log.Println(key)
 		secret, err := getSecret(ctx, kubeClient, namespace, key)
 		if err != nil {
 			return nil, err
