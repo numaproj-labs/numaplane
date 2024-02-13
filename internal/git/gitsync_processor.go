@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"regexp"
 	"strings"
@@ -478,7 +479,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		go func(repo *v1alpha1.RepositoryPath) {
 
 			repoCred := controllerconfig.GetConfigManagerInstance().GetConfig().RepoCredentials
-			authMethod, err := GetAuthMethod(ctx, repo.Name, kubeClient, namespace, repoCred)
+			authMethod, err := GetAuthMethod(ctx, repo.RepoUrl, kubeClient, namespace, repoCred[repo.Name])
 			if err != nil {
 				logger.Errorw("error getting the auth method for git authentication", "err", err)
 			}
@@ -500,36 +501,45 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 	return processor, nil
 }
 
-func GetAuthMethod(ctx context.Context, repoUrl string, kubeClient kubernetes.Client, namespace string, repoCred map[string]*controllerconfig.GitCredential) (transport.AuthMethod, error) {
+func GetAuthMethod(ctx context.Context, repoUrl string, kubeClient kubernetes.Client, namespace string, repoCred *controllerconfig.GitCredential) (transport.AuthMethod, error) {
 	scheme, err := validations.GetTransportScheme(repoUrl)
 	if err != nil {
 		return nil, err
 	}
 	var authMethod transport.AuthMethod
 	switch scheme {
-	case "ssh":
-		key := repoCred[repoUrl].SSHCredential.SSHKey.Key
-		// Get ssh public key from the k8 secret
+	case "ssh", "git+ssh":
+		key := repoCred.SSHCredential.SSHKey.Key
 		secret, err := getSecret(ctx, kubeClient, namespace, key)
 		if err != nil {
 			return nil, err
 		}
-		authMethod, err = ssh.NewPublicKeys("git", secret.Data["publicKey"], "")
+		authMethod, err = ssh.NewPublicKeys("git", secret.Data["sshKey"], "")
 		if err != nil {
 			return nil, err
 		}
 
-	case "http":
-		key := repoCred[repoUrl].SSHCredential.SSHKey.Key
-		secret, err := getSecret(ctx, kubeClient, namespace, key)
-		if err != nil {
-			return nil, err
+	case "http", "https":
+		if repoCred.HTTPCredential != nil {
+			cred := repoCred.HTTPCredential
+			username := cred.Username
+			secret, err := getSecret(ctx, kubeClient, namespace, cred.Password.Key)
+			if err != nil {
+				return nil, err
+			}
+			password := string(secret.Data["password"])
+			authMethod = &http.BasicAuth{
+				Username: username,
+				Password: password,
+			}
 		}
-		authMethod = &http.BasicAuth{
-			Username: string(secret.Data["username"]),
-			Password: string(secret.Data["password"]),
-		}
+	case "git", "file":
+		authMethod = nil
+
+	default:
+		return nil, fmt.Errorf("unsupported or not required authentication")
 	}
+
 	return authMethod, nil
 }
 

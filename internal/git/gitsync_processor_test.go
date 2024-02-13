@@ -29,6 +29,7 @@ import (
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
+	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
 )
 
@@ -748,11 +749,24 @@ func TestGetAuthMethod(t *testing.T) {
 		Namespace: "testNamespace",
 		Name:      "test-secret",
 	}
-	c.EXPECT().Get(context.TODO(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
+	c.EXPECT().Get(context.Background(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
 		s := obj.(*corev1.Secret)
 		s.Data = map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
 		return nil
 	})
 
-	//GetAuthMethod(context.Background())
+	credential := &controllerconfig.GitCredential{
+		HTTPCredential: &controllerconfig.HTTPCredential{
+			Username: "admin123",
+			Password: controllerconfig.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "name"},
+				Key:                  "test-secret",
+				Optional:             nil,
+			},
+		},
+	}
+	method, err := GetAuthMethod(context.Background(), "https://github.com/shubhamdixit863/rusthttpserver", c, "testNamespace", credential)
+	assert.NoError(t, err)
+	assert.NotNil(t, method)
+	assert.Contains(t, method.String(), "admin123")
 }
