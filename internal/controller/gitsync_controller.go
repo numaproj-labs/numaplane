@@ -39,9 +39,9 @@ import (
 
 // GitSyncReconciler reconciles a GitSync object
 type GitSyncReconciler struct {
-	Client kubernetes.Client
-	Scheme *runtime.Scheme
-	Config *config.GlobalConfig
+	Client        kubernetes.Client
+	Scheme        *runtime.Scheme
+	ConfigManager *config.ConfigManager
 
 	// gitSyncLocks maps GitSync namespaced name to Mutex, to prevent processing the same GitSync at the same time
 	// note that if other goroutines outside of this struct need to share the lock in the future, it can be moved
@@ -58,12 +58,12 @@ const (
 	finalizerName = "numaplane-controller"
 )
 
-func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme, config *config.GlobalConfig) (*GitSyncReconciler, error) {
+func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme, configManager *config.ConfigManager) (*GitSyncReconciler, error) {
 	return &GitSyncReconciler{
-		Client:      kubeClient,
-		Scheme:      s,
-		clusterName: config.ClusterName,
-		Config:      config,
+		Client:        kubeClient,
+		Scheme:        s,
+		clusterName:   configManager.GetConfig().ClusterName,
+		ConfigManager: configManager,
 	}, nil
 }
 
@@ -227,7 +227,7 @@ func (r *GitSyncReconciler) addGitSyncProcessor(ctx context.Context, gitSync *ap
 		controllerutil.AddFinalizer(gitSync, finalizerName)
 	}
 
-	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.Client, r.clusterName, r.Config.RepoCredentials)
+	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.Client, r.clusterName, r.ConfigManager.GetConfig().RepoCredentials)
 	if err != nil {
 		logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
 		return err

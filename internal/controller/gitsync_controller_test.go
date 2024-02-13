@@ -71,11 +71,11 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		r, err := NewGitSyncReconciler(client, scheme.Scheme, &config.GlobalConfig{
-			ClusterName:     "staging-usw2-k8s",
-			TimeIntervalSec: 0,
-			RepoCredentials: make(map[string]*config.GitCredential),
-		})
+		cm := config.GetConfigManagerInstance()
+		config := cm.GetConfig()
+		config.ClusterName = "staging-usw2-k8s"
+
+		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 
@@ -113,11 +113,11 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		r, err := NewGitSyncReconciler(client, scheme.Scheme, &config.GlobalConfig{
-			ClusterName:     "staging-usw2-k8s",
-			TimeIntervalSec: 0,
-			RepoCredentials: make(map[string]*config.GitCredential),
-		})
+		cm := config.GetConfigManagerInstance()
+		config := cm.GetConfig()
+		config.ClusterName = "staging-usw2-k8s"
+
+		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 

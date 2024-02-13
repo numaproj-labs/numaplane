@@ -16,7 +16,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	getwd, err := os.Getwd()
 	assert.Nil(t, err, "Failed to get working directory")
 	configPath := filepath.Join(getwd, "../../../", "config", "samples")
-	configManager := NewConfigManager()
+	configManager := GetConfigManagerInstance()
 	config := configManager.GetConfig()
 	err = configManager.LoadConfig(func(err error) {
 	}, configPath)
@@ -66,7 +66,7 @@ func TestConfigManager_LoadConfigNoRace(t *testing.T) {
 	}(configPath)
 
 	// configManager
-	cm := NewConfigManager()
+	cm := GetConfigManagerInstance()
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -102,4 +102,25 @@ func TestConfigManager_LoadConfigNoRace(t *testing.T) {
 
 	wg.Wait()
 	assert.Len(t, errors, 0, fmt.Sprintf("There should be no errors, got: %v", errors))
+}
+
+func TestGetConfigManagerInstanceSingleton(t *testing.T) {
+	var instance1 *ConfigManager
+	var instance2 *ConfigManager
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		instance1 = GetConfigManagerInstance()
+	}()
+	go func() {
+		defer wg.Done()
+		instance2 = GetConfigManagerInstance()
+	}()
+
+	wg.Wait()
+	assert.NotNil(t, instance1)
+	assert.NotNil(t, instance2)
+	assert.Equal(t, instance1, instance2) // they should give same memory address
+
 }
