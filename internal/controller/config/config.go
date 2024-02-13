@@ -59,8 +59,8 @@ type SecretKeySelector struct {
 }
 
 func (cm *ConfigManager) GetConfig() *GlobalConfig {
-	cm.lock.RLock()
-	defer cm.lock.RUnlock()
+	cm.lock.Lock()
+	defer cm.lock.Unlock()
 	return cm.config
 }
 
