@@ -71,7 +71,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		cm := config.NewConfigManager()
+		cm := config.GetConfigManagerInstance()
 		config := cm.GetConfig()
 		config.ClusterName = "staging-usw2-k8s"
 
@@ -113,7 +113,7 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		cm := config.NewConfigManager()
+		cm := config.GetConfigManagerInstance()
 		config := cm.GetConfig()
 		config.ClusterName = "staging-usw2-k8s"
 

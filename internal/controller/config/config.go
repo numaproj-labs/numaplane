@@ -14,11 +14,18 @@ type ConfigManager struct {
 	lock   *sync.RWMutex
 }
 
-func NewConfigManager() *ConfigManager {
-	return &ConfigManager{
-		config: &GlobalConfig{},
-		lock:   new(sync.RWMutex),
-	}
+var instance *ConfigManager
+var once sync.Once
+
+// GetConfigManagerInstance  returns a singleton config manager throughout the application
+func GetConfigManagerInstance() *ConfigManager {
+	once.Do(func() {
+		instance = &ConfigManager{
+			config: &GlobalConfig{},
+			lock:   new(sync.RWMutex),
+		}
+	})
+	return instance
 }
 
 // GlobalConfig is the configuration for the controllers, it is
