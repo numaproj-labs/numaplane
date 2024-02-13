@@ -102,7 +102,7 @@ func cloneRepo(repo *v1alpha1.RepositoryPath, credential *controllerconfig.GitCr
 	if err != nil {
 		return nil, err
 	}
-	var authMethod transport.AuthMethod
+
 	switch scheme {
 	case "ssh":
 		authMethod, err = ssh.NewPublicKeys("git", []byte(key), "")
