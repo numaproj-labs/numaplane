@@ -4,22 +4,20 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"k8s.io/apimachinery/pkg/runtime"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-)
 
-//TODO: This file is copied from argo-cd (https://github.com/argoproj/argo-cd/blob/master/util/kustomize/kustomize.go)
-// Due to version conflict issue with client-go package with kubernetes/patcher.go changes. Once we move completely to gitops-engine
-// then we will be able to use this code directly from argo-cd.
-
-import (
+	"k8s.io/apimachinery/pkg/runtime"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	numaExec "github.com/numaproj-labs/numaplane/internal/shared/exec"
 )
+
+// TODO: This file is copied from argo-cd (https://github.com/argoproj/argo-cd/blob/master/util/kustomize/kustomize.go)
+// Due to version conflict issue with client-go package with kubernetes/patcher.go changes. Once we move to gitops-engine
+// then we will be able to use this code directly from argo-cd.
 
 // Kustomize provides wrapper functionality around the `kustomize` command.
 type Kustomize interface {
