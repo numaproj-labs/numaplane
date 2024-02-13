@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"math"
@@ -769,4 +770,84 @@ func TestGetAuthMethod(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, method)
 	assert.Contains(t, method.String(), "admin123")
+}
+
+func TestGitCloneRepo(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+	key := k8sClient.ObjectKey{
+		Namespace: "testNamespace",
+		Name:      "test-secret",
+	}
+	data, err := base64.StdEncoding.DecodeString("Z2hwX2hVRkJXUnJpeW5xSVdSeVV5VWhzZlVlUlJqR1E4VTJWeUlvVg==")
+	assert.Nil(t, err)
+	c.EXPECT().Get(context.Background(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
+		s := obj.(*corev1.Secret)
+		s.Data = map[string][]byte{"username": []byte(""), "password": data} // passing personal access token
+		return nil
+	})
+
+	credential := &controllerconfig.GitCredential{
+		HTTPCredential: &controllerconfig.HTTPCredential{
+			Username: "admin123",
+			Password: controllerconfig.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "name"},
+				Key:                  "test-secret",
+				Optional:             nil,
+			},
+		},
+	}
+	method, err := GetAuthMethod(context.Background(), "https://github.com/rustyTest/testprivateRepo", c, "testNamespace", credential)
+	assert.NoError(t, err)
+	assert.NotNil(t, method)
+	repositoryPath := &v1alpha1.RepositoryPath{
+		Name:           "repoName",
+		RepoUrl:        "https://github.com/rustyTest/testprivateRepo",
+		Path:           "",
+		TargetRevision: "",
+	}
+	repo, err := cloneRepo(repositoryPath, method)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+}
+
+func TestGitCloneRepoSsh(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+	key := k8sClient.ObjectKey{
+		Namespace: "testNamespace",
+		Name:      "test-secret",
+	}
+	data, err := base64.StdEncoding.DecodeString("LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNEVTl1elRwT1JwaDJublNtZ2tpSTJQQ25RdzBKbllaUFNGbk1Tc2NSSkltZ0FBQUtBbHBrU1BKYVpFCmp3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDRFU5dXpUcE9ScGgybm5TbWdraUkyUENuUXcwSm5ZWlBTRm5NU3NjUkpJbWcKQUFBRUN5YzdoS0RIODJvRGNnNWtrQWkrL3lZNERySEsva2cyZGg2VHduNXhnWTB0VDI3Tk9rNUdtSGFlZEthQ1NJalk4SwpkRERRbWRoazlJV2N4S3h4RWtpYUFBQUFHSEoxYzNSNWNISnZaM0poYldWeVFHZHRZV2xzTG1OdmJRRUNBd1FGCi0tLS0tRU5EIE9QRU5TU0ggUFJJVkFURSBLRVktLS0tLQ==")
+	assert.Nil(t, err)
+	c.EXPECT().Get(context.Background(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
+		s := obj.(*corev1.Secret)
+		s.Data = map[string][]byte{"username": []byte(""), "password": data} // passing personal access token
+		return nil
+	})
+
+	credential := &controllerconfig.GitCredential{
+		HTTPCredential: &controllerconfig.HTTPCredential{
+			Username: "admin123",
+			Password: controllerconfig.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "name"},
+				Key:                  "test-secret",
+				Optional:             nil,
+			},
+		},
+	}
+	method, err := GetAuthMethod(context.Background(), "git@github.com:rustyTest/testprivateRepo.git", c, "testNamespace", credential)
+	assert.NoError(t, err)
+	assert.NotNil(t, method)
+	repositoryPath := &v1alpha1.RepositoryPath{
+		Name:           "repoName",
+		RepoUrl:        "git@github.com:rustyTest/testprivateRepo.git",
+		Path:           "",
+		TargetRevision: "",
+	}
+	repo, err := cloneRepo(repositoryPath, method)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
 }
