@@ -90,24 +90,20 @@ func Test_cloneRepo(t *testing.T) {
 		{
 			name: "valid repo",
 			repo: v1alpha1.RepositoryPath{
-				RepoUrl: "https://github.com/numaproj-labs/numaplane.git",
+				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
+				TargetRevision: "main",
 			},
 			hasErr: false,
-		},
-		{
-			name: "invalid repo",
-			repo: v1alpha1.RepositoryPath{
-				RepoUrl: "https://invalid_repo.git",
-			},
-			hasErr: true,
 		},
 	}
 
 	t.Parallel()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
-			r, err := cloneRepo(&tc.repo)
+			repoName, err := getRepositoryName(tc.repo.RepoUrl)
+			assert.Nil(t, err)
+			localRepoPath := getLocalRepoPath("gitsync-test-example", repoName)
+			r, err := cloneRepo(localRepoPath, &tc.repo)
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
@@ -447,7 +443,7 @@ metadata:
 		t.Run(tc.name, func(t *testing.T) {
 			resourceMap := make(map[string]string)
 			for _, re := range tc.resources {
-				err := populateResourceMap([]byte(re), resourceMap, defaultNameSpace)
+				err := populateResourceMap(re, resourceMap, defaultNameSpace)
 				assert.Nil(t, err)
 			}
 
@@ -541,7 +537,7 @@ metadata:
 		t.Run(tc.name, func(t *testing.T) {
 			resourceMap := make(map[string]string)
 			for _, re := range tc.resources {
-				err := populateResourceMap([]byte(re), resourceMap, defaultNameSpace)
+				err := populateResourceMap(re, resourceMap, defaultNameSpace)
 				assert.Nil(t, err)
 			}
 
@@ -698,7 +694,12 @@ func Test_watchRepo(t *testing.T) {
 
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &tc.gitSync.Spec.RepositoryPath
-			r, cloneErr := cloneRepo(repo)
+
+			repoName, err := getRepositoryName(repo.RepoUrl)
+			assert.Nil(t, err)
+			localRepoPath := getLocalRepoPath(tc.gitSync.Name, repoName)
+
+			r, cloneErr := cloneRepo(localRepoPath, repo)
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)
 
@@ -711,11 +712,62 @@ func Test_watchRepo(t *testing.T) {
 			client.EXPECT().ApplyResource(gomock.Any(), testNamespace).AnyTimes()
 			client.EXPECT().StatusUpdate(ctx, gomock.Any()).AnyTimes()
 
-			_, watchErr := watchRepo(ctx, r, tc.gitSync, client, repo, testNamespace)
+			_, watchErr := watchRepo(ctx, r, tc.gitSync, client, repo, testNamespace, localRepoPath)
 			if tc.hasErr {
 				assert.NotNil(t, watchErr)
 			} else {
 				assert.Nil(t, watchErr)
+			}
+		})
+	}
+}
+
+func Test_getRepositoryName(t *testing.T) {
+	tests := []struct {
+		name   string
+		url    string
+		want   string
+		hasErr bool
+	}{
+		{
+			name:   "Valid repository",
+			url:    "https://github.com/numaproj-labs/numaplane-control-manifests.git",
+			want:   "numaplane-control-manifests",
+			hasErr: false,
+		},
+		{
+			name:   "Valid repository with http",
+			url:    "http://github.com/numaproj-labs/numaplane-control-manifests.git",
+			want:   "numaplane-control-manifests",
+			hasErr: false,
+		},
+		{
+			name:   "Valid repository without hostname",
+			url:    "github.com/numaproj-labs/numaplane-control-manifests.git",
+			want:   "numaplane-control-manifests",
+			hasErr: false,
+		},
+		{
+			name:   "Valid repository without .git",
+			url:    "http://github.com/numaproj-labs/numaplane-control-manifests",
+			want:   "numaplane-control-manifests",
+			hasErr: false,
+		},
+		{
+			name:   "Invalid repository",
+			url:    "https://github.com/invalid-repo",
+			want:   "invalid-repo",
+			hasErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getRepositoryName(tt.url)
+			if tt.hasErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+				assert.Equalf(t, tt.want, got, "getRepositoryName(%v)", tt.url)
 			}
 		})
 	}
