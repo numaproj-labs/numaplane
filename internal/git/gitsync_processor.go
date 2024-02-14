@@ -148,10 +148,10 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 	}
 	// no monitoring if targetRevision is a specific commit hash
 	if isCommitSHA(repo.TargetRevision) {
-		if gitSync.Status.CommitStatus.Hash != hash.String() {
+		if lastCommitHash != hash.String() {
 			logger.Errorw(
 				"synced commit hash doesn't match desired one",
-				"synced commit hash", gitSync.Status.CommitStatus.Hash,
+				"synced commit hash", lastCommitHash,
 				"desired commit hash", hash.String())
 			return err
 		}
