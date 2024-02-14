@@ -1,6 +1,6 @@
 clusterName: "example-cluster"
 timeIntervalSec: 60
-repocredentials:
+repoCredentials:
   "key1":
     HTTPCredential:
       Username: "exampleUser"
