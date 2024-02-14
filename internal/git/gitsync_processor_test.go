@@ -101,7 +101,7 @@ func Test_cloneRepo(t *testing.T) {
 	t.Parallel()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			localRepoPath := getLocalRepoPath("gitsync-test-example", tc.repo.Name)
+			localRepoPath := getLocalRepoPath("gitsync-test-example")
 			r, err := cloneRepo(localRepoPath, &tc.repo)
 			if tc.hasErr {
 				assert.NotNil(t, err)
@@ -691,6 +691,16 @@ func Test_watchRepo(t *testing.T) {
 			}),
 			hasErr: true,
 		},
+		{
+			name: "Apply manifest from kustomize enabled repo",
+			gitSync: newGitSync(v1alpha1.RepositoryPath{
+				RepoUrl:        "https://github.com/numaproj/numaflow.git",
+				Path:           "config/namespace-install",
+				TargetRevision: "main",
+				Name:           "numaflow",
+			}),
+			hasErr: false,
+		},
 	}
 	t.Parallel()
 
@@ -702,7 +712,7 @@ func Test_watchRepo(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &tc.gitSync.Spec.RepositoryPath
 
-			localRepoPath := getLocalRepoPath(tc.gitSync.Name, tc.gitSync.Name)
+			localRepoPath := getLocalRepoPath(tc.gitSync.Name)
 			r, cloneErr := cloneRepo(localRepoPath, repo)
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)

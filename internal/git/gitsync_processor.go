@@ -575,7 +575,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		clusterName: clusterName,
 	}
 
-	localRepoPath := getLocalRepoPath(gitSync.GetName(), repo.Name)
+	localRepoPath := getLocalRepoPath(gitSync.GetName())
 	go func(repo *v1alpha1.RepositoryPath) {
 		r, err := cloneRepo(localRepoPath, repo)
 		if err != nil {
@@ -598,13 +598,14 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 	return processor, nil
 }
 
-// getLocalRepoPath will return the local path where repo will be cloned, if not set the use /tmp as default dir.
-func getLocalRepoPath(gitSyncName, repoName string) string {
+// getLocalRepoPath will return the local path where repo will be cloned, by default it will use /tmp as base directory
+// unless LOCAL_REPO_PATH env is set.
+func getLocalRepoPath(gitSyncName string) string {
 	localRepoPath := os.Getenv("LOCAL_REPO_PATH")
 	if localRepoPath != "" {
-		return fmt.Sprintf("%s/%s-%s", localRepoPath, gitSyncName, repoName)
+		return fmt.Sprintf("%s/%s", localRepoPath, gitSyncName)
 	} else {
-		return fmt.Sprintf("/tmp/%s-%s", gitSyncName, repoName)
+		return fmt.Sprintf("/tmp/%s", gitSyncName)
 	}
 }
 

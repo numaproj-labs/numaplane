@@ -61,8 +61,6 @@ func (k *kustomize) getBinaryPath() string {
 }
 
 func (k *kustomize) Build(kustomizeOptions *KustomizeOptions) ([]string, error) {
-	fmt.Println("kustomize build called...")
-
 	var cmd *exec.Cmd
 	if kustomizeOptions != nil && kustomizeOptions.BuildOptions != "" {
 		params := parseKustomizeBuildOptions(k.path, kustomizeOptions.BuildOptions)
