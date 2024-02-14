@@ -11,11 +11,11 @@ metadata:
   namespace: numaplane-system
 spec:
   repositoryPaths:
-    - repoUrl: "https://github.com/myrepo.git"
+    - repoUrl: "https://github.com/rustyTest/testprivateRepo"
       path: "./numaflowResources/"
       targetRevision: "main"
       name: my-pipelines
-    - repoUrl: "https://github.com/myrepo.git"
+    - repoUrl: "git@github.com:rustyTest/testprivateRepo.git"
       path: "./nested/numaflowController/"
       targetRevision: "main"
       name: controller

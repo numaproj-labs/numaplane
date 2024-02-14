@@ -29,14 +29,14 @@ func TestLoadConfigMatchValues(t *testing.T) {
 
 	assert.NotNil(t, config.RepoCredentials, "RepoCredentials should not be nil")
 
-	assert.NotNil(t, config.RepoCredentials["key1"].HTTPCredential, "HTTPCredential is missing")
-	assert.Equal(t, "exampleUser", config.RepoCredentials["key1"].HTTPCredential.Username, "Username for HTTPCredential does not match")
-	assert.Equal(t, "http-creds", config.RepoCredentials["key1"].HTTPCredential.Password.Name, "Password Name for HTTPCredential does not match")
-	assert.Equal(t, "password", config.RepoCredentials["key1"].HTTPCredential.Password.Key, "Password Key for HTTPCredential does not match")
+	assert.NotNil(t, config.RepoCredentials["https://github.com/rustytest/testprivaterepo"].HTTPCredential, "HTTPCredential is missing")
+	assert.Equal(t, "exampleUser", config.RepoCredentials["https://github.com/rustytest/testprivaterepo"].HTTPCredential.Username, "Username for HTTPCredential does not match")
+	assert.Equal(t, "http-creds", config.RepoCredentials["https://github.com/rustytest/testprivaterepo"].HTTPCredential.Password.Name, "Password Name for HTTPCredential does not match")
+	assert.Equal(t, "password", config.RepoCredentials["https://github.com/rustytest/testprivaterepo"].HTTPCredential.Password.Key, "Password Key for HTTPCredential does not match")
 
-	assert.NotNil(t, config.RepoCredentials["key2"].SSHCredential, "SSHCredential is missing")
-	assert.Equal(t, "ssh-creds", config.RepoCredentials["key2"].SSHCredential.SSHKey.LocalObjectReference.Name, "SSHKey Name for SSHCredential does not match")
-	assert.Equal(t, "sshKey", config.RepoCredentials["key2"].SSHCredential.SSHKey.Key, "SSHKey Key for SSHCredential does not match")
+	assert.NotNil(t, config.RepoCredentials["git@github.com:rustytest/testprivaterepo.git"].SSHCredential, "SSHCredential is missing")
+	assert.Equal(t, "ssh-creds", config.RepoCredentials["git@github.com:rustytest/testprivaterepo.git"].SSHCredential.SSHKey.LocalObjectReference.Name, "SSHKey Name for SSHCredential does not match")
+	assert.Equal(t, "sshKey", config.RepoCredentials["git@github.com:rustytest/testprivaterepo.git"].SSHCredential.SSHKey.Key, "SSHKey Key for SSHCredential does not match")
 
 	assert.NotNil(t, config.RepoCredentials["key3"].TLS, "TLS is missing")
 	assert.True(t, config.RepoCredentials["key3"].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS does not match")

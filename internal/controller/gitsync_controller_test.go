@@ -74,6 +74,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		cm := config.GetConfigManagerInstance()
 		config := cm.GetConfig()
 		config.ClusterName = "staging-usw2-k8s"
+		//config.RepoCredentials["https://github.com/numaproj-labs/numaplane-control-manifests.git"]
 
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)

@@ -72,7 +72,7 @@ func (cm *ConfigManager) GetConfig() *GlobalConfig {
 }
 
 func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath string) error {
-	v := viper.New()
+	v := viper.NewWithOptions(viper.KeyDelimiter("::")) // To make sure the period (.) is not omitted while parsing with viper
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath(configPath)

@@ -8,26 +8,15 @@ data:
     clusterName: "example-cluster"
     timeIntervalSec: 60
     repoCredentials:
-      https://bitbucket.org/numaplane:
+      "https://github.com/rustyTest/testprivateRepo":
         HTTPCredential:
           Username: "exampleUser"
           Password:
             name: "http-creds"
             key: "password"
-      https://gitlab.org/numaplane:
+      "git@github.com:rustyTest/testprivateRepo.git":
         SSHCredential:
           SSHKey:
             name: "ssh-creds"
             key: "sshKey"
-      https://github.org/numaplane:
-        TLS:
-          insecureSkipVerify: true
-          CACertSecret:
-            name: "ca-cert-secret"
-            key: "ca.crt"
-          CertSecret:
-            name: "cert-secret"
-            key: "tls.crt"
-          KeySecret:
-            name: "key-secret"
-            key: "tls.key"
+      

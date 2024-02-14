@@ -1,13 +1,13 @@
 clusterName: "example-cluster"
 timeIntervalSec: 60
 repoCredentials:
-  "key1":
+  "https://github.com/rustyTest/testprivateRepo":
     HTTPCredential:
       Username: "exampleUser"
       Password:
         name: "http-creds"
         key: "password"
-  "key2":
+  "git@github.com:rustyTest/testprivateRepo.git":
     SSHCredential:
       SSHKey:
         name: "ssh-creds"

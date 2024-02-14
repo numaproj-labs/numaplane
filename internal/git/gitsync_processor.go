@@ -480,7 +480,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		go func(repo *v1alpha1.RepositoryPath) {
 
 			repoCred := controllerconfig.GetConfigManagerInstance().GetConfig().RepoCredentials
-			authMethod, err := GetAuthMethod(ctx, repo.RepoUrl, kubeClient, namespace, repoCred[repo.Name])
+			authMethod, err := GetAuthMethod(ctx, repo.RepoUrl, kubeClient, namespace, repoCred[repo.RepoUrl])
 			if err != nil {
 				logger.Errorw("error getting the auth method for git authentication", "err", err)
 			}
@@ -503,6 +503,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 }
 
 func GetAuthMethod(ctx context.Context, repoUrl string, kubeClient kubernetes.Client, namespace string, repoCred *controllerconfig.GitCredential) (transport.AuthMethod, error) {
+	log.Println("Repo cred ----------", repoCred)
 	scheme, err := validations.GetTransportScheme(repoUrl)
 	if err != nil {
 		return nil, err
@@ -511,7 +512,6 @@ func GetAuthMethod(ctx context.Context, repoUrl string, kubeClient kubernetes.Cl
 	switch scheme {
 	case "ssh", "git+ssh":
 		key := repoCred.SSHCredential.SSHKey.Key
-		log.Println(key)
 		secret, err := getSecret(ctx, kubeClient, namespace, key)
 		if err != nil {
 			return nil, err
