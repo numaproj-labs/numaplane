@@ -193,7 +193,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 			return hash.String(), err
 		}
 	} else {
-		ticker := time.NewTicker(10 * time.Second)
+		ticker := time.NewTicker(timeInterval * time.Minute)
 		defer ticker.Stop()
 		for {
 			select {
@@ -300,7 +300,7 @@ func CheckRepoUpdatesForKustomize(ctx context.Context, r *git.Repository, repo *
 		return patchedResources, recentHash, err
 	}
 
-	// If remote commit hash and local one is not equal, it means there is new changes made in remote repository.
+	// If remote commit hash and local one aren't equal, it means there are new changes made in remote repository.
 	if remoteRef.String() != lastCommitHash {
 		recentHash = remoteRef.String()
 		beforeMap := make(map[string]string)
@@ -481,7 +481,7 @@ func getBlobFileContents(r *git.Repository, file diff.File) ([]byte, error) {
 	return fileContent, nil
 }
 
-// fetchUpdates fetches all the remote branches and update the local changes, returning nil if already up-to-date or an error otherwise.
+// fetchUpdates fetches all the remote branches and updates the local changes, returning nil if already up-to-date or an error otherwise.
 func fetchUpdates(repo *git.Repository) error {
 	remote, err := repo.Remote("origin")
 	if err != nil {
@@ -575,12 +575,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		clusterName: clusterName,
 	}
 
-	// get repository name from repo url, which will be used to create dynamic local path for clone, i'e(gitSync-name + repo-name)
-	repoName, err := getRepositoryName(repo.RepoUrl)
-	if err != nil {
-		logger.Errorw("error getting repo name", "err", err)
-	}
-	localRepoPath := getLocalRepoPath(gitSync.GetName(), repoName)
+	localRepoPath := getLocalRepoPath(gitSync.GetName(), repo.Name)
 	go func(repo *v1alpha1.RepositoryPath) {
 		r, err := cloneRepo(localRepoPath, repo)
 		if err != nil {
@@ -611,24 +606,6 @@ func getLocalRepoPath(gitSyncName, repoName string) string {
 	} else {
 		return fmt.Sprintf("/tmp/%s-%s", gitSyncName, repoName)
 	}
-}
-
-// getRepositoryName parse the url and return the repo name from it.
-func getRepositoryName(url string) (string, error) {
-	// Remove protocol and hostname
-	url = strings.TrimPrefix(url, "https://")
-	url = strings.TrimPrefix(url, "http://")
-	url = strings.TrimSuffix(url, ".git")
-
-	// Split by path separator
-	parts := strings.Split(url, "/")
-
-	// Check if valid format (hostname/owner/repo)
-	if len(parts) < 3 {
-		return "", fmt.Errorf("failed to parse repository name")
-	}
-
-	return parts[2], nil
 }
 
 func (processor *GitSyncProcessor) Update(gitSync *v1alpha1.GitSync) error {

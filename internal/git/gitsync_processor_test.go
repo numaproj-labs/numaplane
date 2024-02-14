@@ -90,6 +90,7 @@ func Test_cloneRepo(t *testing.T) {
 		{
 			name: "valid repo",
 			repo: v1alpha1.RepositoryPath{
+				Name:           "numaplane",
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				TargetRevision: "main",
 			},
@@ -100,9 +101,7 @@ func Test_cloneRepo(t *testing.T) {
 	t.Parallel()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			repoName, err := getRepositoryName(tc.repo.RepoUrl)
-			assert.Nil(t, err)
-			localRepoPath := getLocalRepoPath("gitsync-test-example", repoName)
+			localRepoPath := getLocalRepoPath("gitsync-test-example", tc.repo.Name)
 			r, err := cloneRepo(localRepoPath, &tc.repo)
 			if tc.hasErr {
 				assert.NotNil(t, err)
@@ -618,6 +617,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "main",
+				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
@@ -627,6 +627,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "v0.0.1",
+				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
@@ -636,6 +637,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "7b68200947f2d2624797e56edf02c6d848bc48d1",
+				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
@@ -645,6 +647,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "refs/remotes/origin/pipeline",
+				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
@@ -654,6 +657,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "pipeline",
+				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
@@ -663,6 +667,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "",
 				TargetRevision: "pipeline",
+				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
@@ -672,6 +677,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				Path:           "config/samples",
 				TargetRevision: "unresolvable",
+				Name:           "control-manifest",
 			}),
 			hasErr: true,
 		},
@@ -681,6 +687,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				Path:           "invalid_path",
 				TargetRevision: "main",
+				Name:           "control-manifest",
 			}),
 			hasErr: true,
 		},
@@ -695,10 +702,7 @@ func Test_watchRepo(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &tc.gitSync.Spec.RepositoryPath
 
-			repoName, err := getRepositoryName(repo.RepoUrl)
-			assert.Nil(t, err)
-			localRepoPath := getLocalRepoPath(tc.gitSync.Name, repoName)
-
+			localRepoPath := getLocalRepoPath(tc.gitSync.Name, tc.gitSync.Name)
 			r, cloneErr := cloneRepo(localRepoPath, repo)
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)
@@ -717,57 +721,6 @@ func Test_watchRepo(t *testing.T) {
 				assert.NotNil(t, watchErr)
 			} else {
 				assert.Nil(t, watchErr)
-			}
-		})
-	}
-}
-
-func Test_getRepositoryName(t *testing.T) {
-	tests := []struct {
-		name   string
-		url    string
-		want   string
-		hasErr bool
-	}{
-		{
-			name:   "Valid repository",
-			url:    "https://github.com/numaproj-labs/numaplane-control-manifests.git",
-			want:   "numaplane-control-manifests",
-			hasErr: false,
-		},
-		{
-			name:   "Valid repository with http",
-			url:    "http://github.com/numaproj-labs/numaplane-control-manifests.git",
-			want:   "numaplane-control-manifests",
-			hasErr: false,
-		},
-		{
-			name:   "Valid repository without hostname",
-			url:    "github.com/numaproj-labs/numaplane-control-manifests.git",
-			want:   "numaplane-control-manifests",
-			hasErr: false,
-		},
-		{
-			name:   "Valid repository without .git",
-			url:    "http://github.com/numaproj-labs/numaplane-control-manifests",
-			want:   "numaplane-control-manifests",
-			hasErr: false,
-		},
-		{
-			name:   "Invalid repository",
-			url:    "https://github.com/invalid-repo",
-			want:   "invalid-repo",
-			hasErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := getRepositoryName(tt.url)
-			if tt.hasErr {
-				assert.NotNil(t, err)
-			} else {
-				assert.Nil(t, err)
-				assert.Equalf(t, tt.want, got, "getRepositoryName(%v)", tt.url)
 			}
 		})
 	}
