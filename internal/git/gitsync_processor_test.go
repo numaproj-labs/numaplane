@@ -102,7 +102,7 @@ func Test_cloneRepo(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			localRepoPath := getLocalRepoPath("gitsync-test-example")
-			r, err := cloneRepo(localRepoPath, &tc.repo)
+			r, err := cloneRepo(context.Background(), localRepoPath, &tc.repo)
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
@@ -715,7 +715,7 @@ func Test_watchRepo(t *testing.T) {
 			localRepoPath := getLocalRepoPath(tc.gitSync.Name)
 			err := os.RemoveAll(localRepoPath)
 			assert.Nil(t, err)
-			r, cloneErr := cloneRepo(localRepoPath, repo)
+			r, cloneErr := cloneRepo(context.Background(), localRepoPath, repo)
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)
 

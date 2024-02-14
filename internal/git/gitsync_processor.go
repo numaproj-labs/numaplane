@@ -76,8 +76,8 @@ type MetaData struct {
 	Namespace string `yaml:"namespace"`
 }
 
-func cloneRepo(path string, repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
-	r, err := git.PlainClone(path, false, &git.CloneOptions{
+func cloneRepo(ctx context.Context, path string, repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
+	r, err := git.PlainCloneContext(ctx, path, false, &git.CloneOptions{
 		URL: repo.RepoUrl,
 	})
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
@@ -578,7 +578,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 
 	localRepoPath := getLocalRepoPath(gitSync.GetName())
 	go func(repo *v1alpha1.RepositoryPath) {
-		r, err := cloneRepo(localRepoPath, repo)
+		r, err := cloneRepo(ctx, localRepoPath, repo)
 		if err != nil {
 			logger.Errorw("error cloning the repo", "err", err)
 		} else {
