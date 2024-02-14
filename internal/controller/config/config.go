@@ -34,7 +34,7 @@ func GetConfigManagerInstance() *ConfigManager {
 type GlobalConfig struct {
 	ClusterName     string                    `json:"clusterName"`
 	TimeIntervalSec uint                      `json:"timeIntervalSec"`
-	RepoCredentials map[string]*GitCredential `json:"repoCredentials"`
+	RepoCredentials map[string]*GitCredential `json:"repocredentials"`
 }
 
 type GitCredential struct {
@@ -61,8 +61,8 @@ type TLS struct {
 
 type SecretKeySelector struct {
 	corev1.LocalObjectReference `mapstructure:",squash"` // for viper to correctly parse the config
-	Key                         string                   `json:"key" `
-	Optional                    *bool                    `json:"optional,omitempty" `
+	Key                         string `json:"key" `
+	Optional                    *bool  `json:"optional,omitempty" `
 }
 
 func (cm *ConfigManager) GetConfig() *GlobalConfig {
