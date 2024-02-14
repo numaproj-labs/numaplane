@@ -713,6 +713,8 @@ func Test_watchRepo(t *testing.T) {
 			repo := &tc.gitSync.Spec.RepositoryPath
 
 			localRepoPath := getLocalRepoPath(tc.gitSync.Name)
+			err := os.RemoveAll(localRepoPath)
+			assert.Nil(t, err)
 			r, cloneErr := cloneRepo(localRepoPath, repo)
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)

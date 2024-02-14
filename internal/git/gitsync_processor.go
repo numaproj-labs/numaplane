@@ -133,11 +133,12 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 	// Only create the resources for the first time if not created yet.
 	// Otherwise, monitoring with intervals.
 
-	repoAbsolutePath := localRepoPath + "/" + repo.Path
-	k := kustomize.NewKustomizeApp(repoAbsolutePath, repo.RepoUrl, "")
+	// kustomizePath will the path of clone repository + the path where kustomize file is present.
+	kustomizePath := localRepoPath + "/" + repo.Path
+	k := kustomize.NewKustomizeApp(kustomizePath, repo.RepoUrl, os.Getenv("KUSTOMIZE_BINARY_PATH"))
 
 	if gitSync.Status.CommitStatus == nil || gitSync.Status.CommitStatus.Hash == "" {
-		if kustomize.IsKustomizationRepository(repoAbsolutePath) {
+		if kustomize.IsKustomizationRepository(kustomizePath) {
 			manifests, err := k.Build(nil)
 			if err != nil {
 				logger.Errorw("cannot build kustomize yaml", "err", err)
@@ -204,7 +205,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 					patchedResources PatchedResource
 				)
 				// TODO: Add switch case based on type(Kustomize/Helm/Yaml) of repo, Once type field is available in GitSync CR.
-				if kustomize.IsKustomizationRepository(repoAbsolutePath) {
+				if kustomize.IsKustomizationRepository(kustomizePath) {
 					patchedResources, recentHash, err = CheckRepoUpdatesForKustomize(ctx, r, repo, lastCommitHash, namespace, k)
 					if err != nil {
 						return hash.String(), err
@@ -601,9 +602,9 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 // getLocalRepoPath will return the local path where repo will be cloned, by default it will use /tmp as base directory
 // unless LOCAL_REPO_PATH env is set.
 func getLocalRepoPath(gitSyncName string) string {
-	localRepoPath := os.Getenv("LOCAL_REPO_PATH")
-	if localRepoPath != "" {
-		return fmt.Sprintf("%s/%s", localRepoPath, gitSyncName)
+	baseDir := os.Getenv("LOCAL_REPO_PATH")
+	if baseDir != "" {
+		return fmt.Sprintf("%s/%s", baseDir, gitSyncName)
 	} else {
 		return fmt.Sprintf("/tmp/%s", gitSyncName)
 	}
