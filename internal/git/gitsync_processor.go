@@ -475,7 +475,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 	}
 	go func(repo *v1alpha1.RepositoryPath) {
 		credentials := controllerconfig.GetConfigManagerInstance().GetConfig().RepoCredentials
-		method, err := GetAuthMethod(ctx, repo.RepoUrl, kubeClient, namespace, credentials[repo.RepoUrl])
+		method, err := GetAuthMethod(ctx, repo.RepoUrl, kubeClient, namespace, credentials[strings.ToLower(repo.RepoUrl)]) // viper converts to all lower
 		if err != nil {
 			logger.Errorw("error getting  the  auth method", "err", err)
 		}
