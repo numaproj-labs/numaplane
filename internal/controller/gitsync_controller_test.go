@@ -68,7 +68,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 			s := obj.(*corev1.Secret)
 			s.Data = map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
 			return nil
-		})
+		}).AnyTimes()
 
 		cm := config.GetConfigManagerInstance()
 		configM := cm.GetConfig()
