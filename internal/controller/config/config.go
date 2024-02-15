@@ -56,19 +56,19 @@ type SSHCredential struct {
 type TLS struct {
 	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
 	CACertSecret       SecretKeySelector `json:"CACertSecret"`
-	CertSecret         SecretKeySelector `json:"CertSecret"`
+	CertSecret         SecretKeySelector `json:"certSecret"`
 	KeySecret          SecretKeySelector `json:"keySecret"`
 }
 
 type SecretKeySelector struct {
 	corev1.LocalObjectReference `mapstructure:",squash"` // for viper to correctly parse the config
-	Key                         string                   `json:"key" `
-	Optional                    *bool                    `json:"optional,omitempty" `
+	Key                         string `json:"key" `
+	Optional                    *bool  `json:"optional,omitempty" `
 }
 
 func (cm *ConfigManager) GetConfig() *GlobalConfig {
-	cm.lock.Lock()
-	defer cm.lock.Unlock()
+	cm.lock.RLock()
+	defer cm.lock.RUnlock()
 	return cm.config
 }
 
