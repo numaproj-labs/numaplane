@@ -2,8 +2,9 @@ package controller
 
 import (
 	"context"
-	k8 "sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
+
+	k8 "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
