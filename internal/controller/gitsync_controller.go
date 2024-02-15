@@ -128,6 +128,9 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			logger.Errorw("Error Updating GitSync Status", "err", err, "GitSync", gitSync)
 			return ctrl.Result{}, err
 		}
+	} else {
+		// if the GitSync is being deleted, we no longer need to keep the Lock for it in memory
+		r.gitSyncLocks.Delete(req.NamespacedName.String())
 	}
 
 	return ctrl.Result{}, nil
