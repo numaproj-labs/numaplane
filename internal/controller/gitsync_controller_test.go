@@ -77,7 +77,6 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		gitSync.DeletionTimestamp = &now
 		reconcile(t, r, gitSync)
 		verifyDeleted(t, r, gitSync)
-
 	})
 
 }
