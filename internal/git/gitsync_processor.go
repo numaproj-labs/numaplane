@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -92,6 +91,7 @@ func getSecret(ctx context.Context, kubeClient kubernetes.Client, namespace, sec
 		Namespace: namespace,
 		Name:      secretName,
 	}
+
 	if err := kubeClient.Get(ctx, key, secret); err != nil {
 		return nil, err
 	}
@@ -497,7 +497,6 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 }
 
 func GetAuthMethod(ctx context.Context, repoUrl string, kubeClient kubernetes.Client, namespace string, repoCred *controllerconfig.GitCredential) (transport.AuthMethod, error) {
-	log.Println("Repo cred ----------", repoCred)
 	scheme, err := validations.GetTransportScheme(repoUrl)
 	if err != nil {
 		return nil, err

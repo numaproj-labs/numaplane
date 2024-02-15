@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	k8 "sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -13,6 +14,7 @@ import (
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
+
 	"github.com/numaproj-labs/numaplane/internal/git"
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
 )
@@ -57,6 +59,16 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
+		key := k8.ObjectKey{
+			Namespace: "team-a-namespace",
+			Name:      "secret",
+		}
+		client.EXPECT().Get(context.Background(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8.ObjectKey, obj k8.Object, opts ...k8.GetOption) error {
+			s := obj.(*corev1.Secret)
+			s.Data = map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
+			return nil
+		})
+
 		cm := config.GetConfigManagerInstance()
 		configM := cm.GetConfig()
 		configM.ClusterName = "staging-usw2-k8s"
@@ -64,7 +76,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 			HTTPCredential: &config.HTTPCredential{
 				Username: "test",
 				Password: config.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "secret-name"},
+					LocalObjectReference: corev1.LocalObjectReference{Name: "secret"},
 					Key:                  "secret",
 					Optional:             nil,
 				},
@@ -112,9 +124,37 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
+
+		key := k8.ObjectKey{
+			Namespace: "team-a-namespace",
+			Name:      "secret",
+		}
+
+		client.EXPECT().Get(context.Background(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8.ObjectKey, obj k8.Object, opts ...k8.GetOption) error {
+			s := obj.(*corev1.Secret)
+			s.Data = map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
+			return nil
+		})
+
 		cm := config.GetConfigManagerInstance()
-		config := cm.GetConfig()
-		config.ClusterName = "staging-usw2-k8s"
+		configM := cm.GetConfig()
+		configM.ClusterName = "staging-usw2-k8s"
+
+		gitCred := &config.GitCredential{
+			HTTPCredential: &config.HTTPCredential{
+				Username: "admin",
+				Password: config.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "secret"},
+					Key:                  "secret",
+					Optional:             nil,
+				},
+			},
+			SSHCredential: nil,
+			TLS:           nil,
+		}
+		mp := make(map[string]*config.GitCredential)
+		mp["https://github.com/numaproj-labs/numaplane-control-manifests.git"] = gitCred
+		configM.RepoCredentials = mp
 
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
