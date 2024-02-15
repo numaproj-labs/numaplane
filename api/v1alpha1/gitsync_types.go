@@ -44,11 +44,11 @@ const (
 type GitSyncSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// RepositoryPaths lists one or more Git Repository paths to watch
-	RepositoryPaths []RepositoryPath `json:"repositoryPaths"`
+	// RepositoryPath lists the Git Repository path to watch
+	RepositoryPath RepositoryPath `json:"repositoryPath"`
 
-	// Destinations describe where to sync it
-	Destinations []Destination `json:"destinations"`
+	// Destination describe which cluster/namespace to sync it
+	Destination Destination `json:"destination"`
 }
 
 // GitSyncStatus defines the observed state of GitSync
@@ -63,8 +63,8 @@ type GitSyncStatus struct {
 	// Message is added if there's a failure
 	Message string `json:"message,omitempty"`
 
-	// Last commit processed and its status, mapped by RepositoryPath name
-	CommitStatus map[string]CommitStatus `json:"commitStatus,omitempty"`
+	// Last commit processed and the status
+	CommitStatus CommitStatus `json:"commitStatus,omitempty"`
 }
 
 // RepositoryPath indicates a particular Git path
@@ -140,23 +140,16 @@ func init() {
 	SchemeBuilder.Register(&GitSync{}, &GitSyncList{})
 }
 
-// ContainsClusterDestination determines if the cluster is in the list of Destinations
+// ContainsClusterDestination determines if the cluster matches the Destination
 func (gitSyncSpec *GitSyncSpec) ContainsClusterDestination(cluster string) bool {
-	for _, destination := range gitSyncSpec.Destinations {
-		if destination.Cluster == cluster {
-			return true
-		}
-	}
-	return false
+	return gitSyncSpec.Destination.Cluster == cluster
 }
 
-// GetDestinationNamespace gets the namespace matching the given cluster,
+// GetDestinationNamespace gets the namespace with the given cluster,
 // if not found, then return empty.
 func (gitSyncSpec *GitSyncSpec) GetDestinationNamespace(cluster string) string {
-	for _, destination := range gitSyncSpec.Destinations {
-		if destination.Cluster == cluster {
-			return destination.Namespace
-		}
+	if gitSyncSpec.Destination.Cluster == cluster {
+		return gitSyncSpec.Destination.Namespace
 	}
 	return ""
 }

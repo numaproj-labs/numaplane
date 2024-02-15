@@ -605,9 +605,7 @@ func newGitSync(repo v1alpha1.RepositoryPath) *v1alpha1.GitSync {
 			Name:      testGitSyncName,
 		},
 		Spec: v1alpha1.GitSyncSpec{
-			RepositoryPaths: []v1alpha1.RepositoryPath{
-				repo,
-			},
+			RepositoryPath: repo,
 		},
 		Status: v1alpha1.GitSyncStatus{},
 	}
@@ -700,7 +698,7 @@ func Test_watchRepo(t *testing.T) {
 	for _, tc := range testCases {
 
 		t.Run(tc.name, func(t *testing.T) {
-			repo := &tc.gitSync.Spec.RepositoryPaths[0]
+			repo := &tc.gitSync.Spec.RepositoryPath
 			r, cloneErr := cloneRepo(repo)
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)
