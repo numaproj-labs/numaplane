@@ -100,9 +100,6 @@ spec:
                   synced:
                     description: Synced indicates if the sync went through
                     type: boolean
-                required:
-                - hash
-                - syncTime
                 type: object
               conditions:
                 description: Conditions are the latest available observations of a
