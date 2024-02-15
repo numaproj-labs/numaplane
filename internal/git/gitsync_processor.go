@@ -133,7 +133,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 	// Only create the resources for the first time if not created yet.
 	// Otherwise, monitoring with intervals.
 
-	// kustomizePath will the path of clone repository + the path where kustomize file is present.
+	// kustomizePath will be the path of clone repository + the path where kustomize file is present.
 	kustomizePath := localRepoPath + "/" + repo.Path
 	k := kustomize.NewKustomizeApp(kustomizePath, repo.RepoUrl, os.Getenv("KUSTOMIZE_BINARY_PATH"))
 
