@@ -32,8 +32,9 @@ func GetConfigManagerInstance() *ConfigManager {
 // supposed to be populated from the configmap attached to the
 // controller manager.
 type GlobalConfig struct {
-	ClusterName     string                    `json:"clusterName"`
-	TimeIntervalSec uint                      `json:"timeIntervalSec"`
+	ClusterName     string `json:"clusterName"`
+	TimeIntervalSec uint   `json:"timeIntervalSec"`
+	// RepoCredentials maps each Git Repository Path prefix to the corresponding credentials that are needed for it
 	RepoCredentials map[string]*GitCredential `json:"repoCredentials"`
 }
 
@@ -55,7 +56,7 @@ type SSHCredential struct {
 type TLS struct {
 	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
 	CACertSecret       SecretKeySelector `json:"CACertSecret"`
-	CertSecret         SecretKeySelector `json:"CertSecret"`
+	CertSecret         SecretKeySelector `json:"certSecret"`
 	KeySecret          SecretKeySelector `json:"keySecret"`
 }
 
@@ -66,8 +67,8 @@ type SecretKeySelector struct {
 }
 
 func (cm *ConfigManager) GetConfig() *GlobalConfig {
-	cm.lock.Lock()
-	defer cm.lock.Unlock()
+	cm.lock.RLock()
+	defer cm.lock.RUnlock()
 	return cm.config
 }
 

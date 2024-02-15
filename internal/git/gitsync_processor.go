@@ -61,7 +61,7 @@ func isRootDir(path string) bool {
 
 type GitSyncProcessor struct {
 	gitSync     v1alpha1.GitSync
-	channels    map[string]chan Message
+	channel     chan Message
 	kubeClient  kubernetes.Client
 	clusterName string
 }
@@ -141,10 +141,10 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 			return err
 		}
 	}
-	val, ok := gitSync.Status.CommitStatus[repo.Name]
+
 	// Only create the resources for the first time if not created yet.
 	// Otherwise, monitoring with intervals.
-	if !ok {
+	if gitSync.Status.CommitStatus.Hash == "" {
 		// Retrieving the commit object matching the hash.
 		tree, err := getCommitTreeAtPath(r, repo.Path, *hash)
 		if err != nil {
@@ -167,21 +167,21 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 			return err
 		}
 
-		err = updateCommitStatus(ctx, kubeClient, namespacedName, hash.String(), repo, logger)
+		err = updateCommitStatus(ctx, kubeClient, namespacedName, hash.String(), logger)
 		if err != nil {
 			return err
 		}
 
 		lastCommitHash = hash.String()
 	} else {
-		lastCommitHash = gitSync.Status.CommitStatus[repo.Name].Hash
+		lastCommitHash = gitSync.Status.CommitStatus.Hash
 	}
 	// no monitoring if targetRevision is a specific commit hash
 	if isCommitSHA(repo.TargetRevision) {
-		if val.Hash != hash.String() {
+		if lastCommitHash != hash.String() {
 			logger.Errorw(
 				"synced commit hash doesn't match desired one",
-				"synced commit hash", val.Hash,
+				"synced commit hash", lastCommitHash,
 				"desired commit hash", hash.String())
 			return err
 		}
@@ -203,7 +203,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 					if err != nil {
 						return err
 					}
-					err = updateCommitStatus(ctx, kubeClient, namespacedName, recentHash, repo, logger)
+					err = updateCommitStatus(ctx, kubeClient, namespacedName, recentHash, logger)
 					if err != nil {
 						return err
 					}
@@ -422,7 +422,6 @@ func updateCommitStatus(
 	ctx context.Context, kubeClient kubernetes.Client,
 	namespacedName types.NamespacedName,
 	hash string,
-	repo *v1alpha1.RepositoryPath,
 	logger *zap.SugaredLogger,
 ) error {
 
@@ -442,10 +441,8 @@ func updateCommitStatus(
 			return err
 		}
 	}
-	if gitSync.Status.CommitStatus == nil {
-		gitSync.Status.CommitStatus = make(map[string]v1alpha1.CommitStatus)
-	}
-	gitSync.Status.CommitStatus[repo.Name] = commitStatus
+
+	gitSync.Status.CommitStatus = commitStatus
 	// It's Ok to fail here as upon errors the whole process will be retried
 	// until a CommitStatus is persisted.
 	if err := kubeClient.StatusUpdate(ctx, gitSync); err != nil {
@@ -466,38 +463,35 @@ func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, 
 
 func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
-	channels := make(map[string]chan Message)
+
 	namespace := gitSync.Spec.GetDestinationNamespace(clusterName)
+	repo := gitSync.Spec.RepositoryPath
+	channel := make(chan Message, messageChanLength)
 	processor := &GitSyncProcessor{
 		gitSync:     *gitSync,
 		kubeClient:  kubeClient,
-		channels:    channels,
+		channel:     channel,
 		clusterName: clusterName,
 	}
-	for _, repo := range gitSync.Spec.RepositoryPaths {
-		gitCh := make(chan Message, messageChanLength)
-		channels[repo.Name] = gitCh
-		go func(repo *v1alpha1.RepositoryPath) {
-
-			repoCred := controllerconfig.GetConfigManagerInstance().GetConfig().RepoCredentials
-			authMethod, err := GetAuthMethod(ctx, repo.RepoUrl, kubeClient, namespace, repoCred[repo.RepoUrl])
-			if err != nil {
-				logger.Errorw("error getting the auth method for git authentication", "err", err)
-			}
-			r, err := cloneRepo(repo, authMethod)
-			if err != nil {
-				logger.Errorw("error cloning the repo", "err", err)
-			} else {
-				for ok := true; ok; {
-					err = watchRepo(ctx, r, gitSync, kubeClient, repo, namespace)
-					// TODO: terminate the goroutine on fatal errors from 'watchRepo'
-					if err != nil {
-						logger.Errorw("error watching the repo", "err", err)
-					}
+	go func(repo *v1alpha1.RepositoryPath) {
+		credentials := controllerconfig.GetConfigManagerInstance().GetConfig().RepoCredentials
+		method, err := GetAuthMethod(ctx, repo.RepoUrl, kubeClient, namespace, credentials[repo.RepoUrl])
+		if err != nil {
+			logger.Errorw("error getting  the  auth method", "err", err)
+		}
+		r, err := cloneRepo(repo, method)
+		if err != nil {
+			logger.Errorw("error cloning the repo", "err", err)
+		} else {
+			for ok := true; ok; {
+				err = watchRepo(ctx, r, gitSync, kubeClient, repo, namespace)
+				// TODO: terminate the goroutine on fatal errors from 'watchRepo'
+				if err != nil {
+					logger.Errorw("error watching the repo", "err", err)
 				}
 			}
-		}(&repo)
-	}
+		}
+	}(&repo)
 
 	return processor, nil
 }

@@ -5,18 +5,5 @@ metadata:
   namespace: numaplane-system
 data:
   config.yaml: |
-    clusterName: "example-cluster"
+    clusterName: "CLUSTER_NAME_VALUE" # Replace with the cluster name where numaplane will get deployed.
     timeIntervalSec: 60
-    repoCredentials:
-      "https://github.com/rustyTest/testprivateRepo":
-        HTTPCredential:
-          Username: "exampleUser"
-          Password:
-            name: "http-creds"
-            key: "password"
-      "git@github.com:rustyTest/testprivateRepo.git":
-        SSHCredential:
-          SSHKey:
-            name: "ssh-creds"
-            key: "sshKey"
-      

@@ -29,29 +29,15 @@ var (
 			Name:      testGitSyncName,
 		},
 		Spec: apiv1.GitSyncSpec{
-			RepositoryPaths: []apiv1.RepositoryPath{
-				{
-					Name:           "my-controller",
-					RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
-					Path:           "./numaflowController/",
-					TargetRevision: "main",
-				},
-				{
-					Name:           "my-pipelines",
-					RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
-					Path:           "./pipelines/",
-					TargetRevision: "main",
-				},
+			RepositoryPath: apiv1.RepositoryPath{
+				Name:           "my-controller",
+				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
+				Path:           "./numaflowController/",
+				TargetRevision: "main",
 			},
-			Destinations: []apiv1.Destination{
-				{
-					Cluster:   "staging-usw2-k8s",
-					Namespace: "team-a-namespace",
-				},
-				{
-					Cluster:   "staging-use2-k8s",
-					Namespace: "team-a-namespace",
-				},
+			Destination: apiv1.Destination{
+				Cluster:   "staging-usw2-k8s",
+				Namespace: "team-a-namespace",
 			},
 		},
 	}
@@ -72,9 +58,23 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
 		cm := config.GetConfigManagerInstance()
-		config := cm.GetConfig()
-		config.ClusterName = "staging-usw2-k8s"
-		//config.RepoCredentials["https://github.com/numaproj-labs/numaplane-control-manifests.git"]
+		configM := cm.GetConfig()
+		configM.ClusterName = "staging-usw2-k8s"
+		gitCred := &config.GitCredential{
+			HTTPCredential: &config.HTTPCredential{
+				Username: "test",
+				Password: config.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "secret-name"},
+					Key:                  "secret",
+					Optional:             nil,
+				},
+			},
+			SSHCredential: nil,
+			TLS:           nil,
+		}
+		mp := make(map[string]*config.GitCredential)
+		mp["https://github.com/numaproj-labs/numaplane-control-manifests.git"] = gitCred
+		configM.RepoCredentials = mp
 
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
@@ -85,7 +85,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		verifyRunning(t, r, gitSync)
 
 		// update the spec
-		gitSync.Spec.RepositoryPaths[0].Path = gitSync.Spec.RepositoryPaths[0].Path + "xyz"
+		gitSync.Spec.RepositoryPath.Path = gitSync.Spec.RepositoryPath.Path + "xyz"
 		reconcile(t, r, gitSync)
 		verifyRunning(t, r, gitSync)
 
@@ -104,11 +104,9 @@ func Test_GitSyncLifecycle(t *testing.T) {
 func Test_GitSyncDestinationChanges(t *testing.T) {
 	t.Run("GitSync destination test", func(t *testing.T) {
 		gitSync := defaultGitSync.DeepCopy()
-		gitSync.Spec.Destinations = []apiv1.Destination{ // doesn't include our cluster
-			{
-				Cluster:   "staging-use2-k8s",
-				Namespace: "team-a-namespace",
-			},
+		gitSync.Spec.Destination = apiv1.Destination{ // doesn't include our cluster
+			Cluster:   "staging-use2-k8s",
+			Namespace: "team-a-namespace",
 		}
 
 		ctrl := gomock.NewController(t)
