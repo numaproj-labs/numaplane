@@ -64,7 +64,7 @@ type GitSyncStatus struct {
 	Message string `json:"message,omitempty"`
 
 	// Last commit processed and the status
-	CommitStatus CommitStatus `json:"commitStatus,omitempty"`
+	CommitStatus *CommitStatus `json:"commitStatus,omitempty"`
 }
 
 // RepositoryPath indicates a particular Git path
@@ -98,13 +98,13 @@ type Destination struct {
 // CommitStatus maintains the status of syncing an individual Git commit
 type CommitStatus struct {
 	// Hash of the git commit
-	Hash string `json:"hash,omitempty"`
+	Hash string `json:"hash"`
 
 	// Synced indicates if the sync went through
-	Synced bool `json:"synced,omitempty"`
+	Synced bool `json:"synced"`
 
-	// SyncTime represents the last time that we attempted to sync this commit (whether or not it succeeded)
-	SyncTime metav1.Time `json:"syncTime,omitempty"`
+	// SyncTime represents the last time that we attempted to sync this commit (regardless of whether it succeeded)
+	SyncTime metav1.Time `json:"syncTime"`
 
 	// Error indicates an error that occurred upon attempting sync, if any
 	Error string `json:"error,omitempty"`
