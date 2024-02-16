@@ -28,12 +28,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
-	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 	//+kubebuilder:scaffold:imports
 )
@@ -72,7 +70,6 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "c0d86395.github.com.numaproj-labs",
@@ -92,12 +89,6 @@ func main() {
 		logger.Fatalw("Unable to get a controller-runtime manager", err)
 	}
 
-	// create kubernetes client
-	kubeClient, err := kubernetes.NewClient(mgr.GetConfig(), mgr.GetClient(), logger)
-	if err != nil {
-		logger.Fatalw("failed to create kubernetes client", err)
-	}
-
 	// Load Config For the pod
 	configManager := config.GetConfigManagerInstance()
 	err = configManager.LoadConfig(func(err error) {
@@ -106,8 +97,9 @@ func main() {
 	if err != nil {
 		logger.Fatalw("Failed to load config file", err)
 	}
+
 	reconciler, err := controller.NewGitSyncReconciler(
-		kubeClient,
+		mgr.GetClient(),
 		mgr.GetScheme(),
 		configManager,
 	)

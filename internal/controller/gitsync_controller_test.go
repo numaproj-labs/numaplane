@@ -11,11 +11,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/git"
-	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
 )
 
 const (
@@ -57,11 +57,10 @@ func Test_GitSyncLifecycle(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		client := mocksClient.NewMockClient(ctrl)
+		client := fake.NewClientBuilder().Build()
 		cm := config.GetConfigManagerInstance()
 		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
 		assert.NoError(t, err)
-
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
@@ -96,10 +95,9 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		client := mocksClient.NewMockClient(ctrl)
+		client := fake.NewClientBuilder().Build()
 		cm := config.GetConfigManagerInstance()
 		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
-		assert.NoError(t, err)
 		assert.NoError(t, err)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
