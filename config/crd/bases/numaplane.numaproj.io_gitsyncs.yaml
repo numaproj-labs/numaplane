@@ -94,7 +94,7 @@ spec:
                     type: string
                   syncTime:
                     description: SyncTime represents the last time that we attempted
-                      to sync this commit (whether or not it succeeded)
+                      to sync this commit (regardless of whether it succeeded)
                     format: date-time
                     type: string
                   synced:
@@ -103,6 +103,7 @@ spec:
                 required:
                 - hash
                 - syncTime
+                - synced
                 type: object
               conditions:
                 description: Conditions are the latest available observations of a
