@@ -130,7 +130,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 	} else {
-		// if the GitSync is being deleted, we no longer need to keep the Lock for it in memory
+		// if the GitSync has been deleted, we no longer need to keep the Lock for it in memory
 		r.gitSyncLocks.Delete(req.NamespacedName.String())
 	}
 
