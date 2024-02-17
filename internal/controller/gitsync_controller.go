@@ -33,6 +33,7 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	"github.com/numaproj-labs/numaplane/internal/shared/validations"
 )
 
 // GitSyncReconciler reconciles a GitSync object
@@ -276,8 +277,29 @@ func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// TODO: add validation
 func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
+	repositoryPath := gitSync.Spec.RepositoryPath
+	destination := gitSync.Spec.Destination
+
+	// Validate the repositoryPath
+	if ok := validations.CheckGitURL(repositoryPath.RepoUrl); !ok {
+		return fmt.Errorf("invalid remote repository url %s", repositoryPath.RepoUrl)
+	}
+	if len(repositoryPath.Name) == 0 {
+		return fmt.Errorf("repositoryPath name cannot be empty %s", repositoryPath.Name)
+	}
+	if len(repositoryPath.TargetRevision) == 0 {
+		return fmt.Errorf("targetRevision cannot be empty for repository Path %s", repositoryPath.Name)
+	}
+
+	// Validate destination
+	if len(destination.Cluster) == 0 {
+		return fmt.Errorf("cluster name cannot be empty")
+	}
+	if !validations.IsValidKubernetesNamespace(destination.Namespace) {
+		return fmt.Errorf("namespace is not a valid string for cluster %s", destination.Cluster)
+	}
+
 	return nil
 }
 
