@@ -84,12 +84,15 @@ func TestConfigManager_LoadConfigNoRace(t *testing.T) {
 		errors = append(errors, err)
 	}
 	// concurrent Access of files
+	err = cm.LoadConfig(onError, configDir)
+	assert.NoError(t, err)
 	goroutines := 10
 	wg.Add(goroutines)
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
-			err := cm.LoadConfig(onError, configDir)
+			_, err := cm.GetConfig() // loading config multiple times in go routines
+			assert.NoError(t, err)
 			assert.NoError(t, err)
 		}()
 	}
