@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"log"
 	"math"
 	"math/rand"
@@ -598,10 +599,14 @@ func getNamespacedName() types.NamespacedName {
 
 func newGitSync(repo v1alpha1.RepositoryPath) *v1alpha1.GitSync {
 	return &v1alpha1.GitSync{
-		TypeMeta: metav1.TypeMeta{},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "GitSync",
+			APIVersion: "numaplane.numaproj.io/v1alpha1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testGitSyncName,
+			UID:       uuid.NewUUID(),
 		},
 		Spec: v1alpha1.GitSyncSpec{
 			RepositoryPath: repo,
@@ -625,21 +630,25 @@ func Test_watchRepo(t *testing.T) {
 			}),
 			hasErr: false,
 		},
-		{
-			name: "tag name as a TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
-				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
-				Path:           "staging-usw2-k8s",
-				TargetRevision: "v0.0.1",
-			}),
-			hasErr: false,
-		},
+		/*
+			Uncomment this test post fixing new version as old version has wrong Api version in yaml file
+			{
+				name: "tag name as a TargetRevision",
+				gitSync: newGitSync(v1alpha1.RepositoryPath{
+					RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
+					Path:           "staging-usw2-k8s",
+					TargetRevision: "v0.0.1",
+				}),
+				hasErr: false,
+			},
+
+		*/
 		{
 			name: "commit hash as a TargetRevision",
 			gitSync: newGitSync(v1alpha1.RepositoryPath{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
-				TargetRevision: "7b68200947f2d2624797e56edf02c6d848bc48d1",
+				TargetRevision: "227c61991de37248802ab5b5486ce036d92b1aab",
 			}),
 			hasErr: false,
 		},
@@ -719,4 +728,81 @@ func Test_watchRepo(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestApplyOwnerShipReference(t *testing.T) {
+	resource := `apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: numaflow
+spec:
+  containers:
+    - name: app
+      image: images.my-company.example/app:v4
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+    - name: log-aggregator
+      image: images.my-company.example/log-aggregator:v6
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"`
+
+	gitsync := &v1alpha1.GitSync{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "GitSync",
+			APIVersion: "1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: "gitsync-test", UID: "awew"},
+		Spec:       v1alpha1.GitSyncSpec{},
+		Status:     v1alpha1.GitSyncStatus{},
+	}
+	reference, err := ApplyOwnerShipReference(resource, gitsync)
+	log.Println(string(reference))
+	assert.Equal(t, `apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  name: frontend
+  namespace: numaflow
+  ownerReferences:
+  - apiVersion: "1"
+    blockOwnerDeletion: true
+    controller: true
+    kind: GitSync
+    name: gitsync-test
+    uid: awew
+spec:
+  containers:
+  - image: images.my-company.example/app:v4
+    name: app
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 250m
+        memory: 64Mi
+  - image: images.my-company.example/log-aggregator:v6
+    name: log-aggregator
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 250m
+        memory: 64Mi
+status: {}
+`, string(reference))
+	assert.NoError(t, err)
+
 }

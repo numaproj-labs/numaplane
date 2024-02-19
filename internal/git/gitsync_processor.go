@@ -4,9 +4,14 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
 	"regexp"
 	"strings"
 	"time"
+
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/yaml"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -18,7 +23,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
@@ -124,14 +128,25 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 		err = tree.Files().ForEach(func(f *object.File) error {
 			logger.Debugw("read file", "file_name", f.Name)
 			// TODO: this currently assumes that one file contains just one manifest - modify for multiple
-			manifest, err := f.Contents()
-			if err != nil {
-				logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
-				return err
-			}
+			// TODO :need to address the valid file extension issue
+			if strings.Contains(f.Name, "yaml") {
 
-			// Apply manifest in cluster
-			return kubeClient.ApplyResource([]byte(manifest), namespace)
+				manifest, err := f.Contents()
+				if err != nil {
+					logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
+					return err
+				}
+				log.Println(manifest)
+				referencedManifest, err := ApplyOwnerShipReference(manifest, gitSync)
+
+				if err != nil {
+					logger.Errorw("error in applying ownership reference", "filename", f.Name, "err", err)
+					return err
+				}
+				// Apply manifest in cluster
+				return kubeClient.ApplyResource(referencedManifest, namespace)
+			}
+			return nil
 		})
 		if err != nil {
 			return err
@@ -169,7 +184,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 				// recentHash would be an empty string if there is no update in the  repository
 				if len(recentHash) > 0 {
 					lastCommitHash = recentHash
-					err = ApplyPatchToResources(patchedResources, kubeClient)
+					err = ApplyPatchToResources(patchedResources, kubeClient, gitSync)
 					if err != nil {
 						return err
 					}
@@ -188,22 +203,58 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 	return nil
 }
 
+// ApplyOwnerShipReference adds ownerships to resources for GitSync
+func ApplyOwnerShipReference(manifest string, gitSync *v1alpha1.GitSync) ([]byte, error) {
+	decode := scheme.Codecs.UniversalDeserializer().Decode
+	decoded, _, err := decode([]byte(manifest), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	obj, ok := decoded.(metav1.Object)
+	if !ok {
+		return nil, errors.New("decoded manifest is not a metaV1 object")
+	}
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         gitSync.APIVersion,
+		Kind:               gitSync.Kind,
+		Name:               gitSync.Name,
+		UID:                gitSync.UID,
+		Controller:         ptr.To(true),
+		BlockOwnerDeletion: ptr.To(true),
+	}
+	obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+	modifiedManifest, err := yaml.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return modifiedManifest, nil
+}
+
 // ApplyPatchToResources applies changes to Kubernetes resources based on the provided PatchedResource.
 // It uses a Kubernetes client to apply changes to each resource and handles creation and deletion of resources as needed.
 
-func ApplyPatchToResources(patchedResources PatchedResource, kubeClient kubernetes.Client) error {
+func ApplyPatchToResources(patchedResources PatchedResource, kubeClient kubernetes.Client, gitSync *v1alpha1.GitSync) error {
 	for key, afterValue := range patchedResources.After {
 		namespace := strings.Split(key, "/")[0]
 		if beforeValue, ok := patchedResources.Before[key]; ok {
 			if beforeValue != afterValue {
-				err := kubeClient.ApplyResource([]byte(afterValue), namespace)
+				afterValueWithOwnership, err := ApplyOwnerShipReference(afterValue, gitSync)
+				if err != nil {
+					return err
+				}
+				err = kubeClient.ApplyResource(afterValueWithOwnership, namespace)
 				if err != nil {
 					return errors.New("failed to apply resource: " + err.Error())
 				}
 			}
 		} else {
 			// Handle newly added resources
-			err := kubeClient.ApplyResource([]byte(afterValue), namespace)
+			afterValueWithOwnership, err := ApplyOwnerShipReference(afterValue, gitSync)
+			if err != nil {
+				return err
+			}
+			err = kubeClient.ApplyResource(afterValueWithOwnership, namespace)
 			if err != nil {
 				return errors.New("failed to apply new resource: " + err.Error())
 			}
