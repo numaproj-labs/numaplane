@@ -96,11 +96,13 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath str
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath(configPath)
+	cm.lock.Lock()
 	err := v.ReadInConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load configuration file. %w", err)
 	}
 	err = v.Unmarshal(cm.config)
+	cm.lock.Unlock() // Unlock as soon as the critical section is done
 	if err != nil {
 		return fmt.Errorf("failed unmarshal configuration file. %w", err)
 	}
