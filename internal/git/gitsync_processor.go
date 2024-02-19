@@ -138,7 +138,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 
 	// Only create the resources for the first time if not created yet.
 	// Otherwise, monitoring with intervals.
-	if gitSync.Status.CommitStatus.Hash == "" {
+	if gitSync.Status.CommitStatus == nil || gitSync.Status.CommitStatus.Hash == "" {
 		// Retrieving the commit object matching the hash.
 		tree, err := getCommitTreeAtPath(r, repo.Path, *hash)
 		if err != nil {
@@ -436,7 +436,7 @@ func updateCommitStatus(
 		}
 	}
 
-	gitSync.Status.CommitStatus = commitStatus
+	gitSync.Status.CommitStatus = &commitStatus
 	// It's Ok to fail here as upon errors the whole process will be retried
 	// until a CommitStatus is persisted.
 	if err := kubeClient.StatusUpdate(ctx, gitSync); err != nil {
