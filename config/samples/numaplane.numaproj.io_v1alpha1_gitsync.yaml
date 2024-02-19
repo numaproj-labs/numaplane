@@ -10,17 +10,11 @@ metadata:
   name: gitsync-sample
   namespace: numaplane-system
 spec:
-  repositoryPaths:
-    - repoUrl: "https://github.com/rustyTest/testprivateRepo"
-      path: "./numaflowResources/"
-      targetRevision: "main"
-      name: my-pipelines
-    - repoUrl: "git@github.com:rustyTest/testprivateRepo.git"
-      path: "./nested/numaflowController/"
-      targetRevision: "main"
-      name: controller
-  destinations:
-    - cluster: staging-usw2-k8s
-      namespace: namespace-1
-    - cluster: staging-use2-k8s
-      namespace: namespace-1
+  repositoryPath:
+    repoUrl: "https://github.com/numaproj/numaflow.git"
+    path: "config/namespace-install"
+    targetRevision: "main"
+    name: numaflow
+  destination:
+    cluster: staging-usw2-k8s
+    namespace: namespace-1
