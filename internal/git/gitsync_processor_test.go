@@ -27,11 +27,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
+	"github.com/numaproj-labs/numaplane/internal/shared/gitconfig"
 )
 
 const (
@@ -724,35 +724,11 @@ func Test_watchRepo(t *testing.T) {
 	}
 }
 
-func TestGetSecret(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	c := mocksClient.NewMockClient(ctrl)
-	key := k8sClient.ObjectKey{
-		Namespace: "testNamespace",
-		Name:      "test-secret",
-	}
-	c.EXPECT().Get(context.TODO(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
-		s := obj.(*corev1.Secret)
-		s.Data = map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
-		return nil
-	})
-	secret, err := getSecret(context.TODO(), c, "testNamespace", "test-secret")
-	assert.Nil(t, err)
-	assert.Equal(t, "admin", string(secret.Data["username"]))
-}
-
 func TestGetAuthMethod(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	c := mocksClient.NewMockClient(ctrl)
-	key := k8sClient.ObjectKey{
-		Namespace: "testNamespace",
-		Name:      "test-secret",
-	}
-	c.EXPECT().Get(context.Background(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
-		s := obj.(*corev1.Secret)
-		s.Data = map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
-		return nil
-	})
+	data := map[string][]byte{"username": []byte("admin123"), "password": []byte("secret")}
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "test-secret").Return(&corev1.Secret{Data: data}, nil)
 
 	credential := &controllerconfig.GitCredential{
 		HTTPCredential: &controllerconfig.HTTPCredential{
@@ -764,7 +740,7 @@ func TestGetAuthMethod(t *testing.T) {
 			},
 		},
 	}
-	method, err := GetAuthMethod(context.Background(), "https://github.com/shubhamdixit863/rusthttpserver", c, "testNamespace", credential)
+	method, err := gitconfig.GetAuthMethod(context.Background(), "https://github.com/shubhamdixit863/rusthttpserver", c, "testNamespace", credential)
 	assert.NoError(t, err)
 	assert.NotNil(t, method)
 	assert.Contains(t, method.String(), "admin123")
@@ -774,17 +750,12 @@ func TestGitCloneRepoSsh(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	c := mocksClient.NewMockClient(ctrl)
-	key := k8sClient.ObjectKey{
-		Namespace: "testNamespace",
-		Name:      "sshKey",
-	}
+
 	data, err := base64.StdEncoding.DecodeString("LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNEVTl1elRwT1JwaDJublNtZ2tpSTJQQ25RdzBKbllaUFNGbk1Tc2NSSkltZ0FBQUtBbHBrU1BKYVpFCmp3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDRFU5dXpUcE9ScGgybm5TbWdraUkyUENuUXcwSm5ZWlBTRm5NU3NjUkpJbWcKQUFBRUN5YzdoS0RIODJvRGNnNWtrQWkrL3lZNERySEsva2cyZGg2VHduNXhnWTB0VDI3Tk9rNUdtSGFlZEthQ1NJalk4SwpkRERRbWRoazlJV2N4S3h4RWtpYUFBQUFHSEoxYzNSNWNISnZaM0poYldWeVFHZHRZV2xzTG1OdmJRRUNBd1FGCi0tLS0tRU5EIE9QRU5TU0ggUFJJVkFURSBLRVktLS0tLQ==")
 	assert.Nil(t, err)
-	c.EXPECT().Get(context.Background(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
-		s := obj.(*corev1.Secret)
-		s.Data = map[string][]byte{"sshKey": data}
-		return nil
-	})
+
+	secretData := map[string][]byte{"sshKey": data}
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "sshKey").Return(&corev1.Secret{Data: secretData}, nil)
 
 	credential := &controllerconfig.GitCredential{
 		SSHCredential: &controllerconfig.SSHCredential{SSHKey: controllerconfig.SecretKeySelector{
@@ -793,7 +764,7 @@ func TestGitCloneRepoSsh(t *testing.T) {
 			Optional:             nil,
 		}},
 	}
-	method, err := GetAuthMethod(context.Background(), "git@github.com:rustyTest/testprivateRepo.git", c, "testNamespace", credential)
+	method, err := gitconfig.GetAuthMethod(context.Background(), "git@github.com:rustyTest/testprivateRepo.git", c, "testNamespace", credential)
 	assert.NoError(t, err)
 	assert.NotNil(t, method)
 	repositoryPath := &v1alpha1.RepositoryPath{

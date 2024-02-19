@@ -1,4 +1,4 @@
-package validations
+package gitconfig
 
 import (
 	"testing"

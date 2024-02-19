@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	k8 "sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	appv1 "k8s.io/api/apps/v1"
@@ -60,15 +58,8 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		key := k8.ObjectKey{
-			Namespace: "team-a-namespace",
-			Name:      "secret",
-		}
-		client.EXPECT().Get(context.Background(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8.ObjectKey, obj k8.Object, opts ...k8.GetOption) error {
-			s := obj.(*corev1.Secret)
-			s.Data = map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
-			return nil
-		}).AnyTimes()
+		data := map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
+		client.EXPECT().GetSecret(context.Background(), "team-a-namespace", "secret").Return(&corev1.Secret{Data: data}, nil).AnyTimes()
 
 		cm := config.GetConfigManagerInstance()
 		configM := cm.GetConfig()
@@ -125,18 +116,8 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-
-		key := k8.ObjectKey{
-			Namespace: "team-a-namespace",
-			Name:      "secret",
-		}
-
-		client.EXPECT().Get(context.Background(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8.ObjectKey, obj k8.Object, opts ...k8.GetOption) error {
-			s := obj.(*corev1.Secret)
-			s.Data = map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
-			return nil
-		}).AnyTimes()
-
+		data := map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
+		client.EXPECT().GetSecret(context.Background(), "team-a-namespace", "secret").Return(&corev1.Secret{Data: data}, nil).AnyTimes()
 		cm := config.GetConfigManagerInstance()
 		configM := cm.GetConfig()
 		configM.ClusterName = "staging-usw2-k8s"

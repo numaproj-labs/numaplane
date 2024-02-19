@@ -71,7 +71,6 @@ spec:
         args:
         - --leader-elect
         image: numaplane-controller:latest
-        imagePullPolicy: IfNotPresent
         name: manager
         securityContext:
           allowPrivilegeEscalation: false

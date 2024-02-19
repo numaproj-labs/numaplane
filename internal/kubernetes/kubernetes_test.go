@@ -1,12 +1,15 @@
 package kubernetes
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -146,4 +149,15 @@ func Test_client_DeleteResource(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetSecret(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	c := mocksClient.NewMockClient(ctrl)
+	data := map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
+	c.EXPECT().GetSecret(context.TODO(), "namespace", "secret").Return(&corev1.Secret{Data: data}, nil)
+	secret, err := c.GetSecret(context.TODO(), "namespace", "secret")
+	assert.NoError(t, err)
+	assert.Equal(t, "admin", string(secret.Data["username"]))
 }

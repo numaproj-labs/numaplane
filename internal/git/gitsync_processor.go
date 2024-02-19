@@ -3,24 +3,17 @@ package git
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/go-git/go-git/v5/plumbing/transport"
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,8 +24,8 @@ import (
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/shared/gitconfig"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
-	"github.com/numaproj-labs/numaplane/internal/shared/validations"
 )
 
 const (
@@ -82,20 +75,6 @@ type KubernetesResource struct {
 type MetaData struct {
 	Name      string `yaml:"name"`
 	Namespace string `yaml:"namespace"`
-}
-
-// this gets secret using the kubernetes client
-func getSecret(ctx context.Context, kubeClient kubernetes.Client, namespace, secretName string) (*corev1.Secret, error) {
-	secret := &corev1.Secret{}
-	key := k8sClient.ObjectKey{
-		Namespace: namespace,
-		Name:      secretName,
-	}
-
-	if err := kubeClient.Get(ctx, key, secret); err != nil {
-		return nil, err
-	}
-	return secret, nil
 }
 
 func cloneRepo(repo *v1alpha1.RepositoryPath, authMethod transport.AuthMethod) (*git.Repository, error) {
@@ -475,7 +454,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 	}
 	go func(repo *v1alpha1.RepositoryPath) {
 		credentials := controllerconfig.GetConfigManagerInstance().GetConfig().RepoCredentials
-		method, err := GetAuthMethod(ctx, repo.RepoUrl, kubeClient, namespace, credentials[strings.ToLower(repo.RepoUrl)]) // viper converts to all lower
+		method, err := gitconfig.GetAuthMethod(ctx, repo.RepoUrl, kubeClient, namespace, credentials[strings.ToLower(repo.RepoUrl)]) // viper converts to all lower
 		if err != nil {
 			logger.Errorw("error getting  the  auth method", "err", err)
 		}
@@ -494,48 +473,6 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 	}(&repo)
 
 	return processor, nil
-}
-
-func GetAuthMethod(ctx context.Context, repoUrl string, kubeClient kubernetes.Client, namespace string, repoCred *controllerconfig.GitCredential) (transport.AuthMethod, error) {
-	scheme, err := validations.GetTransportScheme(repoUrl)
-	if err != nil {
-		return nil, err
-	}
-	var authMethod transport.AuthMethod
-	switch scheme {
-	case "ssh", "git+ssh":
-		key := repoCred.SSHCredential.SSHKey.Key
-		secret, err := getSecret(ctx, kubeClient, namespace, key)
-		if err != nil {
-			return nil, err
-		}
-		authMethod, err = ssh.NewPublicKeys("git", secret.Data["sshKey"], "")
-		if err != nil {
-			return nil, err
-		}
-
-	case "http", "https":
-		if repoCred.HTTPCredential != nil {
-			cred := repoCred.HTTPCredential
-			username := cred.Username
-			secret, err := getSecret(ctx, kubeClient, namespace, cred.Password.Key)
-			if err != nil {
-				return nil, err
-			}
-			password := string(secret.Data["password"])
-			authMethod = &http.BasicAuth{
-				Username: username,
-				Password: password,
-			}
-		}
-	case "git", "file":
-		authMethod = nil
-
-	default:
-		return nil, fmt.Errorf("unsupported or not required authentication")
-	}
-
-	return authMethod, nil
 }
 
 func (processor *GitSyncProcessor) Update(gitSync *v1alpha1.GitSync) error {

@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -23,6 +24,9 @@ type Client interface {
 
 	// Update the resource of kubernetes cluster.
 	Update(ctx context.Context, obj k8sClient.Object, opts ...k8sClient.UpdateOption) error
+
+	// GetSecret Gets Secret For the Kubernetes
+	GetSecret(ctx context.Context, namespace, secretName string) (*corev1.Secret, error)
 
 	// StatusUpdate will update the status of kubernetes resource.
 	StatusUpdate(ctx context.Context, obj k8sClient.Object, opts ...k8sClient.SubResourceUpdateOption) error
