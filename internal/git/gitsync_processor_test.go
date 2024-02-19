@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	"log"
 	"math"
 	"math/rand"
@@ -11,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
