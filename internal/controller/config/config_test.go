@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"log"
 	"os"
 	"path/filepath"
@@ -10,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -21,6 +22,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	configManager := GetConfigManagerInstance()
 	err = configManager.LoadConfig(func(err error) {
 	}, configPath)
+	assert.NoError(t, err)
 	config, err := configManager.GetConfig()
 	assert.NoError(t, err)
 
