@@ -14,7 +14,7 @@ repoCredentials:
         key: "sshKey"
   "key3":
     TLS:
-      insecureSkipVerify: true
+      insecureSkipVerify: false
       CACertSecret:
         name: "ca-cert-secret"
         key: "ca.crt"

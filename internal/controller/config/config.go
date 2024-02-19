@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -66,10 +68,27 @@ type SecretKeySelector struct {
 	Optional                    *bool                    `json:"optional,omitempty" `
 }
 
-func (cm *ConfigManager) GetConfig() *GlobalConfig {
+func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {
 	cm.lock.RLock()
 	defer cm.lock.RUnlock()
-	return cm.config
+	config, err := CloneWithSerialization(cm.config)
+	if err != nil {
+		return GlobalConfig{}, err
+	}
+	return *config, nil
+}
+
+// LoadConfigFromBuffer is  Specifically for tests
+func (cm *ConfigManager) LoadConfigFromBuffer(configString string) error {
+	v := viper.New()
+	buffer := bytes.NewBufferString(configString)
+	v.SetConfigType("yaml")
+	err := v.ReadConfig(buffer)
+	if err != nil {
+		return err
+	}
+	err = v.Unmarshal(cm.config)
+	return err
 }
 
 func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath string) error {
@@ -95,4 +114,16 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath str
 		}
 	})
 	return nil
+}
+
+func CloneWithSerialization(orig *GlobalConfig) (*GlobalConfig, error) {
+	origJSON, err := json.Marshal(orig)
+	if err != nil {
+		return nil, err
+	}
+	clone := GlobalConfig{}
+	if err = json.Unmarshal(origJSON, &clone); err != nil {
+		return nil, err
+	}
+	return &clone, nil
 }

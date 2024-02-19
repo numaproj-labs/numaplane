@@ -58,10 +58,14 @@ const (
 )
 
 func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme, configManager *config.ConfigManager) (*GitSyncReconciler, error) {
+	getConfig, err := configManager.GetConfig()
+	if err != nil {
+		return nil, err
+	}
 	return &GitSyncReconciler{
 		Client:        kubeClient,
 		Scheme:        s,
-		clusterName:   configManager.GetConfig().ClusterName,
+		clusterName:   getConfig.ClusterName,
 		ConfigManager: configManager,
 	}, nil
 }
@@ -226,7 +230,11 @@ func (r *GitSyncReconciler) addGitSyncProcessor(ctx context.Context, gitSync *ap
 		controllerutil.AddFinalizer(gitSync, finalizerName)
 	}
 
-	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.Client, r.clusterName, r.ConfigManager.GetConfig().RepoCredentials)
+	getConfig, err := r.ConfigManager.GetConfig()
+	if err != nil {
+		return err
+	}
+	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.Client, r.clusterName, getConfig.RepoCredentials)
 	if err != nil {
 		logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
 		return err

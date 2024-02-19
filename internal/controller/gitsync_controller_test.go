@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"log"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -58,8 +59,8 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
 		cm := config.GetConfigManagerInstance()
-		config := cm.GetConfig()
-		config.ClusterName = "staging-usw2-k8s"
+		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
+		assert.NoError(t, err)
 
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
@@ -98,12 +99,13 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
 		cm := config.GetConfigManagerInstance()
-		config := cm.GetConfig()
-		config.ClusterName = "staging-usw2-k8s"
-
+		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
+		assert.NoError(t, err)
+		assert.NoError(t, err)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
+		log.Println(cm.GetConfig())
 
 		// our cluster is not one of the destinations, so it shouldn't end up in the map
 		reconcile(t, r, gitSync)
