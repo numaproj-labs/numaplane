@@ -80,9 +80,9 @@ func cloneRepo(repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
 	})
 }
 
-// watchRepo monitors a Git repository for changes.It fetches updates from the remote repository, checks the latest
-// commit hash against the stored hash in the GitSync object, and applies any changes to the Kubernetes cluster.
-// It also periodically checks for updates based on a ticker.
+// watchRepo monitors a Git repository for changes. It fetches updates from the remote repository,
+// checks the latest commit hash against the stored hash in the GitSync object,
+// and applies any changes to the Kubernetes cluster. It also periodically checks for updates based on a ticker.
 func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, repo *v1alpha1.RepositoryPath, namespace string) (string, error) {
 	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name, "RepositoryPath Name", repo.Name)
 	var lastCommitHash string
