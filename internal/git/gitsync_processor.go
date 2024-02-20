@@ -85,35 +85,38 @@ func cloneRepo(repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
 	})
 }
 
-func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, repo *v1alpha1.RepositoryPath, namespace string) error {
-	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name,
-		"RepositoryPath Name", repo.Name)
+// watchRepo monitors a Git repository for changes. It fetches updates from the remote repository,
+// checks the latest commit hash against the stored hash in the GitSync object,
+// and applies any changes to the Kubernetes cluster. It also periodically checks for updates based on a ticker.
+func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, repo *v1alpha1.RepositoryPath, namespace string) (string, error) {
+	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name, "RepositoryPath Name", repo.Name)
 	var lastCommitHash string
 
 	// Fetch all remote branches
 	err := fetchUpdates(r)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// The revision can be a branch, a tag, or a commit hash
 	hash, err := getLatestCommitHash(r, repo.TargetRevision)
 	if err != nil {
 		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err, "repo", repo.RepoUrl)
-		return err
+		return "", err
 	}
 	namespacedName := types.NamespacedName{
 		Namespace: gitSync.Namespace,
 		Name:      gitSync.Name,
 	}
+
 	gitSync = &v1alpha1.GitSync{}
 	if err = kubeClient.Get(ctx, namespacedName, gitSync); err != nil {
 		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
 		if apierrors.IsNotFound(err) {
-			return nil
+			return hash.String(), nil
 		} else {
 			logger.Errorw("Unable to get GitSync", "err", err)
-			return err
+			return hash.String(), err
 		}
 	}
 
@@ -123,7 +126,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 		// Retrieving the commit object matching the hash.
 		tree, err := getCommitTreeAtPath(r, repo.Path, *hash)
 		if err != nil {
-			return err
+			return hash.String(), err
 		}
 		// Read all the files under the path and apply each one respectively.
 		err = tree.Files().ForEach(func(f *object.File) error {
@@ -149,12 +152,12 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 			return nil
 		})
 		if err != nil {
-			return err
+			return hash.String(), err
 		}
 
-		err = updateCommitStatus(ctx, kubeClient, namespacedName, hash.String(), logger)
+		err = updateCommitStatus(ctx, kubeClient, logger, namespacedName, hash.String(), nil)
 		if err != nil {
-			return err
+			return hash.String(), err
 		}
 
 		lastCommitHash = hash.String()
@@ -168,7 +171,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 				"synced commit hash doesn't match desired one",
 				"synced commit hash", lastCommitHash,
 				"desired commit hash", hash.String())
-			return err
+			return hash.String(), err
 		}
 	} else {
 		ticker := time.NewTicker(timeInterval * time.Minute)
@@ -179,28 +182,29 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 				logger.Debug("checking for new updates")
 				patchedResources, recentHash, err := CheckForRepoUpdates(ctx, r, repo, lastCommitHash, namespace)
 				if err != nil {
-					return err
+					return hash.String(), err
 				}
 				// recentHash would be an empty string if there is no update in the  repository
 				if len(recentHash) > 0 {
 					lastCommitHash = recentHash
 					err = ApplyPatchToResources(patchedResources, kubeClient, gitSync)
 					if err != nil {
-						return err
+						return recentHash, err
 					}
-					err = updateCommitStatus(ctx, kubeClient, namespacedName, recentHash, logger)
+					err = updateCommitStatus(ctx, kubeClient, logger, namespacedName, recentHash, nil)
 					if err != nil {
-						return err
+						return recentHash, err
 					}
 
 				}
 			case <-ctx.Done():
 				logger.Debug("Context canceled, stopping updates check")
-				return nil
+				return hash.String(), nil
 			}
 		}
 	}
-	return nil
+
+	return hash.String(), nil
 }
 
 // ApplyOwnerShipReference adds ownerships to resources for GitSync
@@ -233,7 +237,6 @@ func ApplyOwnerShipReference(manifest string, gitSync *v1alpha1.GitSync) ([]byte
 
 // ApplyPatchToResources applies changes to Kubernetes resources based on the provided PatchedResource.
 // It uses a Kubernetes client to apply changes to each resource and handles creation and deletion of resources as needed.
-
 func ApplyPatchToResources(patchedResources PatchedResource, kubeClient kubernetes.Client, gitSync *v1alpha1.GitSync) error {
 	for key, afterValue := range patchedResources.After {
 		namespace := strings.Split(key, "/")[0]
@@ -439,17 +442,18 @@ func fetchUpdates(repo *git.Repository) error {
 	return nil
 }
 
-func updateCommitStatus(
-	ctx context.Context, kubeClient kubernetes.Client,
-	namespacedName types.NamespacedName,
-	hash string,
-	logger *zap.SugaredLogger,
-) error {
+// updateCommitStatus will update the commit status in git sync CR also if error happened while syncing the repo then it update the error reason as well.
+func updateCommitStatus(ctx context.Context, kubeClient kubernetes.Client, logger *zap.SugaredLogger, namespacedName types.NamespacedName,
+	hash string, err error) error {
 
 	commitStatus := v1alpha1.CommitStatus{
 		Hash:     hash,
 		Synced:   true,
 		SyncTime: metav1.NewTime(time.Now()),
+	}
+	// set error reason with commit status.
+	if err != nil {
+		commitStatus.Error = err.Error()
 	}
 
 	gitSync := &v1alpha1.GitSync{}
@@ -482,6 +486,11 @@ func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, 
 	return commitHash, err
 }
 
+// NewGitSyncProcessor creates a new instance of GitSyncProcessor.
+// It takes in a context, a GitSync object, a Kubernetes client, and a cluster name as parameters.
+// The function clones the Git repository specified in the GitSync object and starts a goroutine to watch the repository for changes.
+// The goroutine will continuously monitor the repository and apply any changes to the Kubernetes cluster.
+// If any error occurs during the repository watching process, it will be logged and the commit status will be updated with the error.
 func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
 
@@ -501,9 +510,13 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 			logger.Errorw("error cloning the repo", "err", err)
 		} else {
 			for ok := true; ok; {
-				err = watchRepo(ctx, r, gitSync, kubeClient, repo, namespace)
+				hash, err := watchRepo(ctx, r, gitSync, kubeClient, repo, namespace)
 				// TODO: terminate the goroutine on fatal errors from 'watchRepo'
 				if err != nil {
+					// update error reason in git sync CR if happened.
+					if updateErr := updateCommitStatus(ctx, kubeClient, logger, types.NamespacedName{Namespace: gitSync.Namespace, Name: gitSync.Name}, hash, err); updateErr != nil {
+						logger.Errorw("error updating gitSync commit status", "err", updateErr)
+					}
 					logger.Errorw("error watching the repo", "err", err)
 				}
 			}

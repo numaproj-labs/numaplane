@@ -721,7 +721,7 @@ func Test_watchRepo(t *testing.T) {
 			client.EXPECT().ApplyResource(gomock.Any(), testNamespace).AnyTimes()
 			client.EXPECT().StatusUpdate(ctx, gomock.Any()).AnyTimes()
 
-			watchErr := watchRepo(ctx, r, tc.gitSync, client, repo, testNamespace)
+			_, watchErr := watchRepo(ctx, r, tc.gitSync, client, repo, testNamespace)
 			if tc.hasErr {
 				assert.NotNil(t, watchErr)
 			} else {
