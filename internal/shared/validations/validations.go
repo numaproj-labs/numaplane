@@ -3,6 +3,8 @@ package validations
 import (
 	"net/url"
 	"regexp"
+	"slices"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -64,4 +66,10 @@ func IsValidKubernetesNamespace(name string) bool {
 		return true
 	}
 	return false
+}
+
+func IsValidManiFestFile(fileName string) bool {
+	fileExt := strings.Split(fileName, ".")
+	validExtName := []string{"yaml", "yml", "json"}
+	return slices.Contains(validExtName, fileExt[1])
 }

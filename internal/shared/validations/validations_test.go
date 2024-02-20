@@ -100,3 +100,48 @@ func TestIsValidName(t *testing.T) {
 	}
 
 }
+
+func TestIsValidManiFestFile(t *testing.T) {
+
+	testCases := []struct {
+		name         string
+		resourceName string
+		expected     bool
+	}{
+		{
+			name:         "Invalid Name",
+			resourceName: "data.md",
+			expected:     false,
+		},
+
+		{
+			name:         "valid name",
+			resourceName: "my.yml",
+			expected:     true,
+		},
+
+		{
+			name:         "Valid Json file",
+			resourceName: "pipeline.json",
+			expected:     true,
+		},
+
+		{
+			name:         "Valid name yaml",
+			resourceName: "pipeline.yaml",
+			expected:     true,
+		},
+		{
+			name:         "Invalid File",
+			resourceName: "main.go",
+			expected:     false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok := IsValidManiFestFile(tc.resourceName)
+			assert.Equal(t, tc.expected, ok)
+		})
+	}
+
+}

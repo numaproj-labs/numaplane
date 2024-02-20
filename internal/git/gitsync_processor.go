@@ -27,6 +27,7 @@ import (
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	"github.com/numaproj-labs/numaplane/internal/shared/validations"
 )
 
 const (
@@ -129,8 +130,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 			logger.Debugw("read file", "file_name", f.Name)
 			// TODO: this currently assumes that one file contains just one manifest - modify for multiple
 			// TODO :need to address the valid file extension issue
-			if strings.Contains(f.Name, "yaml") {
-
+			if validations.IsValidManiFestFile(f.Name) {
 				manifest, err := f.Contents()
 				if err != nil {
 					logger.Errorw("cannot get file content", "filename", f.Name, "err", err)

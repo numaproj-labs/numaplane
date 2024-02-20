@@ -807,3 +807,87 @@ status: {}
 	assert.NoError(t, err)
 
 }
+
+func TestApplyOwnerShipReferenceJSON(t *testing.T) {
+	resource := `{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "nginx-deployment"
+  },
+  "spec": {
+    "selector": {
+      "matchLabels": {
+        "app": "nginx"
+      }
+    },
+    "replicas": 2,
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "nginx"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "nginx",
+            "image": "nginx:1.14.2",
+            "ports": [
+              {
+                "containerPort": 80
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}`
+
+	gitsync := &v1alpha1.GitSync{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "GitSync",
+			APIVersion: "1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: "gitsync-test", UID: "awew"},
+		Spec:       v1alpha1.GitSyncSpec{},
+		Status:     v1alpha1.GitSyncStatus{},
+	}
+	reference, err := ApplyOwnerShipReference(resource, gitsync)
+	log.Println(string(reference))
+	assert.Equal(t, `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: nginx-deployment
+  ownerReferences:
+  - apiVersion: "1"
+    blockOwnerDeletion: true
+    controller: true
+    kind: GitSync
+    name: gitsync-test
+    uid: awew
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - image: nginx:1.14.2
+        name: nginx
+        ports:
+        - containerPort: 80
+        resources: {}
+status: {}
+`, string(reference))
+	assert.NoError(t, err)
+
+}
