@@ -725,6 +725,8 @@ func Test_watchRepo(t *testing.T) {
 		})
 	}
 }
+
+// As we are using a passkey for a real GitHub account, we have reversed the string such that Git does not invalidate it if found publicly.
 func reverseString(s string) string {
 	runes := []rune(s)
 	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
