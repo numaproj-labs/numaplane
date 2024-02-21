@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -136,7 +135,6 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 					logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
 					return err
 				}
-				log.Println(manifest)
 				referencedManifest, err := ApplyOwnerShipReference(manifest, gitSync)
 
 				if err != nil {
