@@ -33,7 +33,7 @@ var (
 			RepositoryPath: apiv1.RepositoryPath{
 				Name:           "my-controller",
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
-				Path:           "./numaflowController/",
+				Path:           "staging-usw2-k8s",
 				TargetRevision: "main",
 			},
 			Destination: apiv1.Destination{
@@ -102,7 +102,6 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		gitSync.DeletionTimestamp = &now
 		reconcile(t, r, gitSync)
 		verifyDeleted(t, r, gitSync)
-
 	})
 
 }

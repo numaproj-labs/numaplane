@@ -11,10 +11,10 @@ metadata:
   namespace: numaplane-system
 spec:
   repositoryPath:
-    repoUrl: "https://github.com/numaproj/numaflow.git"
-    path: "config/namespace-install"
-    targetRevision: "main"
-    name: numaflow
+    name: control-manifest
+    path: staging-usw2-k8s
+    repoUrl: https://github.com/numaproj-labs/numaplane-control-manifests.git
+    targetRevision: main
   destination:
     cluster: staging-usw2-k8s
     namespace: namespace-1
