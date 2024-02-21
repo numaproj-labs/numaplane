@@ -1,26 +1,69 @@
 clusterName: "example-cluster"
 timeIntervalSec: 60
 repoCredentials:
-  "https://github.com/rustyTest/testprivateRepo":
-    HTTPCredential:
-      Username: "exampleUser"
-      Password:
-        name: "http-creds"
-        key: "password"
-  "git@github.com:rustyTest/testprivateRepo.git":
-    SSHCredential:
-      SSHKey:
-        name: "ssh-creds"
-        key: "sshKey"
-  "key3":
-    TLS:
-      insecureSkipVerify: true
-      CACertSecret:
-        name: "ca-cert-secret"
-        key: "ca.crt"
-      certSecret:
-        name: "cert-secret"
-        key: "tls.crt"
-      KeySecret:
-        name: "key-secret"
-        key: "tls.key"
+  - url: "github.com/rustyTest/testprivateRepo"
+    credential:
+      HTTPCredential:
+        Username: "exampleUser"
+        Password:
+          name: "http-creds"
+          key: "password"
+      SSHCredential:
+        SSHKey:
+          name: "ssh-creds-alternate"
+          key: "sshKey-alternate"
+      TLS:
+        insecureSkipVerify: true
+        CACertSecret:
+          name: "ca-cert-secret-alternate"
+          key: "ca.crt-alternate"
+        certSecret:
+          name: "cert-secret-alternate"
+          key: "tls.crt-alternate"
+        KeySecret:
+          name: "key-secret-alternate"
+          key: "tls.key-alternate"
+  - url: "github.com/rustyTest/privateRepo"
+    credential:
+      HTTPCredential:
+        Username: "exampleUser2"
+        Password:
+          name: "http-creds-2"
+          key: "password2"
+      SSHCredential:
+        SSHKey:
+          name: "ssh-creds"
+          key: "sshKey"
+      TLS:
+        insecureSkipVerify: false
+        CACertSecret:
+          name: "ca-cert-secret-2"
+          key: "ca.crt2"
+        certSecret:
+          name: "cert-secret-2"
+          key: "tls.crt2"
+        KeySecret:
+          name: "key-secret-2"
+          key: "tls.key2"
+  - url: "key3"
+    credential:
+      HTTPCredential:
+        Username: "exampleUser3" # Assuming different HTTP credentials for example
+        Password:
+          name: "http-creds-3"
+          key: "password3"
+      SSHCredential:
+        SSHKey:
+          name: "ssh-creds-3"
+          key: "sshKey3"
+      TLS:
+        insecureSkipVerify: true
+        CACertSecret:
+          name: "ca-cert-secret-3"
+          key: "ca.crt3"
+        certSecret:
+          name: "cert-secret-3"
+          key: "tls.crt3"
+        KeySecret:
+          name: "key-secret-3"
+          key: "tls.key3"

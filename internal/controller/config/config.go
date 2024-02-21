@@ -35,13 +35,18 @@ type GlobalConfig struct {
 	ClusterName     string `json:"clusterName"`
 	TimeIntervalSec uint   `json:"timeIntervalSec"`
 	// RepoCredentials maps each Git Repository Path prefix to the corresponding credentials that are needed for it
-	RepoCredentials map[string]*GitCredential `json:"repoCredentials"`
+	RepoCredentials []RepoCredential `json:"repoCredentials"`
 }
 
 type GitCredential struct {
 	HTTPCredential *HTTPCredential `json:"HTTPCredential"`
 	SSHCredential  *SSHCredential  `json:"SSHCredential"`
 	TLS            *TLS            `json:"TLS"`
+}
+
+type RepoCredential struct {
+	URL        string         `json:"url"`
+	Credential *GitCredential `json:"credential"`
 }
 
 type HTTPCredential struct {
@@ -73,7 +78,7 @@ func (cm *ConfigManager) GetConfig() *GlobalConfig {
 }
 
 func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath string) error {
-	v := viper.NewWithOptions(viper.KeyDelimiter("::")) // To make sure the period (.) is not omitted while parsing with viper
+	v := viper.New()
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath(configPath)

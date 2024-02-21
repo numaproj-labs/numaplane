@@ -7,9 +7,10 @@ import (
 	"net/url"
 	"regexp"
 
-	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
@@ -65,17 +66,6 @@ func CheckGitURL(gitURL string) bool {
 	log.Println(u)
 	return true
 }
-func GetTransportScheme(gitURL string) (string, error) {
-
-	if matched, _ := regexp.MatchString(`^[a-zA-Z]+@[\w\.]+:[\w\/\-\.~]+`, gitURL); matched {
-		return "ssh", nil
-	}
-	u, err := url.Parse(gitURL)
-	if err != nil {
-		return u.Scheme, fmt.Errorf("invalid git url %s", err.Error())
-	}
-	return u.Scheme, err
-}
 
 func IsValidKubernetesNamespace(name string) bool {
 	// All namespace names must be valid RFC 1123 DNS labels.
@@ -87,14 +77,23 @@ func IsValidKubernetesNamespace(name string) bool {
 	return false
 }
 
-func GetAuthMethod(ctx context.Context, repoUrl string, kubeClient kubernetes.Client, namespace string, repoCred *controllerconfig.GitCredential) (transport.AuthMethod, error) {
-	scheme, err := GetTransportScheme(repoUrl)
-	if err != nil {
-		return nil, err
-	}
+func GetAuthMethod(ctx context.Context, repoCred *controllerconfig.GitCredential, kubeClient kubernetes.Client, namespace string) (transport.AuthMethod, error) {
 	var authMethod transport.AuthMethod
-	switch scheme {
-	case "ssh", "git+ssh":
+	switch {
+	case repoCred.HTTPCredential != nil:
+		cred := repoCred.HTTPCredential
+		username := cred.Username
+		secret, err := kubeClient.GetSecret(ctx, namespace, cred.Password.Key)
+		if err != nil {
+			return nil, err
+		}
+		password := string(secret.Data["password"])
+		authMethod = &gitHttp.BasicAuth{
+			Username: username,
+			Password: password,
+		}
+
+	case repoCred.SSHCredential != nil:
 		key := repoCred.SSHCredential.SSHKey.Key
 
 		secret, err := kubeClient.GetSecret(ctx, namespace, key)
@@ -106,26 +105,22 @@ func GetAuthMethod(ctx context.Context, repoUrl string, kubeClient kubernetes.Cl
 			return nil, err
 		}
 
-	case "http", "https":
-		if repoCred.HTTPCredential != nil {
-			cred := repoCred.HTTPCredential
-			username := cred.Username
-			secret, err := kubeClient.GetSecret(ctx, namespace, cred.Password.Key)
-			if err != nil {
-				return nil, err
-			}
-			password := string(secret.Data["password"])
-			authMethod = &http.BasicAuth{
-				Username: username,
-				Password: password,
-			}
-		}
-	case "git", "file":
-		authMethod = nil
+	case repoCred.TLS != nil:
+		// TODO :this needs to be implemented
 
 	default:
 		return nil, fmt.Errorf("unsupported or not required authentication")
 	}
-
 	return authMethod, nil
+}
+
+// FindCredByUrl searches for GitCredential by the specified URL within the provided GlobalConfig.
+// It returns the matching GitCredential if found, otherwise returns nil.
+func FindCredByUrl(url string, config *controllerconfig.GlobalConfig) *controllerconfig.GitCredential {
+	for _, cred := range config.RepoCredentials {
+		if cred.URL == url {
+			return cred.Credential
+		}
+	}
+	return nil
 }

@@ -76,8 +76,12 @@ func Test_GitSyncLifecycle(t *testing.T) {
 			SSHCredential: nil,
 			TLS:           nil,
 		}
-		mp := make(map[string]*config.GitCredential)
-		mp["https://github.com/numaproj-labs/numaplane-control-manifests.git"] = gitCred
+		mp := make([]config.RepoCredential, 1)
+		repoCred := config.RepoCredential{
+			URL:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
+			Credential: gitCred,
+		}
+		mp = append(mp, repoCred)
 		configM.RepoCredentials = mp
 
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
@@ -134,8 +138,12 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 			SSHCredential: nil,
 			TLS:           nil,
 		}
-		mp := make(map[string]*config.GitCredential)
-		mp["https://github.com/numaproj-labs/numaplane-control-manifests.git"] = gitCred
+		mp := make([]config.RepoCredential, 1)
+		repoCred := config.RepoCredential{
+			URL:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
+			Credential: gitCred,
+		}
+		mp = append(mp, repoCred)
 		configM.RepoCredentials = mp
 
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)

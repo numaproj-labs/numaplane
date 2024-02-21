@@ -740,7 +740,7 @@ func TestGetAuthMethod(t *testing.T) {
 			},
 		},
 	}
-	method, err := gitconfig.GetAuthMethod(context.Background(), "https://github.com/shubhamdixit863/rusthttpserver", c, "testNamespace", credential)
+	method, err := gitconfig.GetAuthMethod(context.Background(), credential, c, "testNamespace")
 	assert.NoError(t, err)
 	assert.NotNil(t, method)
 	assert.Contains(t, method.String(), "admin123")
@@ -764,7 +764,7 @@ func TestGitCloneRepoSsh(t *testing.T) {
 			Optional:             nil,
 		}},
 	}
-	method, err := gitconfig.GetAuthMethod(context.Background(), "git@github.com:rustyTest/testprivateRepo.git", c, "testNamespace", credential)
+	method, err := gitconfig.GetAuthMethod(context.Background(), credential, c, "testNamespace")
 	assert.NoError(t, err)
 	assert.NotNil(t, method)
 	repositoryPath := &v1alpha1.RepositoryPath{
