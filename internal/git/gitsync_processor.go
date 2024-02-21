@@ -84,7 +84,6 @@ func cloneRepo(ctx context.Context, path string, repo *v1alpha1.RepositoryPath, 
 	if err != nil {
 		return nil, err
 	}
-
 	r, err := git.PlainCloneContext(ctx, path, false, &git.CloneOptions{
 		URL:  endpoint.String(),
 		Auth: authMethod,
@@ -100,7 +99,6 @@ func cloneRepo(ctx context.Context, path string, repo *v1alpha1.RepositoryPath, 
 		}
 		return existingRepo, nil
 	}
-
 	return r, err
 }
 
@@ -584,10 +582,13 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		channel:     channel,
 		clusterName: clusterName,
 	}
-
 	localRepoPath := getLocalRepoPath(gitSync.GetName())
 	go func(repo *v1alpha1.RepositoryPath) {
-		globalConfig := controllerconfig.GetConfigManagerInstance().GetConfig()
+		globalConfig, err := controllerconfig.GetConfigManagerInstance().GetConfig()
+		if err != nil {
+			logger.Errorw("error getting  the  global config", "err", err)
+		}
+
 		gitCredentials := gitconfig.FindCredByUrl(repo.RepoUrl, globalConfig)
 		method, err := gitconfig.GetAuthMethod(ctx, gitCredentials, kubeClient, namespace)
 		if err != nil {

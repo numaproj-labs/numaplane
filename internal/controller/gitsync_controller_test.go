@@ -2,6 +2,9 @@ package controller
 
 import (
 	"context"
+
+	"log"
+
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -58,11 +61,13 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
+
 		data := map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
 		client.EXPECT().GetSecret(context.Background(), "team-a-namespace", "secret").Return(&corev1.Secret{Data: data}, nil).AnyTimes()
 
 		cm := config.GetConfigManagerInstance()
-		configM := cm.GetConfig()
+		configM, err := cm.GetConfig()
+		assert.NoError(t, err)
 		configM.ClusterName = "staging-usw2-k8s"
 		gitCred := &config.GitCredential{
 			HTTPCredential: &config.HTTPCredential{
@@ -119,10 +124,12 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
+
 		data := map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
 		client.EXPECT().GetSecret(context.Background(), "team-a-namespace", "secret").Return(&corev1.Secret{Data: data}, nil).AnyTimes()
 		cm := config.GetConfigManagerInstance()
-		configM := cm.GetConfig()
+		configM, err := cm.GetConfig()
+		assert.NoError(t, err)
 		configM.ClusterName = "staging-usw2-k8s"
 
 		gitCred := &config.GitCredential{
@@ -148,6 +155,7 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
+		log.Println(cm.GetConfig())
 
 		// our cluster is not one of the destinations, so it shouldn't end up in the map
 		reconcile(t, r, gitSync)

@@ -58,10 +58,14 @@ const (
 )
 
 func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme, configManager *config.ConfigManager) (*GitSyncReconciler, error) {
+	getConfig, err := configManager.GetConfig()
+	if err != nil {
+		return nil, err
+	}
 	return &GitSyncReconciler{
 		Client:        kubeClient,
 		Scheme:        s,
-		clusterName:   configManager.GetConfig().ClusterName,
+		clusterName:   getConfig.ClusterName,
 		ConfigManager: configManager,
 	}, nil
 }

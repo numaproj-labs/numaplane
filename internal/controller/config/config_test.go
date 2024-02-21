@@ -5,9 +5,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -17,12 +20,13 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Nil(t, err, "Failed to get working directory")
 	configPath := filepath.Join(getwd, "../../../", "config", "samples")
 	configManager := GetConfigManagerInstance()
-	config := configManager.GetConfig()
+
 	err = configManager.LoadConfig(func(err error) {
 	}, configPath)
+	assert.NoError(t, err)
+	config, err := configManager.GetConfig()
+	assert.NoError(t, err)
 	assert.Nil(t, err, "Failed to load configuration")
-
-	log.Printf("Loaded Config: %+v", config)
 
 	assert.Equal(t, "example-cluster", config.ClusterName, "ClusterName does not match")
 	assert.Equal(t, uint(60), config.TimeIntervalSec, "TimeIntervalSec does not match")
@@ -42,7 +46,6 @@ func TestLoadConfigMatchValues(t *testing.T) {
 
 	// Test HTTP credentials
 	httpCreds := findCredsByUrl("github.com/rustyTest/testprivateRepo")
-	log.Println(httpCreds)
 	assert.NotNil(t, httpCreds.HTTPCredential, "HTTPCredential is missing for https://github.com/rustytest/testprivaterepo")
 	if httpCreds.HTTPCredential != nil {
 		assert.Equal(t, "exampleUser", httpCreds.HTTPCredential.Username, "Username for HTTPCredential does not match")
@@ -70,10 +73,9 @@ func TestLoadConfigMatchValues(t *testing.T) {
 		assert.Equal(t, "key-secret-3", tlsCreds.TLS.KeySecret.Name, "KeySecret Name for TLS does not match")
 		assert.Equal(t, "tls.key3", tlsCreds.TLS.KeySecret.Key, "KeySecret Key for TLS does not match")
 	}
+
 }
 
-// to verify this test run with go test -race ./... it  won't give a race condition as we have used mutex.RwLock
-// in onConfigChange in LoadConfig
 // to verify this test run with go test -race ./... it  won't give a race condition as we have used mutex.RwLock
 // in onConfigChange in LoadConfig
 func TestConfigManager_LoadConfigNoRace(t *testing.T) {
@@ -111,8 +113,9 @@ func TestConfigManager_LoadConfigNoRace(t *testing.T) {
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
-			cfg := cm.GetConfig() // loading config multiple times in go routines
-			assert.NotNil(t, cfg)
+			_, err := cm.GetConfig() // loading config multiple times in go routines
+			assert.NoError(t, err)
+			assert.NoError(t, err)
 		}()
 	}
 	triggers := 10
@@ -151,4 +154,134 @@ func TestGetConfigManagerInstanceSingleton(t *testing.T) {
 	assert.NotNil(t, instance2)
 	assert.Equal(t, instance1, instance2) // they should give same memory address
 
+}
+func TestCloneWithSerialization(t *testing.T) {
+	original := &GlobalConfig{
+		ClusterName:     "testCluster",
+		TimeIntervalSec: 60,
+		RepoCredentials: []RepoCredential{
+			{
+				URL: "repo1",
+				Credential: &GitCredential{
+					HTTPCredential: &HTTPCredential{
+						Username: "user1",
+						Password: SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "secretName1",
+							},
+							Key: "password",
+						},
+					},
+					SSHCredential: &SSHCredential{
+						SSHKey: SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "secretNameSSH",
+							},
+							Key: "sshKey",
+						},
+					},
+					TLS: &TLS{
+						InsecureSkipVerify: true,
+						CACertSecret: SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "caCertSecretName",
+							},
+							Key: "caCert",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cloned, err := CloneWithSerialization(original)
+	if err != nil {
+		t.Fatalf("CloneWithSerialization failed: %v", err)
+	}
+	if cloned == original {
+		t.Errorf("Cloned object points to the same instance as original")
+	}
+
+	if !reflect.DeepEqual(original, cloned) {
+		t.Errorf("Cloned object is not deeply equal to the original")
+	}
+
+	cloned.ClusterName = "modifiedCluster"
+	if original.ClusterName == "modifiedCluster" {
+		t.Errorf("Modifying clone affected the original object")
+	}
+}
+func createGlobalConfigForBenchmarking() *GlobalConfig {
+	return &GlobalConfig{
+		ClusterName:     "testCluster",
+		TimeIntervalSec: 60,
+		RepoCredentials: []RepoCredential{
+			{
+				URL: "repo1",
+				Credential: &GitCredential{
+					HTTPCredential: &HTTPCredential{
+						Username: "user1",
+						Password: SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "secretName1",
+							},
+							Key: "password",
+						},
+					},
+					SSHCredential: &SSHCredential{
+						SSHKey: SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "secretNameSSH",
+							},
+							Key: "sshKey",
+						},
+					},
+					TLS: &TLS{
+						InsecureSkipVerify: true,
+						CACertSecret: SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "caCertSecretName",
+							},
+							Key: "caCert",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+/**
+ go test -bench=. results for CloneWithSerialization
+goos: darwin
+goarch: arm64
+pkg: github.com/numaproj-labs/numaplane/internal/controller/config
+BenchmarkCloneWithSerialization-8         241724              5068 ns/op
+Used
+PASS
+
+
+goos: linux
+goarch: amd64
+pkg: main/convert
+cpu: Intel(R) Xeon(R) CPU @ 2.20GHz
+BenchmarkCloneWithSerialization-6          29619         47935 ns/op
+PASS
+
+
+*/
+
+func BenchmarkCloneWithSerialization(b *testing.B) {
+	testConfig := createGlobalConfigForBenchmarking()
+
+	// Reset the timer to exclude the setup time from the benchmark results
+	b.ResetTimer()
+
+	// Run the CloneWithSerialization function b.N times
+	for i := 0; i < b.N; i++ {
+		_, err := CloneWithSerialization(testConfig)
+		if err != nil {
+			b.Fatalf("CloneWithSerialization failed: %v", err)
+		}
+	}
 }

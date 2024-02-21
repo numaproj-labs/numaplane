@@ -111,7 +111,7 @@ func GetAuthMethod(ctx context.Context, repoCred *controllerconfig.GitCredential
 
 // FindCredByUrl searches for GitCredential by the specified URL within the provided GlobalConfig.
 // It returns the matching GitCredential if found, otherwise returns nil.
-func FindCredByUrl(url string, config *controllerconfig.GlobalConfig) *controllerconfig.GitCredential {
+func FindCredByUrl(url string, config controllerconfig.GlobalConfig) *controllerconfig.GitCredential {
 	for _, cred := range config.RepoCredentials {
 		if cred.URL == url {
 			return cred.Credential
