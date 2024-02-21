@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
@@ -736,4 +737,21 @@ func Test_watchRepo(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetSecret(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+	key := k8sClient.ObjectKey{
+		Namespace: "testNamespace",
+		Name:      "test-secret",
+	}
+	c.EXPECT().Get(context.TODO(), key, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(ctx context.Context, key k8sClient.ObjectKey, obj k8sClient.Object, opts ...k8sClient.GetOption) error {
+		s := obj.(*corev1.Secret)
+		s.Data = map[string][]byte{"username": []byte("admin"), "password": []byte("secret")}
+		return nil
+	})
+	secret, err := getSecret(context.TODO(), c, "testNamespace", "test-secret")
+	assert.Nil(t, err)
+	assert.Equal(t, "admin", string(secret.Data["username"]))
 }

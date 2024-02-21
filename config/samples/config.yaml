@@ -1,0 +1,26 @@
+clusterName: "example-cluster"
+timeIntervalSec: 60
+repoCredentials:
+  "key1":
+    HTTPCredential:
+      Username: "exampleUser"
+      Password:
+        name: "http-creds"
+        key: "password"
+  "key2":
+    SSHCredential:
+      SSHKey:
+        name: "ssh-creds"
+        key: "sshKey"
+  "key3":
+    TLS:
+      insecureSkipVerify: false
+      CACertSecret:
+        name: "ca-cert-secret"
+        key: "ca.crt"
+      certSecret:
+        name: "cert-secret"
+        key: "tls.crt"
+      KeySecret:
+        name: "key-secret"
+        key: "tls.key"

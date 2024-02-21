@@ -32,6 +32,7 @@ import (
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller"
+	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 	//+kubebuilder:scaffold:imports
@@ -41,7 +42,8 @@ var (
 	// scheme is the runtime.Scheme to which all Numaplane API types are registered.
 	scheme = runtime.NewScheme()
 	// logger is the global logger for the controller-manager.
-	logger = logging.NewLogger().Named("controller-manager")
+	logger     = logging.NewLogger().Named("controller-manager")
+	configPath = "/etc/numaplane" // Path in the volume mounted in the pod where yaml is present
 )
 
 func init() {
@@ -96,9 +98,18 @@ func main() {
 		logger.Fatalw("failed to create kubernetes client", err)
 	}
 
+	// Load Config For the pod
+	configManager := config.GetConfigManagerInstance()
+	err = configManager.LoadConfig(func(err error) {
+		logger.Errorw("Failed to reload global configuration file", err)
+	}, configPath)
+	if err != nil {
+		logger.Fatalw("Failed to load config file", err)
+	}
 	reconciler, err := controller.NewGitSyncReconciler(
 		kubeClient,
 		mgr.GetScheme(),
+		configManager,
 	)
 	if err != nil {
 		logger.Fatalw("Unable to create GitSync controller", err)

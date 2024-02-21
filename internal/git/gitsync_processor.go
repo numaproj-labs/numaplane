@@ -10,6 +10,11 @@ import (
 	"strings"
 	"time"
 
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -22,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
+	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/kustomize"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
@@ -76,9 +82,27 @@ type MetaData struct {
 	Namespace string `yaml:"namespace"`
 }
 
+// this gets secret using the kubernetes client
+func getSecret(ctx context.Context, kubeClient kubernetes.Client, namespace, secretName string) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	key := k8sClient.ObjectKey{
+		Namespace: namespace,
+		Name:      secretName,
+	}
+	if err := kubeClient.Get(ctx, key, secret); err != nil {
+		return nil, err
+	}
+	return secret, nil
+}
+
 func cloneRepo(ctx context.Context, path string, repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
+	endpoint, err := transport.NewEndpoint(repo.RepoUrl)
+	if err != nil {
+		return nil, err
+	}
+
 	r, err := git.PlainCloneContext(ctx, path, false, &git.CloneOptions{
-		URL: repo.RepoUrl,
+		URL: endpoint.String(),
 	})
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
 		// If repository is already present in local, then pull the latest changes and update it.
@@ -563,7 +587,7 @@ func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, 
 // The function clones the Git repository specified in the GitSync object and starts a goroutine to watch the repository for changes.
 // The goroutine will continuously monitor the repository and apply any changes to the Kubernetes cluster.
 // If any error occurs during the repository watching process, it will be logged and the commit status will be updated with the error.
-func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string) (*GitSyncProcessor, error) {
+func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string, repoCred map[string]*controllerconfig.GitCredential) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
 
 	namespace := gitSync.Spec.GetDestinationNamespace(clusterName)
@@ -575,7 +599,6 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		channel:     channel,
 		clusterName: clusterName,
 	}
-
 	localRepoPath := getLocalRepoPath(gitSync.GetName())
 	go func(repo *v1alpha1.RepositoryPath) {
 		r, err := cloneRepo(ctx, localRepoPath, repo)

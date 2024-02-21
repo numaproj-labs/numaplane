@@ -2,7 +2,7 @@ package controller
 
 import (
 	"context"
-	"os"
+	"log"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/git"
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
 )
@@ -57,9 +58,11 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		err := os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
-		assert.Nil(t, err)
-		r, err := NewGitSyncReconciler(client, scheme.Scheme)
+		cm := config.GetConfigManagerInstance()
+		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
+		assert.NoError(t, err)
+
+		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 
@@ -94,11 +97,14 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		err := os.Setenv("CLUSTER_NAME", "staging-usw2-k8s")
-		assert.Nil(t, err)
-		r, err := NewGitSyncReconciler(client, scheme.Scheme)
+		cm := config.GetConfigManagerInstance()
+		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
+		assert.NoError(t, err)
+		assert.NoError(t, err)
+		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
+		log.Println(cm.GetConfig())
 
 		// our cluster is not one of the destinations, so it shouldn't end up in the map
 		reconcile(t, r, gitSync)
