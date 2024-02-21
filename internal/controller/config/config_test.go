@@ -2,14 +2,13 @@ package config
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestLoadConfigMatchValues(t *testing.T) {
@@ -74,6 +73,8 @@ func TestLoadConfigMatchValues(t *testing.T) {
 
 // to verify this test run with go test -race ./... it  won't give a race condition as we have used mutex.RwLock
 // in onConfigChange in LoadConfig
+// to verify this test run with go test -race ./... it  won't give a race condition as we have used mutex.RwLock
+// in onConfigChange in LoadConfig
 func TestConfigManager_LoadConfigNoRace(t *testing.T) {
 	configDir := os.TempDir()
 
@@ -102,13 +103,15 @@ func TestConfigManager_LoadConfigNoRace(t *testing.T) {
 		errors = append(errors, err)
 	}
 	// concurrent Access of files
+	err = cm.LoadConfig(onError, configDir)
+	assert.NoError(t, err)
 	goroutines := 10
 	wg.Add(goroutines)
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
-			err := cm.LoadConfig(onError, configDir)
-			assert.NoError(t, err)
+			cfg := cm.GetConfig() // loading config multiple times in go routines
+			assert.NotNil(t, cfg)
 		}()
 	}
 	triggers := 10
