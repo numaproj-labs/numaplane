@@ -68,7 +68,7 @@ func IsValidKubernetesNamespace(name string) bool {
 	return false
 }
 
-func IsValidManiFestFile(fileName string) bool {
+func IsValidManifestFile(fileName string) bool {
 	fileExt := strings.Split(fileName, ".")
 	validExtName := []string{"yaml", "yml", "json"}
 	return slices.Contains(validExtName, fileExt[1])

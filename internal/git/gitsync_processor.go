@@ -131,14 +131,13 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 		err = tree.Files().ForEach(func(f *object.File) error {
 			logger.Debugw("read file", "file_name", f.Name)
 			// TODO: this currently assumes that one file contains just one manifest - modify for multiple
-			// TODO :need to address the valid file extension issue
-			if validations.IsValidManiFestFile(f.Name) {
+			if validations.IsValidManifestFile(f.Name) {
 				manifest, err := f.Contents()
 				if err != nil {
 					logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
 					return err
 				}
-				referencedManifest, err := ApplyOwnerShipReference(manifest, gitSync)
+				referencedManifest, err := ApplyOwnershipReference(manifest, gitSync)
 
 				if err != nil {
 					logger.Errorw("error in applying ownership reference", "filename", f.Name, "err", err)
@@ -205,8 +204,8 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 	return hash.String(), nil
 }
 
-// ApplyOwnerShipReference adds ownerships to resources for GitSync
-func ApplyOwnerShipReference(manifest string, gitSync *v1alpha1.GitSync) ([]byte, error) {
+// ApplyOwnershipReference adds ownerships to resources for GitSync
+func ApplyOwnershipReference(manifest string, gitSync *v1alpha1.GitSync) ([]byte, error) {
 	decode := scheme.Codecs.UniversalDeserializer().Decode
 	decoded, _, err := decode([]byte(manifest), nil, nil)
 	if err != nil {
@@ -240,7 +239,7 @@ func ApplyPatchToResources(patchedResources PatchedResource, kubeClient kubernet
 		namespace := strings.Split(key, "/")[0]
 		if beforeValue, ok := patchedResources.Before[key]; ok {
 			if beforeValue != afterValue {
-				afterValueWithOwnership, err := ApplyOwnerShipReference(afterValue, gitSync)
+				afterValueWithOwnership, err := ApplyOwnershipReference(afterValue, gitSync)
 				if err != nil {
 					return err
 				}
@@ -251,7 +250,7 @@ func ApplyPatchToResources(patchedResources PatchedResource, kubeClient kubernet
 			}
 		} else {
 			// Handle newly added resources
-			afterValueWithOwnership, err := ApplyOwnerShipReference(afterValue, gitSync)
+			afterValueWithOwnership, err := ApplyOwnershipReference(afterValue, gitSync)
 			if err != nil {
 				return err
 			}
