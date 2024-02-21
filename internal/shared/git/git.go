@@ -1,4 +1,4 @@
-package gitconfig
+package git
 
 import (
 	"context"

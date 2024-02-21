@@ -26,7 +26,7 @@ import (
 	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/kustomize"
-	"github.com/numaproj-labs/numaplane/internal/shared/gitconfig"
+	gitshared "github.com/numaproj-labs/numaplane/internal/shared/git"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
 
@@ -589,8 +589,8 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 			logger.Errorw("error getting  the  global config", "err", err)
 		}
 
-		gitCredentials := gitconfig.FindCredByUrl(repo.RepoUrl, globalConfig)
-		method, err := gitconfig.GetAuthMethod(ctx, gitCredentials, kubeClient, namespace)
+		gitCredentials := gitshared.FindCredByUrl(repo.RepoUrl, globalConfig)
+		method, err := gitshared.GetAuthMethod(ctx, gitCredentials, kubeClient, namespace)
 		if err != nil {
 			logger.Errorw("error getting  the  auth method", "err", err)
 		}

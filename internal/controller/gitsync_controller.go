@@ -32,7 +32,7 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/shared/gitconfig"
+	gitshared "github.com/numaproj-labs/numaplane/internal/shared/git"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
 
@@ -281,7 +281,7 @@ func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 	destination := gitSync.Spec.Destination
 
 	// Validate the repositoryPath
-	if ok := gitconfig.CheckGitURL(repositoryPath.RepoUrl); !ok {
+	if ok := gitshared.CheckGitURL(repositoryPath.RepoUrl); !ok {
 		return fmt.Errorf("invalid remote repository url %s", repositoryPath.RepoUrl)
 	}
 	if len(repositoryPath.Name) == 0 {
@@ -295,7 +295,7 @@ func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 	if len(destination.Cluster) == 0 {
 		return fmt.Errorf("cluster name cannot be empty")
 	}
-	if !gitconfig.IsValidKubernetesNamespace(destination.Namespace) {
+	if !gitshared.IsValidKubernetesNamespace(destination.Namespace) {
 		return fmt.Errorf("namespace is not a valid string for cluster %s", destination.Cluster)
 	}
 

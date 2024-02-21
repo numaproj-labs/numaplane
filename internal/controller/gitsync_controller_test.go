@@ -74,6 +74,7 @@ repoCredentials:
           name: "http-creds"
           key: "password"
 `)
+		assert.NoError(t, err)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
@@ -122,7 +123,7 @@ repoCredentials:
           name: "http-creds"
           key: "password"
 `)
-
+		assert.NoError(t, err)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)

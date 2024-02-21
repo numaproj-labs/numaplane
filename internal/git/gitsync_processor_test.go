@@ -31,10 +31,10 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
+	gitshared "github.com/numaproj-labs/numaplane/internal/shared/git"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
-	"github.com/numaproj-labs/numaplane/internal/shared/gitconfig"
 )
 
 const (
@@ -773,7 +773,7 @@ func TestGitCloneRepoHTTP(t *testing.T) {
 			},
 		},
 	}
-	method, err := gitconfig.GetAuthMethod(context.Background(), credential, c, "testNamespace")
+	method, err := gitshared.GetAuthMethod(context.Background(), credential, c, "testNamespace")
 	assert.NoError(t, err)
 	log.Println(method)
 	assert.IsType(t, &gitHttp.BasicAuth{}, method)
@@ -838,7 +838,7 @@ func TestGitCloneRepoHTTPRepoNotFound(t *testing.T) {
 			},
 		},
 	}
-	method, err := gitconfig.GetAuthMethod(context.Background(), credential, c, "testNamespace")
+	method, err := gitshared.GetAuthMethod(context.Background(), credential, c, "testNamespace")
 	assert.NoError(t, err)
 	log.Println(method)
 	assert.IsType(t, &gitHttp.BasicAuth{}, method)
@@ -870,7 +870,7 @@ func TestGitCloneRepoSsh(t *testing.T) {
 			Optional:             nil,
 		}},
 	}
-	method, err := gitconfig.GetAuthMethod(context.Background(), credential, c, "testNamespace")
+	method, err := gitshared.GetAuthMethod(context.Background(), credential, c, "testNamespace")
 	assert.NoError(t, err)
 	assert.NotNil(t, method)
 	repositoryPath := &v1alpha1.RepositoryPath{
