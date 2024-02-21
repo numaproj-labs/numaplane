@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -105,6 +106,19 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath str
 		}
 	})
 	return nil
+}
+
+// LoadConfigFromBuffer is  Specifically for tests
+func (cm *ConfigManager) LoadConfigFromBuffer(configString string) error {
+	v := viper.New()
+	buffer := bytes.NewBufferString(configString)
+	v.SetConfigType("yaml")
+	err := v.ReadConfig(buffer)
+	if err != nil {
+		return err
+	}
+	err = v.Unmarshal(cm.config)
+	return err
 }
 
 func CloneWithSerialization(orig *GlobalConfig) (*GlobalConfig, error) {
