@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
+
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -723,27 +725,79 @@ func Test_watchRepo(t *testing.T) {
 		})
 	}
 }
+func reverseString(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
 
-func TestGetAuthMethod(t *testing.T) {
+func TestGitCloneRepoHTTP(t *testing.T) {
+
 	ctrl := gomock.NewController(t)
 	c := mocksClient.NewMockClient(ctrl)
-	data := map[string][]byte{"username": []byte("admin123"), "password": []byte("secret")}
-	c.EXPECT().GetSecret(context.Background(), "testNamespace", "test-secret").Return(&corev1.Secret{Data: data}, nil)
+
+	data, err := base64.StdEncoding.DecodeString("QXdmSXQzTUt3YzJ2SkI1QnhmOEhKaTdiV0xlM0VSa2dnZlRvX3BoZw==")
+	assert.Nil(t, err)
+
+	secretData := map[string][]byte{"password": []byte(reverseString(string(data)))}
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "password").Return(&corev1.Secret{Data: secretData}, nil)
 
 	credential := &controllerconfig.GitCredential{
 		HTTPCredential: &controllerconfig.HTTPCredential{
-			Username: "admin123",
+			Username: "rustyTest",
 			Password: controllerconfig.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: "name"},
-				Key:                  "test-secret",
-				Optional:             nil,
+				Key: "password",
 			},
 		},
 	}
 	method, err := gitconfig.GetAuthMethod(context.Background(), credential, c, "testNamespace")
 	assert.NoError(t, err)
-	assert.NotNil(t, method)
-	assert.Contains(t, method.String(), "admin123")
+	log.Println(method)
+	assert.IsType(t, &gitHttp.BasicAuth{}, method)
+	repositoryPath := &v1alpha1.RepositoryPath{
+		Name:           "repoName",
+		RepoUrl:        "https://github.com/rustyTest/testprivateRepo.git", // go-git adds ftp protocol if the protocol is missing by default
+		Path:           "",
+		TargetRevision: "",
+	}
+	repo, err := cloneRepo(repositoryPath, method)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+}
+
+func TestGitCloneRepoHTTPRepoNotFound(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+
+	data, err := base64.StdEncoding.DecodeString("QXdmSXQzTUt3YzJ2SkI1QnhmOEhKaTdiV0xlM0VSa2dnZlRvX3BoZw==")
+	assert.Nil(t, err)
+
+	secretData := map[string][]byte{"password": []byte(reverseString(string(data)))}
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "password").Return(&corev1.Secret{Data: secretData}, nil)
+
+	credential := &controllerconfig.GitCredential{
+		HTTPCredential: &controllerconfig.HTTPCredential{
+			Username: "rustyTest",
+			Password: controllerconfig.SecretKeySelector{
+				Key: "password",
+			},
+		},
+	}
+	method, err := gitconfig.GetAuthMethod(context.Background(), credential, c, "testNamespace")
+	assert.NoError(t, err)
+	log.Println(method)
+	assert.IsType(t, &gitHttp.BasicAuth{}, method)
+	repositoryPath := &v1alpha1.RepositoryPath{
+		Name:           "repoName",
+		RepoUrl:        "github.com/rustyTest/testprivateRepo.git", // go-git adds ftp protocol if the protocol is missing by default
+		Path:           "",
+		TargetRevision: "",
+	}
+	_, err = cloneRepo(repositoryPath, method)
+	assert.ErrorContains(t, err, "repository not found")
 }
 
 func TestGitCloneRepoSsh(t *testing.T) {

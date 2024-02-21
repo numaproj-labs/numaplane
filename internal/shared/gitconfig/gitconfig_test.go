@@ -3,11 +3,12 @@ package gitconfig
 import (
 	"context"
 	"encoding/base64"
+	"testing"
+
 	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/golang/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 
