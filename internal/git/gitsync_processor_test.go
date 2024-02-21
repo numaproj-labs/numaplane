@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	"log"
 	"math"
 	"math/rand"
@@ -11,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
@@ -720,7 +721,7 @@ func Test_watchRepo(t *testing.T) {
 			client.EXPECT().ApplyResource(gomock.Any(), testNamespace).AnyTimes()
 			client.EXPECT().StatusUpdate(ctx, gomock.Any()).AnyTimes()
 
-			watchErr := watchRepo(ctx, r, tc.gitSync, client, repo, testNamespace)
+			_, watchErr := watchRepo(ctx, r, tc.gitSync, client, repo, testNamespace)
 			if tc.hasErr {
 				assert.NotNil(t, watchErr)
 			} else {
@@ -801,6 +802,90 @@ spec:
       requests:
         cpu: 250m
         memory: 64Mi
+status: {}
+`, string(reference))
+	assert.NoError(t, err)
+
+}
+
+func TestApplyOwnerShipReferenceJSON(t *testing.T) {
+	resource := `{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "nginx-deployment"
+  },
+  "spec": {
+    "selector": {
+      "matchLabels": {
+        "app": "nginx"
+      }
+    },
+    "replicas": 2,
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "nginx"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "nginx",
+            "image": "nginx:1.14.2",
+            "ports": [
+              {
+                "containerPort": 80
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}`
+
+	gitsync := &v1alpha1.GitSync{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "GitSync",
+			APIVersion: "1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: "gitsync-test", UID: "awew"},
+		Spec:       v1alpha1.GitSyncSpec{},
+		Status:     v1alpha1.GitSyncStatus{},
+	}
+	reference, err := ApplyOwnerShipReference(resource, gitsync)
+	log.Println(string(reference))
+	assert.Equal(t, `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: nginx-deployment
+  ownerReferences:
+  - apiVersion: "1"
+    blockOwnerDeletion: true
+    controller: true
+    kind: GitSync
+    name: gitsync-test
+    uid: awew
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - image: nginx:1.14.2
+        name: nginx
+        ports:
+        - containerPort: 80
+        resources: {}
 status: {}
 `, string(reference))
 	assert.NoError(t, err)
