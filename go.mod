@@ -3,8 +3,8 @@ module github.com/numaproj-labs/numaplane
 go 1.21
 
 require (
-	github.com/fsnotify/fsnotify v1.7.0
 	github.com/argoproj/pkg v0.13.6
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/golang/mock v1.6.0

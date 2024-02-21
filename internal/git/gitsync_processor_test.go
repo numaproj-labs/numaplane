@@ -791,6 +791,8 @@ func TestGitCloneRepoHTTP(t *testing.T) {
 	// check if the cloned repository has the file existing
 	err = FileExists(repo, "config.json")
 	assert.NoError(t, err)
+	err = os.RemoveAll("gitCloned")
+	assert.NoError(t, err)
 
 }
 
@@ -882,4 +884,7 @@ func TestGitCloneRepoSsh(t *testing.T) {
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "config.json") // config.json exists in the cloned repo
 	assert.NoError(t, err)
+	err = os.RemoveAll("gitCloned")
+	assert.NoError(t, err)
+
 }
