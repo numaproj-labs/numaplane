@@ -11,7 +11,7 @@ repoCredentials:
       SSHCredential:
         SSHKey:
           name: "ssh-creds-alternate"
-          key: "sshKey-alternate"
+          key: "sshKey"
       TLS:
         insecureSkipVerify: true
         CACertSecret:
@@ -28,8 +28,8 @@ repoCredentials:
       HTTPCredential:
         Username: "exampleUser2"
         Password:
-          name: "http-creds-2"
-          key: "password2"
+          name: "http-creds"
+          key: "password"
       SSHCredential:
         SSHKey:
           name: "ssh-creds"
@@ -48,14 +48,14 @@ repoCredentials:
   - url: "key3"
     credential:
       HTTPCredential:
-        Username: "exampleUser3" # Assuming different HTTP credentials for example
+        Username: "exampleUser3"
         Password:
           name: "http-creds-3"
-          key: "password3"
+          key: "password"
       SSHCredential:
         SSHKey:
           name: "ssh-creds-3"
-          key: "sshKey3"
+          key: "sshKey"
       TLS:
         insecureSkipVerify: true
         CACertSecret:

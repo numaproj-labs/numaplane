@@ -35,26 +35,22 @@ var (
 
 // Checks for valid remote repository
 
-type TransportSet struct {
-	Transports map[string]struct{}
-}
+type TransportSet map[string]struct{}
 
 // NewTransportSet returns a TransportSet with the items keys mapped
 // to empty struct values.
-func NewTransportSet(items ...string) *TransportSet {
-	t := &TransportSet{
-		Transports: map[string]struct{}{},
-	}
-	for _, i := range items {
-		t.Transports[i] = struct{}{}
+func NewTransportSet(items ...string) TransportSet {
+	t := make(TransportSet)
+	for _, item := range items {
+		t[item] = struct{}{}
 	}
 	return t
 }
 
 // Valid returns true if transport is a known Git URL scheme and false
 // if not.
-func (t *TransportSet) Valid(transport string) bool {
-	_, ok := t.Transports[transport]
+func (t TransportSet) Valid(transport string) bool {
+	_, ok := t[transport] // Directly checking the key in the map
 	return ok
 }
 
@@ -95,7 +91,6 @@ func GetAuthMethod(ctx context.Context, repoCred *controllerconfig.GitCredential
 
 	case repoCred.SSHCredential != nil:
 		key := repoCred.SSHCredential.SSHKey.Key
-
 		secret, err := kubeClient.GetSecret(ctx, namespace, key)
 		if err != nil {
 			return nil, err

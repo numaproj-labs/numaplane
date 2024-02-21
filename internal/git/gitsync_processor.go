@@ -78,7 +78,7 @@ type MetaData struct {
 }
 
 func cloneRepo(repo *v1alpha1.RepositoryPath, authMethod transport.AuthMethod) (*git.Repository, error) {
-	// Add any certificates if its required
+	// Add any certificates if it's required
 	endpoint, err := transport.NewEndpoint(repo.RepoUrl)
 	if err != nil {
 		return nil, err
