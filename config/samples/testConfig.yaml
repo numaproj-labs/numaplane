@@ -2,8 +2,8 @@ clusterName: "staging-usw2-k8s"
 repoCredentials:
   - url: "https://github.com/numaproj-labs/numaplane-control-manifests.git"
     credential:
-      HTTPCredential:
-        Username: "exampleUser"
-        Password:
+      httpCredential:
+        username: "exampleUser"
+        password:
           name: "http-creds"
           key: "password"
