@@ -65,6 +65,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 			types.NamespacedName{Namespace: "test-ns", Name: "test-gitsync"},
 			&apiv1.GitSync{},
 		).Return(nil).AnyTimes()
+		client.EXPECT().ApplyResource([]byte(``), "").Return(nil).AnyTimes()
 
 		cm := config.GetConfigManagerInstance()
 		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
