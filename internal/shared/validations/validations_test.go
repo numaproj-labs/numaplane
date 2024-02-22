@@ -139,7 +139,7 @@ func TestIsValidManiFestFile(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ok := IsValidManiFestFile(tc.resourceName)
+			ok := IsValidManifestFile(tc.resourceName)
 			assert.Equal(t, tc.expected, ok)
 		})
 	}

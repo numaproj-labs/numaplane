@@ -2,6 +2,7 @@
 FROM golang:1.21 as builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG KUSTOMIZE_VERSION="v5.3.0"
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -26,11 +27,18 @@ ENV GOCACHE=/root/.cache/go-build
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN --mount=type=cache,target="/root/.cache/go-build" CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o manager cmd/main.go
 
+# Download kustomize binary
+RUN curl --silent --location --remote-name \
+    "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" && \
+    tar -C /tmp -xf kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
+    install -m 0755 /tmp/kustomize /usr/local/bin/kustomize
+
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/manager .
+COPY --from=builder /usr/local/bin/kustomize /usr/local/bin/kustomize
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]

@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -30,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
@@ -38,8 +38,9 @@ import (
 
 // GitSyncReconciler reconciles a GitSync object
 type GitSyncReconciler struct {
-	Client kubernetes.Client
-	Scheme *runtime.Scheme
+	Client        kubernetes.Client
+	Scheme        *runtime.Scheme
+	ConfigManager *config.ConfigManager
 
 	// gitSyncLocks maps GitSync namespaced name to Mutex, to prevent processing the same GitSync at the same time
 	// note that if other goroutines outside of this struct need to share the lock in the future, it can be moved
@@ -56,15 +57,16 @@ const (
 	finalizerName = "numaplane-controller"
 )
 
-func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme) (*GitSyncReconciler, error) {
-	clusterName, found := os.LookupEnv("CLUSTER_NAME") // TODO: if we incorporate a ConfigMap later, could include this in it
-	if !found {
-		return nil, fmt.Errorf("environment variable CLUSTER_NAME not found")
+func NewGitSyncReconciler(kubeClient kubernetes.Client, s *runtime.Scheme, configManager *config.ConfigManager) (*GitSyncReconciler, error) {
+	getConfig, err := configManager.GetConfig()
+	if err != nil {
+		return nil, err
 	}
 	return &GitSyncReconciler{
-		Client:      kubeClient,
-		Scheme:      s,
-		clusterName: clusterName,
+		Client:        kubeClient,
+		Scheme:        s,
+		clusterName:   getConfig.ClusterName,
+		ConfigManager: configManager,
 	}, nil
 }
 
@@ -228,7 +230,11 @@ func (r *GitSyncReconciler) addGitSyncProcessor(ctx context.Context, gitSync *ap
 		controllerutil.AddFinalizer(gitSync, finalizerName)
 	}
 
-	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.Client, r.clusterName)
+	getConfig, err := r.ConfigManager.GetConfig()
+	if err != nil {
+		return err
+	}
+	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.Client, r.clusterName, getConfig.RepoCredentials)
 	if err != nil {
 		logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
 		return err

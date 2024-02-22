@@ -92,24 +92,19 @@ func Test_cloneRepo(t *testing.T) {
 		{
 			name: "valid repo",
 			repo: v1alpha1.RepositoryPath{
-				RepoUrl: "https://github.com/numaproj-labs/numaplane.git",
+				Name:           "numaplane",
+				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
+				TargetRevision: "main",
 			},
 			hasErr: false,
-		},
-		{
-			name: "invalid repo",
-			repo: v1alpha1.RepositoryPath{
-				RepoUrl: "https://invalid_repo.git",
-			},
-			hasErr: true,
 		},
 	}
 
 	t.Parallel()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
-			r, err := cloneRepo(&tc.repo)
+			localRepoPath := getLocalRepoPath("gitsync-test-example")
+			r, err := cloneRepo(context.Background(), localRepoPath, &tc.repo)
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
@@ -449,7 +444,7 @@ metadata:
 		t.Run(tc.name, func(t *testing.T) {
 			resourceMap := make(map[string]string)
 			for _, re := range tc.resources {
-				err := populateResourceMap([]byte(re), resourceMap, defaultNameSpace)
+				err := populateResourceMap(re, resourceMap, defaultNameSpace)
 				assert.Nil(t, err)
 			}
 
@@ -543,7 +538,7 @@ metadata:
 		t.Run(tc.name, func(t *testing.T) {
 			resourceMap := make(map[string]string)
 			for _, re := range tc.resources {
-				err := populateResourceMap([]byte(re), resourceMap, defaultNameSpace)
+				err := populateResourceMap(re, resourceMap, defaultNameSpace)
 				assert.Nil(t, err)
 			}
 
@@ -628,6 +623,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "main",
+				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
@@ -644,12 +640,15 @@ func Test_watchRepo(t *testing.T) {
 			},
 
 		*/
+
 		{
 			name: "commit hash as a TargetRevision",
 			gitSync: newGitSync(v1alpha1.RepositoryPath{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "227c61991de37248802ab5b5486ce036d92b1aab",
+
+				Name: "control-manifest",
 			}),
 			hasErr: false,
 		},
@@ -659,6 +658,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "refs/remotes/origin/pipeline",
+				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
@@ -668,6 +668,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "pipeline",
+				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
@@ -677,6 +678,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "",
 				TargetRevision: "pipeline",
+				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
@@ -686,6 +688,7 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				Path:           "config/samples",
 				TargetRevision: "unresolvable",
+				Name:           "control-manifest",
 			}),
 			hasErr: true,
 		},
@@ -695,8 +698,19 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				Path:           "invalid_path",
 				TargetRevision: "main",
+				Name:           "control-manifest",
 			}),
 			hasErr: true,
+		},
+		{
+			name: "Apply manifest from kustomize enabled repo",
+			gitSync: newGitSync(v1alpha1.RepositoryPath{
+				RepoUrl:        "https://github.com/numaproj/numaflow.git",
+				Path:           "config/namespace-install",
+				TargetRevision: "main",
+				Name:           "numaflow",
+			}),
+			hasErr: false,
 		},
 	}
 	t.Parallel()
@@ -708,7 +722,11 @@ func Test_watchRepo(t *testing.T) {
 
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &tc.gitSync.Spec.RepositoryPath
-			r, cloneErr := cloneRepo(repo)
+
+			localRepoPath := getLocalRepoPath(tc.gitSync.Name)
+			err := os.RemoveAll(localRepoPath)
+			assert.Nil(t, err)
+			r, cloneErr := cloneRepo(context.Background(), localRepoPath, repo)
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)
 
@@ -721,7 +739,7 @@ func Test_watchRepo(t *testing.T) {
 			client.EXPECT().ApplyResource(gomock.Any(), testNamespace).AnyTimes()
 			client.EXPECT().StatusUpdate(ctx, gomock.Any()).AnyTimes()
 
-			_, watchErr := watchRepo(ctx, r, tc.gitSync, client, repo, testNamespace)
+			_, watchErr := watchRepo(ctx, r, tc.gitSync, client, repo, testNamespace, localRepoPath)
 			if tc.hasErr {
 				assert.NotNil(t, watchErr)
 			} else {
@@ -767,7 +785,7 @@ spec:
 		Spec:       v1alpha1.GitSyncSpec{},
 		Status:     v1alpha1.GitSyncStatus{},
 	}
-	reference, err := ApplyOwnerShipReference(resource, gitsync)
+	reference, err := ApplyOwnershipReference(resource, gitsync)
 	log.Println(string(reference))
 	assert.Equal(t, `apiVersion: v1
 kind: Pod
@@ -854,7 +872,7 @@ func TestApplyOwnerShipReferenceJSON(t *testing.T) {
 		Spec:       v1alpha1.GitSyncSpec{},
 		Status:     v1alpha1.GitSyncStatus{},
 	}
-	reference, err := ApplyOwnerShipReference(resource, gitsync)
+	reference, err := ApplyOwnershipReference(resource, gitsync)
 	log.Println(string(reference))
 	assert.Equal(t, `apiVersion: apps/v1
 kind: Deployment

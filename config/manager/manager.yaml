@@ -70,9 +70,6 @@ spec:
         - /manager
         args:
         - --leader-elect
-        env:
-          - name: CLUSTER_NAME
-            value: CLUSTER_NAME_VALUE # Replace it with the cluster name where numaplane will get deployed.
         image: numaplane-controller:latest
         name: manager
         securityContext:
@@ -95,11 +92,15 @@ spec:
         # TODO(user): Configure the resources accordingly based on the project requirements.
         # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
-          limits:
-            cpu: 500m
-            memory: 128Mi
           requests:
             cpu: 10m
             memory: 64Mi
+        volumeMounts: 
+          - name: config-volume
+            mountPath: /etc/numaplane
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+        - name: config-volume
+          configMap:
+            name: numaplane-controller-config
