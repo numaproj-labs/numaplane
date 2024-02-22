@@ -5,8 +5,6 @@ import (
 	"log"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	appv1 "k8s.io/api/apps/v1"
@@ -60,13 +58,6 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		client.EXPECT().Get(
-			context.Background(),
-			types.NamespacedName{Namespace: "test-ns", Name: "test-gitsync"},
-			&apiv1.GitSync{},
-		).Return(nil).AnyTimes()
-		client.EXPECT().ApplyResource([]byte(``), "").Return(nil).AnyTimes()
-
 		cm := config.GetConfigManagerInstance()
 		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
 		assert.NoError(t, err)
