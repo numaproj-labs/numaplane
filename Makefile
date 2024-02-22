@@ -6,6 +6,7 @@ SHELL = /usr/bin/env bash -o pipefail
 # Image URL to use all building/pushing image targets
 IMG ?= numaplane-controller
 VERSION ?= latest
+# BASE_VERSION will be used during release process to bump up versions
 BASE_VERSION := latest
 # Default cluster name where numaplane get deployed, update it as needed.
 CLUSTER_NAME ?= staging-usw2-k8s
