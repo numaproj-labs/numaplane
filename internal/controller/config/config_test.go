@@ -42,7 +42,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	}
 
 	// Test HTTP credentials
-	httpCreds := findCredsByUrl("https://github.com/rustyTest/testprivateRepo")
+	httpCreds := findCredsByUrl("github.com/rustyTest")
 
 	assert.NotNil(t, httpCreds.HTTPCredential, "HTTPCredential is missing for github.com/rustytest/testprivaterepo")
 	if httpCreds.HTTPCredential != nil {
@@ -52,7 +52,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	}
 
 	// Test SSH credentials
-	sshCreds := findCredsByUrl("git@github.com:numaproj/numaflow-rs.git")
+	sshCreds := findCredsByUrl("git@github.com:numaproj")
 	assert.NotNil(t, sshCreds.SSHCredential, "SSHCredential is missing for github.com/rustytest/privaterepo")
 	if sshCreds.SSHCredential != nil {
 		assert.Equal(t, "ssh-creds", sshCreds.SSHCredential.SSHKey.Name, "SSHKey Name for SSHCredential does not match")
@@ -60,7 +60,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	}
 
 	// Test TLS credentials
-	tlsCreds := findCredsByUrl("https://github.com/numaproj/numaflow-rs")
+	tlsCreds := findCredsByUrl("github.com/numaproj")
 	assert.NotNil(t, tlsCreds.TLS, "TLS is missing for key3")
 	if tlsCreds.TLS != nil {
 		assert.True(t, tlsCreds.TLS.InsecureSkipVerify, "insecureSkipVerify for TLS does not match")

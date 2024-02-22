@@ -139,7 +139,15 @@ func TestFindCredByUrl(t *testing.T) {
 	testConfig := controllerconfig.GlobalConfig{
 		RepoCredentials: []controllerconfig.RepoCredential{
 			{
-				URL:        "https://github.com/numaproj-labs",
+				URL:        "github.com/numaproj-labs",
+				Credential: mockCredential,
+			},
+			{
+				URL:        "gitlab.com/another-labs",
+				Credential: mockCredential,
+			},
+			{
+				URL:        "bitbucket.org/special-projects",
 				Credential: mockCredential,
 			},
 		},
@@ -151,14 +159,117 @@ func TestFindCredByUrl(t *testing.T) {
 		expected *controllerconfig.GitCredential
 	}{
 		{
-			name:     "Match existing prefix",
+			name:     "Match existing prefix HTTPS",
 			gitUrl:   "https://github.com/numaproj-labs/numaplane",
 			config:   testConfig,
 			expected: mockCredential,
 		},
 		{
+			name:     "Match existing prefix SSH",
+			gitUrl:   "git@github.com:numaproj-labs/numaflow-rs.git",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
+			name:     "Match existing prefix Git protocol",
+			gitUrl:   "git://github.com/numaproj-labs/legacy-code.git",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
 			name:     "No match for URL",
-			gitUrl:   "https://github.com/anotherorg/anotherrepo",
+			gitUrl:   "https://github.com/unknownorg/unknownrepo",
+			config:   testConfig,
+			expected: nil,
+		},
+		{
+			name:     "Should match with subdirectories",
+			gitUrl:   "https://github.com/numaproj-labs/subdir/subsubdir/repo.git",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
+			name:     "Match with different protocol and subdirectories",
+			gitUrl:   "git@github.com:numaproj-labs/subdir/another-repo.git",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
+			name:     "No match due to different domain",
+			gitUrl:   "https://notgithub.com/numaproj-labs/numaplane",
+			config:   testConfig,
+			expected: nil,
+		},
+		{
+			name:     "Match GitLab prefix",
+			gitUrl:   "https://gitlab.com/another-labs/project",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
+			name:     "No match for GitLab URL with different project",
+			gitUrl:   "https://gitlab.com/another-labs/different-project",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
+			name:     "Match Bitbucket prefix",
+			gitUrl:   "https://bitbucket.org/special-projects/my-project",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
+			name:     "Match with trailing slash",
+			gitUrl:   "https://github.com/numaproj-labs/",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
+			name:     "Match with SSH and username",
+			gitUrl:   "ssh://git@github.com/numaproj-labs/numaflow",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+
+		{
+			name:     "No match with different subdomain",
+			gitUrl:   "https://subdomain.github.com/numaproj-labs/numaflow",
+			config:   testConfig,
+			expected: nil,
+		},
+		{
+			name:     "Match ignoring user info in SSH URL",
+			gitUrl:   "git@github.com:numaproj-labs/numaflow.git",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
+			name:     "No match with incorrect base domain",
+			gitUrl:   "https://github.net/numaproj-labs/numaflow",
+			config:   testConfig,
+			expected: nil,
+		},
+		{
+			name:     "Match with additional URL parameters",
+			gitUrl:   "https://github.com/numaproj-labs/numaflow.git?branch=main",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
+			name:     "No match with different repository case sensitivity",
+			gitUrl:   "https://github.com/NumaProj-Labs/NumaPlane",
+			config:   testConfig,
+			expected: nil,
+		},
+		{
+			name:     "Match with URL containing credentials",
+			gitUrl:   "https://user:password@github.com/numaproj-labs/numaflow",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
+			name:     "No match with different Git provider",
+			gitUrl:   "https://bitbucket.com/numaproj-labs/numaflow",
 			config:   testConfig,
 			expected: nil,
 		},

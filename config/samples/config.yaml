@@ -1,7 +1,7 @@
 clusterName: "example-cluster"
 timeIntervalSec: 60
 repoCredentials:
-  - url: "https://github.com/rustyTest/testprivateRepo"
+  - url: "github.com/rustyTest"
     credential:
       httpCredential:
         username: "exampleUser"
@@ -23,7 +23,7 @@ repoCredentials:
         keySecret:
           name: "key-secret"
           key: "tls.key"
-  - url: "git@github.com:numaproj/numaflow-rs.git"
+  - url: "git@github.com:numaproj"
     credential:
       httpCredential:
         username: "exampleuser2"
@@ -45,7 +45,7 @@ repoCredentials:
         keySecret:
           name: "key-secret"
           key: "tls.key"
-  - url: "https://github.com/numaproj/numaflow-rs"
+  - url: "github.com/numaproj"
     credential:
       httpCredential:
         username: "exampleuser3"
