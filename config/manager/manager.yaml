@@ -70,7 +70,7 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: numaplane-controller:latest
+        image: quay.io/numaproj/numaplane-controller:latest
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
@@ -103,4 +103,4 @@ spec:
       volumes:
         - name: config-volume
           configMap:
-            name: numaplane-controller-config
+            name: controller-config

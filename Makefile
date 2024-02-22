@@ -1,13 +1,16 @@
+# Setting SHELL to bash allows bash commands to be executed by recipes.
+# Options are set to exit when a recipe line exits non-zero or a piped command fails.
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
 
 # Image URL to use all building/pushing image targets
 IMG ?= numaplane-controller
 VERSION ?= latest
+BASE_VERSION := latest
 # Default cluster name where numaplane get deployed, update it as needed.
 CLUSTER_NAME ?= "staging-usw2-k8s"
-#TODO: add back once ready to push to quay.io
-#IMAGE_NAMESPACE ?= quay.io/numaproj
-#IMAGE_FULL_PATH ?= $(IMAGE_NAMESPACE)/$(IMG):$(VERSION)
-IMAGE_FULL_PATH ?= $(IMG):$(VERSION)
+IMAGE_NAMESPACE ?= quay.io/numaproj
+IMAGE_FULL_PATH ?= $(IMAGE_NAMESPACE)/$(IMG):$(VERSION)
 
 GCFLAGS="all=-N -l"
 
@@ -21,16 +24,24 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+CURRENT_CONTEXT := $(shell [[ "`command -v kubectl`" != '' ]] && kubectl config current-context 2> /dev/null || echo "unset")
+IMAGE_IMPORT_CMD := $(shell [[ "`command -v k3d`" != '' ]] && [[ "$(CURRENT_CONTEXT)" =~ k3d-* ]] && echo "k3d image import -c `echo $(CURRENT_CONTEXT) | cut -c 5-`")
+ifndef IMAGE_IMPORT_CMD
+IMAGE_IMPORT_CMD := $(shell [[ "`command -v minikube`" != '' ]] && [[ "$(CURRENT_CONTEXT)" =~ minikube* ]] && echo "minikube image load")
+endif
+ifndef IMAGE_IMPORT_CMD
+IMAGE_IMPORT_CMD := $(shell [[ "`command -v kind`" != '' ]] && [[ "$(CURRENT_CONTEXT)" =~ kind-* ]] && echo "kind load docker-image")
+endif
+
 # CONTAINER_TOOL defines the container tool to be used for building images.
 # Be aware that the target commands are only tested with Docker which is
 # scaffolded by default. However, you might want to replace it to use other
 # tools. (i.e. podman)
 CONTAINER_TOOL ?= docker
-
-# Setting SHELL to bash allows bash commands to be executed by recipes.
-# Options are set to exit when a recipe line exits non-zero or a piped command fails.
-SHELL = /usr/bin/env bash -o pipefail
-.SHELLFLAGS = -ec
+CONTAINER_TOOL:=$(shell command -v docker 2> /dev/null)
+ifndef CONTAINER_TOOL
+CONTAINER_TOOL:=$(shell command -v podman 2> /dev/null)
+endif
 
 .PHONY: all
 all: build
@@ -109,6 +120,9 @@ run: manifests generate fmt vet ## Run a controller from your host.
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build -t ${IMAGE_FULL_PATH} .
+ifdef IMAGE_IMPORT_CMD
+	$(IMAGE_IMPORT_CMD) ${IMAGE_FULL_PATH}
+endif
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -146,9 +160,8 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image numaplane-controller=${IMAGE_FULL_PATH}
-	$(KUSTOMIZE) build config/default | sed 's/CLUSTER_NAME_VALUE/$(CLUSTER_NAME)/g' | $(KUBECTL) apply -f -
+deploy: docker-build manifests
+	$(KUBECTL) kustomize tests/manifests | sed 's/CLUSTER_NAME_VALUE/$(CLUSTER_NAME)/g' | sed 's@quay.io/numaproj/@$(IMAGE_NAMESPACE)/@' | sed 's/:$(BASE_VERSION)/:$(VERSION)/' | $(KUBECTL) apply -f -
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
