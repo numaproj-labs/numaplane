@@ -3,8 +3,9 @@ package controller
 import (
 	"context"
 	"log"
-	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -61,9 +62,10 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		client := mocksClient.NewMockClient(ctrl)
 		client.EXPECT().Get(
 			context.Background(),
-			client2.ObjectKey{Name: gitSync.Name, Namespace: gitSync.Namespace},
-			gomock.AssignableToTypeOf(&apiv1.GitSync{}),
+			types.NamespacedName{Namespace: "test-ns", Name: "test-gitsync"},
+			&apiv1.GitSync{},
 		).Return(nil)
+
 		cm := config.GetConfigManagerInstance()
 		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
 		assert.NoError(t, err)
