@@ -2,10 +2,10 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,23 +21,20 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	configPath := filepath.Join(getwd, "../../../", "config", "samples")
 	configManager := GetConfigManagerInstance()
 
-	err = configManager.LoadConfig(func(err error) {
-	}, configPath)
-	assert.NoError(t, err)
+	err = configManager.LoadConfig(func(err error) {}, configPath, "config", "yaml")
+	assert.NoError(t, err, "Failed to load configuration from path")
+
 	config, err := configManager.GetConfig()
-	assert.NoError(t, err)
-	assert.Nil(t, err, "Failed to load configuration")
+	assert.NoError(t, err, "Failed to get configuration")
 
 	assert.Equal(t, "example-cluster", config.ClusterName, "ClusterName does not match")
 	assert.Equal(t, uint(60), config.TimeIntervalSec, "TimeIntervalSec does not match")
-
 	assert.NotNil(t, config.RepoCredentials, "RepoCredentials should not be nil")
 
 	// Function to find the credentials for a given URL
 	findCredsByUrl := func(url string) *GitCredential {
 		for _, cred := range config.RepoCredentials {
-			if cred.URL == url {
-				log.Println("printed", cred.URL)
+			if strings.HasPrefix(url, cred.URL) {
 				return cred.Credential
 			}
 		}
@@ -45,8 +42,9 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	}
 
 	// Test HTTP credentials
-	httpCreds := findCredsByUrl("github.com/rustyTest/testprivateRepo")
-	assert.NotNil(t, httpCreds.HTTPCredential, "HTTPCredential is missing for https://github.com/rustytest/testprivaterepo")
+	httpCreds := findCredsByUrl("https://github.com/rustyTest/testprivateRepo")
+
+	assert.NotNil(t, httpCreds.HTTPCredential, "HTTPCredential is missing for github.com/rustytest/testprivaterepo")
 	if httpCreds.HTTPCredential != nil {
 		assert.Equal(t, "exampleUser", httpCreds.HTTPCredential.Username, "Username for HTTPCredential does not match")
 		assert.Equal(t, "http-creds", httpCreds.HTTPCredential.Password.Name, "Password Name for HTTPCredential does not match")
@@ -54,26 +52,25 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	}
 
 	// Test SSH credentials
-	sshCreds := findCredsByUrl("github.com/rustyTest/privateRepo")
-	assert.NotNil(t, sshCreds.SSHCredential, "SSHCredential is missing for git@github.com:rustytest/testprivaterepo.git")
+	sshCreds := findCredsByUrl("git@github.com:numaproj/numaflow-rs.git")
+	assert.NotNil(t, sshCreds.SSHCredential, "SSHCredential is missing for github.com/rustytest/privaterepo")
 	if sshCreds.SSHCredential != nil {
 		assert.Equal(t, "ssh-creds", sshCreds.SSHCredential.SSHKey.Name, "SSHKey Name for SSHCredential does not match")
 		assert.Equal(t, "sshKey", sshCreds.SSHCredential.SSHKey.Key, "SSHKey Key for SSHCredential does not match")
 	}
 
 	// Test TLS credentials
-	tlsCreds := findCredsByUrl("key3")
+	tlsCreds := findCredsByUrl("https://github.com/numaproj/numaflow-rs")
 	assert.NotNil(t, tlsCreds.TLS, "TLS is missing for key3")
 	if tlsCreds.TLS != nil {
 		assert.True(t, tlsCreds.TLS.InsecureSkipVerify, "insecureSkipVerify for TLS does not match")
-		assert.Equal(t, "ca-cert-secret-3", tlsCreds.TLS.CACertSecret.Name, "CACertSecret Name for TLS does not match")
-		assert.Equal(t, "ca.crt3", tlsCreds.TLS.CACertSecret.Key, "CACertSecret Key for TLS does not match")
-		assert.Equal(t, "cert-secret-3", tlsCreds.TLS.CertSecret.Name, "CertSecret Name for TLS does not match")
-		assert.Equal(t, "tls.crt3", tlsCreds.TLS.CertSecret.Key, "CertSecret Key for TLS does not match")
-		assert.Equal(t, "key-secret-3", tlsCreds.TLS.KeySecret.Name, "KeySecret Name for TLS does not match")
-		assert.Equal(t, "tls.key3", tlsCreds.TLS.KeySecret.Key, "KeySecret Key for TLS does not match")
+		assert.Equal(t, "ca-cert-secret", tlsCreds.TLS.CACertSecret.Name, "CACertSecret Name for TLS does not match")
+		assert.Equal(t, "ca.crt", tlsCreds.TLS.CACertSecret.Key, "CACertSecret Key for TLS does not match")
+		assert.Equal(t, "cert-secret", tlsCreds.TLS.CertSecret.Name, "CertSecret Name for TLS does not match")
+		assert.Equal(t, "tls.crt", tlsCreds.TLS.CertSecret.Key, "CertSecret Key for TLS does not match")
+		assert.Equal(t, "key-secret", tlsCreds.TLS.KeySecret.Name, "KeySecret Name for TLS does not match")
+		assert.Equal(t, "tls.key", tlsCreds.TLS.KeySecret.Key, "KeySecret Key for TLS does not match")
 	}
-
 }
 
 // to verify this test run with go test -race ./... it  won't give a race condition as we have used mutex.RwLock
@@ -106,7 +103,7 @@ func TestConfigManager_LoadConfigNoRace(t *testing.T) {
 		errors = append(errors, err)
 	}
 	// concurrent Access of files
-	err = cm.LoadConfig(onError, configDir)
+	err = cm.LoadConfig(onError, configDir, "config", "yaml")
 	assert.NoError(t, err)
 	goroutines := 10
 	wg.Add(goroutines)

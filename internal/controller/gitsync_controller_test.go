@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
 	"log"
 
@@ -63,17 +65,12 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		client := mocksClient.NewMockClient(ctrl)
 		client.EXPECT().GetSecret(context.Background(), "team-a-namespace", "password").Return(&corev1.Secret{}, nil).AnyTimes()
 		cm := config.GetConfigManagerInstance()
-		err := cm.LoadConfigFromBuffer(`
-clusterName: "staging-usw2-k8s"
-repoCredentials:
-  - url: "https://github.com/numaproj-labs/numaplane-control-manifests.git"
-    credential:
-      HTTPCredential:
-        Username: "exampleUser"
-        Password:
-          name: "http-creds"
-          key: "password"
-`)
+		getwd, err := os.Getwd()
+		assert.Nil(t, err, "Failed to get working directory")
+		configPath := filepath.Join(getwd, "../../", "config", "samples")
+		err = cm.LoadConfig(func(err error) {
+		}, configPath, "testConfig", "yaml")
+		assert.NoError(t, err)
 		assert.NoError(t, err)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
@@ -112,17 +109,11 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		client := mocksClient.NewMockClient(ctrl)
 		client.EXPECT().GetSecret(context.Background(), "team-a-namespace", "password").Return(&corev1.Secret{}, nil).AnyTimes()
 		cm := config.GetConfigManagerInstance()
-		err := cm.LoadConfigFromBuffer(`
-clusterName: "staging-usw2-k8s"
-repoCredentials:
-  - url: "https://github.com/numaproj-labs/numaplane-control-manifests.git"
-    credential:
-      HTTPCredential:
-        Username: "exampleUser"
-        Password:
-          name: "http-creds"
-          key: "password"
-`)
+		getwd, err := os.Getwd()
+		assert.Nil(t, err, "Failed to get working directory")
+		configPath := filepath.Join(getwd, "../../", "config", "samples")
+		err = cm.LoadConfig(func(err error) {
+		}, configPath, "testConfig", "yaml")
 		assert.NoError(t, err)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)

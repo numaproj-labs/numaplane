@@ -25,7 +25,7 @@ type Client interface {
 	// Update the resource of kubernetes cluster.
 	Update(ctx context.Context, obj k8sClient.Object, opts ...k8sClient.UpdateOption) error
 
-	// GetSecret Gets Secret For the Kubernetes
+	// GetSecret Gets a Kubernetes Secret
 	GetSecret(ctx context.Context, namespace, secretName string) (*corev1.Secret, error)
 
 	// StatusUpdate will update the status of kubernetes resource.

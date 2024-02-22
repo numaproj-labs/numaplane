@@ -2,16 +2,14 @@ package git
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/url"
-	"regexp"
+	"strings"
 
 	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	"k8s.io/apimachinery/pkg/util/validation"
 
 	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
@@ -37,7 +35,7 @@ var (
 
 type TransportSet map[string]struct{}
 
-// NewTransportSet returns a TransportSet with the items keys mapped
+// NewTransportSet returns a TransportSet with the items' keys mapped
 // to empty struct values.
 func NewTransportSet(items ...string) TransportSet {
 	t := make(TransportSet)
@@ -61,16 +59,6 @@ func CheckGitURL(gitURL string) bool {
 	}
 	log.Println(u)
 	return true
-}
-
-func IsValidKubernetesNamespace(name string) bool {
-	// All namespace names must be valid RFC 1123 DNS labels.
-	errs := validation.IsDNS1123Label(name)
-	reservedNamesRegex := regexp.MustCompile(`^(kubernetes-|kube-)`)
-	if len(errs) == 0 && !reservedNamesRegex.MatchString(name) {
-		return true
-	}
-	return false
 }
 
 func GetAuthMethod(ctx context.Context, repoCred *controllerconfig.GitCredential, kubeClient kubernetes.Client, namespace string) (transport.AuthMethod, error) {
@@ -104,16 +92,16 @@ func GetAuthMethod(ctx context.Context, repoCred *controllerconfig.GitCredential
 		// TODO :this needs to be implemented
 
 	default:
-		return nil, fmt.Errorf("unsupported or not required authentication")
+		return nil, nil // if no credentials provided the auth method would be nil and error will be nil
 	}
 	return authMethod, nil
 }
 
 // FindCredByUrl searches for GitCredential by the specified URL within the provided GlobalConfig.
-// It returns the matching GitCredential if found, otherwise returns nil.
+// It returns the matching GitCredential if the specified URL starts with the URL of any RepoCredentials, otherwise returns nil.
 func FindCredByUrl(url string, config controllerconfig.GlobalConfig) *controllerconfig.GitCredential {
 	for _, cred := range config.RepoCredentials {
-		if cred.URL == url {
+		if strings.HasPrefix(url, cred.URL) {
 			return cred.Credential
 		}
 	}

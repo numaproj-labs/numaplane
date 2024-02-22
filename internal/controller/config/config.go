@@ -1,14 +1,14 @@
 package config
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"sync"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type ConfigManager struct {
@@ -41,9 +41,9 @@ type GlobalConfig struct {
 }
 
 type GitCredential struct {
-	HTTPCredential *HTTPCredential `json:"HTTPCredential"`
-	SSHCredential  *SSHCredential  `json:"SSHCredential"`
-	TLS            *TLS            `json:"TLS"`
+	HTTPCredential *HTTPCredential `json:"httpCredential"`
+	SSHCredential  *SSHCredential  `json:"sshCredential"`
+	TLS            *TLS            `json:"tls"`
 }
 
 type RepoCredential struct {
@@ -57,20 +57,20 @@ type HTTPCredential struct {
 }
 
 type SSHCredential struct {
-	SSHKey SecretKeySelector `json:"SSHKey" yaml:"SSHKey" `
+	SSHKey SecretKeySelector `json:"sshKey" yaml:"sshKey"`
 }
 
 type TLS struct {
 	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
-	CACertSecret       SecretKeySelector `json:"CACertSecret"`
+	CACertSecret       SecretKeySelector `json:"caCertSecret"`
 	CertSecret         SecretKeySelector `json:"certSecret"`
 	KeySecret          SecretKeySelector `json:"keySecret"`
 }
 
 type SecretKeySelector struct {
 	corev1.LocalObjectReference `mapstructure:",squash"` // for viper to correctly parse the config
-	Key                         string                   `json:"key" `
-	Optional                    *bool                    `json:"optional,omitempty" `
+	Key                         string                   `json:"key"`
+	Optional                    *bool                    `json:"optional,omitempty"`
 }
 
 func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {
@@ -83,10 +83,10 @@ func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {
 	return *config, nil
 }
 
-func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath string) error {
+func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, configFileName, configFileType string) error {
 	v := viper.New()
-	v.SetConfigName("config")
-	v.SetConfigType("yaml")
+	v.SetConfigName(configFileName)
+	v.SetConfigType(configFileType)
 	v.AddConfigPath(configPath)
 	err := v.ReadInConfig()
 	if err != nil {
@@ -106,19 +106,6 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath str
 		}
 	})
 	return nil
-}
-
-// LoadConfigFromBuffer is  Specifically for tests
-func (cm *ConfigManager) LoadConfigFromBuffer(configString string) error {
-	v := viper.New()
-	buffer := bytes.NewBufferString(configString)
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(buffer)
-	if err != nil {
-		return err
-	}
-	err = v.Unmarshal(cm.config)
-	return err
 }
 
 func CloneWithSerialization(orig *GlobalConfig) (*GlobalConfig, error) {

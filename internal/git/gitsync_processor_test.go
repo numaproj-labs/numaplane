@@ -888,3 +888,25 @@ func TestGitCloneRepoSsh(t *testing.T) {
 	assert.NoError(t, err)
 
 }
+
+func TestGitCloneRepoNoAuth(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+	credential := &controllerconfig.GitCredential{}
+	method, err := gitshared.GetAuthMethod(context.Background(), credential, c, "testNamespace")
+	assert.NoError(t, err)
+	assert.Nil(t, method)
+	repositoryPath := &v1alpha1.RepositoryPath{
+		Name:           "repoName",
+		RepoUrl:        "https://github.com/numaproj/numaflow-rs",
+		Path:           "",
+		TargetRevision: "",
+	}
+	repo, err := cloneRepo(context.Background(), "gitCloned", repositoryPath, method)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+	err = FileExists(repo, "Cargo.toml")
+	assert.NoError(t, err)
+	err = os.RemoveAll("gitCloned")
+	assert.NoError(t, err)
+}
