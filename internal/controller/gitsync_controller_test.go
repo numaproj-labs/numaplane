@@ -61,7 +61,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		client := mocksClient.NewMockClient(ctrl)
 		client.EXPECT().Get(
 			context.Background(),
-			client2.ObjectKey{Name: gitSync.Name, Namespace: gitSync.Namespace}, // This should match the actual object key your test will use
+			client2.ObjectKey{Name: gitSync.Name, Namespace: gitSync.Namespace},
 			gomock.AssignableToTypeOf(&apiv1.GitSync{}),
 		).Return(nil)
 		cm := config.GetConfigManagerInstance()
