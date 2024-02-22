@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"log"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -58,7 +59,11 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
-		client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+		client.EXPECT().Get(
+			context.Background(),
+			client2.ObjectKey{Name: gitSync.Name, Namespace: gitSync.Namespace}, // This should match the actual object key your test will use
+			gomock.AssignableToTypeOf(&apiv1.GitSync{}),
+		).Return(nil)
 		cm := config.GetConfigManagerInstance()
 		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
 		assert.NoError(t, err)
