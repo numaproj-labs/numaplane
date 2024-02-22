@@ -195,7 +195,6 @@ func NormalizeGitUrl(gitUrl string) string {
 		return gitUrl
 	}
 	normalizedUrl := fmt.Sprintf("%s/%s", parsedUrl.Host, strings.Trim(parsedUrl.Path, "/"))
-	log.Println(normalizedUrl)
 	normalizedUrl = strings.Trim(normalizedUrl, "/")
 	return normalizedUrl
 }
