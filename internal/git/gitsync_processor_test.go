@@ -826,6 +826,69 @@ status: {}
 
 }
 
+func TestApplyOwnerShipReferenceAppendExisting(t *testing.T) {
+	resource := `apiVersion: v1
+kind: Pod
+metadata:
+  name: my-custom-resource
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: my-deployment
+    uid: <uid-of-my-deployment>
+    controller: false
+    blockOwnerDeletion: true
+  - apiVersion: v1
+    kind: ConfigMap
+    name: my-configmap
+    uid: <uid-of-my-configmap>
+    controller: false
+    blockOwnerDeletion: true
+`
+
+	gitsync := &v1alpha1.GitSync{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "GitSync",
+			APIVersion: "1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: "gitsync-test", UID: "awew"},
+		Spec:       v1alpha1.GitSyncSpec{},
+		Status:     v1alpha1.GitSyncStatus{},
+	}
+	reference, err := ApplyOwnershipReference(resource, gitsync)
+	log.Println(string(reference))
+	assert.Equal(t, `apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  name: my-custom-resource
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: false
+    kind: Deployment
+    name: my-deployment
+    uid: <uid-of-my-deployment>
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: false
+    kind: ConfigMap
+    name: my-configmap
+    uid: <uid-of-my-configmap>
+  - apiVersion: "1"
+    blockOwnerDeletion: true
+    controller: true
+    kind: GitSync
+    name: gitsync-test
+    uid: awew
+spec:
+  containers: null
+status: {}
+`, string(reference))
+	assert.NoError(t, err)
+
+}
+
 func TestApplyOwnerShipReferenceJSON(t *testing.T) {
 	resource := `{
   "apiVersion": "apps/v1",

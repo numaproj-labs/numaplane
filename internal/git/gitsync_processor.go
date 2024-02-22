@@ -281,7 +281,9 @@ func ApplyOwnershipReference(manifest string, gitSync *v1alpha1.GitSync) ([]byte
 		Controller:         ptr.To(true),
 		BlockOwnerDeletion: ptr.To(true),
 	}
-	obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+	existingRef := obj.GetOwnerReferences()
+	existingRef = append(existingRef, ownerRef)
+	obj.SetOwnerReferences(existingRef)
 	modifiedManifest, err := yaml.Marshal(obj)
 	if err != nil {
 		return nil, err
