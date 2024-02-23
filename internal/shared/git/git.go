@@ -144,23 +144,22 @@ func GetAuthMethod(ctx context.Context, repoCred *controllerconfig.GitCredential
 	case repoCred.HTTPCredential != nil:
 		cred := repoCred.HTTPCredential
 		username := cred.Username
-		secret, err := kubeClient.GetSecret(ctx, namespace, cred.Password.Key)
+		secret, err := kubeClient.GetSecret(ctx, namespace, cred.Password.Name)
 		if err != nil {
 			return nil, err
 		}
-		password := string(secret.Data["password"])
+		password := string(secret.Data[cred.Password.Key])
 		authMethod = &gitHttp.BasicAuth{
 			Username: username,
 			Password: password,
 		}
 
 	case repoCred.SSHCredential != nil:
-		key := repoCred.SSHCredential.SSHKey.Key
-		secret, err := kubeClient.GetSecret(ctx, namespace, key)
+		secret, err := kubeClient.GetSecret(ctx, namespace, repoCred.SSHCredential.SSHKey.Name)
 		if err != nil {
 			return nil, err
 		}
-		authMethod, err = ssh.NewPublicKeys("git", secret.Data["sshKey"], "")
+		authMethod, err = ssh.NewPublicKeys("git", secret.Data[repoCred.SSHCredential.SSHKey.Key], "")
 		if err != nil {
 			return nil, err
 		}
