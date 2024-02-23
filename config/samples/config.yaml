@@ -1,69 +1,38 @@
 clusterName: "staging-usw2-k8s"
 timeIntervalSec: 60
 repoCredentials:
-  - url: "github.com/numaproj-labs"
+  - url: "github.com/numaproj-labs/numaplane-test"
     credential:
       httpCredential:
         username: "exampleUser"
         password:
           name: "http-creds"
           key: "password"
+      tls:
+        caCertSecret:
+          name: "ca-cert-secret"
+          key: "ca.crt"
+        certSecret:
+          name: "cert-secret"
+          key: "tls.crt"
+        keySecret:
+          name: "key-secret"
+          key: "tls.key"
+  - url: "github.com:numaproj/my-repo.git"
+    credential:
       sshCredential:
         sshKey:
           name: "ssh-creds"
           key: "sshKey"
       tls:
         insecureSkipVerify: true
-        caCertSecret:
-          name: "ca-cert-secret"
-          key: "ca.crt"
-        certSecret:
-          name: "cert-secret"
-          key: "tls.crt"
-        keySecret:
-          name: "key-secret"
-          key: "tls.key"
-  - url: "github.com:numaproj"
-    credential:
-      httpCredential:
-        username: "exampleuser2"
-        password:
-          name: "http-creds"
-          key: "password"
-      sshCredential:
-        sshKey:
-          name: "ssh-creds"
-          key: "sshKey"
-      tls:
-        insecureSkipVerify: false
-        caCertSecret:
-          name: "ca-cert-secret"
-          key: "ca.crt"
-        certSecret:
-          name: "cert-secret"
-          key: "tls.crt"
-        keySecret:
-          name: "key-secret"
-          key: "tls.key"
-  - url: "github.com/numaproj"
+  - url: "github.com/numaproj/my-repo"
     credential:
       httpCredential:
         username: "exampleuser3"
         password:
           name: "http-creds"
           key: "password"
-      sshCredential:
-        sshKey:
-          name: "ssh-creds"
-          key: "sshkey"
       tls:
         insecureSkipVerify: true
-        caCertSecret:
-          name: "ca-cert-secret"
-          key: "ca.crt"
-        certSecret:
-          name: "cert-secret"
-          key: "tls.crt"
-        keySecret:
-          name: "key-secret"
-          key: "tls.key"
+
