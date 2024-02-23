@@ -52,7 +52,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	}
 
 	// Test SSH credentials
-	sshCreds := findCredsByUrl("git@github.com:numaproj")
+	sshCreds := findCredsByUrl("github.com:numaproj")
 	assert.NotNil(t, sshCreds.SSHCredential, "SSHCredential is missing for github.com/rustytest/privaterepo")
 	if sshCreds.SSHCredential != nil {
 		assert.Equal(t, "ssh-creds", sshCreds.SSHCredential.SSHKey.Name, "SSHKey Name for SSHCredential does not match")
