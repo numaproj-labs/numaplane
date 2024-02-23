@@ -1,3 +1,4 @@
+# Specifically for controller tests TODO : make it one config.yaml
 clusterName: "staging-usw2-k8s"
 repoCredentials:
   - url: "github.com/numaproj-labs"
