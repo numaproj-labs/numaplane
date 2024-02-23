@@ -27,7 +27,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	config, err := configManager.GetConfig()
 	assert.NoError(t, err, "Failed to get configuration")
 
-	assert.Equal(t, "example-cluster", config.ClusterName, "ClusterName does not match")
+	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
 	assert.Equal(t, uint(60), config.TimeIntervalSec, "TimeIntervalSec does not match")
 	assert.NotNil(t, config.RepoCredentials, "RepoCredentials should not be nil")
 
@@ -42,7 +42,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	}
 
 	// Test HTTP credentials
-	httpCreds := findCredsByUrl("github.com/rustyTest")
+	httpCreds := findCredsByUrl("github.com/numaproj-labs")
 
 	assert.NotNil(t, httpCreds.HTTPCredential, "HTTPCredential is missing for github.com/rustytest/testprivaterepo")
 	if httpCreds.HTTPCredential != nil {

@@ -1,7 +1,7 @@
-clusterName: "example-cluster"
+clusterName: "staging-usw2-k8s"
 timeIntervalSec: 60
 repoCredentials:
-  - url: "github.com/rustyTest"
+  - url: "github.com/numaproj-labs"
     credential:
       httpCredential:
         username: "exampleUser"
