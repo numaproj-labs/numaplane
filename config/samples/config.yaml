@@ -23,7 +23,7 @@ repoCredentials:
         keySecret:
           name: "key-secret"
           key: "tls.key"
-  - url: "git@github.com:numaproj"
+  - url: "github.com:numaproj"
     credential:
       httpCredential:
         username: "exampleuser2"
