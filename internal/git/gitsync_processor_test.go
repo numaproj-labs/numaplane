@@ -763,13 +763,15 @@ func TestGitCloneRepoHTTP(t *testing.T) {
 	assert.Nil(t, err)
 
 	secretData := map[string][]byte{"password": []byte(reverseString(string(data)))}
-	c.EXPECT().GetSecret(context.Background(), "testNamespace", "password").Return(&corev1.Secret{Data: secretData}, nil)
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "http-cred").Return(&corev1.Secret{Data: secretData}, nil)
 
 	credential := &controllerconfig.GitCredential{
 		HTTPCredential: &controllerconfig.HTTPCredential{
 			Username: "rustyTest",
 			Password: controllerconfig.SecretKeySelector{
-				Key: "password",
+				LocalObjectReference: corev1.LocalObjectReference{Name: "http-cred"},
+				Key:                  "password",
+				Optional:             nil,
 			},
 		},
 	}
@@ -828,13 +830,15 @@ func TestGitCloneRepoHTTPRepoNotFound(t *testing.T) {
 	assert.Nil(t, err)
 
 	secretData := map[string][]byte{"password": []byte(reverseString(string(data)))}
-	c.EXPECT().GetSecret(context.Background(), "testNamespace", "password").Return(&corev1.Secret{Data: secretData}, nil)
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "http-cred").Return(&corev1.Secret{Data: secretData}, nil)
 
 	credential := &controllerconfig.GitCredential{
 		HTTPCredential: &controllerconfig.HTTPCredential{
 			Username: "rustyTest",
 			Password: controllerconfig.SecretKeySelector{
-				Key: "password",
+				LocalObjectReference: corev1.LocalObjectReference{Name: "http-cred"},
+				Key:                  "password",
+				Optional:             nil,
 			},
 		},
 	}
@@ -865,7 +869,7 @@ func TestGitCloneRepoSsh(t *testing.T) {
 
 	credential := &controllerconfig.GitCredential{
 		SSHCredential: &controllerconfig.SSHCredential{SSHKey: controllerconfig.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: "name"},
+			LocalObjectReference: corev1.LocalObjectReference{Name: "sshKey"},
 			Key:                  "sshKey",
 			Optional:             nil,
 		}},

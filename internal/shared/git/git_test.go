@@ -89,7 +89,11 @@ func TestGetAuthMethod(t *testing.T) {
 		repoCred := &controllerconfig.GitCredential{
 			HTTPCredential: &controllerconfig.HTTPCredential{
 				Username: "testuser",
-				Password: controllerconfig.SecretKeySelector{Key: "http-password-key"},
+				Password: controllerconfig.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "http-password-key"},
+					Key:                  "password",
+					Optional:             nil,
+				},
 			},
 		}
 
@@ -111,8 +115,11 @@ func TestGetAuthMethod(t *testing.T) {
 			Return(mockSecret, nil)
 		repoCred := &controllerconfig.GitCredential{
 			SSHCredential: &controllerconfig.SSHCredential{SSHKey: controllerconfig.SecretKeySelector{
-				Key: "sshKey",
-			}},
+				LocalObjectReference: corev1.LocalObjectReference{Name: "sshKey"},
+				Key:                  "sshKey",
+				Optional:             nil,
+			},
+			},
 		}
 		authMethod, err := GetAuthMethod(ctx, repoCred, client, namespace)
 		assert.NoError(t, err)
@@ -240,6 +247,12 @@ func TestFindCredByUrl(t *testing.T) {
 		{
 			name:     "Match ignoring user info in SSH URL",
 			gitUrl:   "git@github.com:numaproj-labs/numaflow.git",
+			config:   testConfig,
+			expected: mockCredential,
+		},
+		{
+			name:     "Match ignoring user info in SSH URL",
+			gitUrl:   "github.com:numaproj-labs",
 			config:   testConfig,
 			expected: mockCredential,
 		},

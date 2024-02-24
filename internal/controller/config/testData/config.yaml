@@ -26,7 +26,7 @@ repoCredentials:
           key: "sshKey"
       tls:
         insecureSkipVerify: true
-  - url: "github.com/numalabs"
+  - url: "github.com/numaproj"
     credential:
       httpCredential:
         username: "exampleuser3"
@@ -35,4 +35,13 @@ repoCredentials:
           key: "password"
       tls:
         insecureSkipVerify: true
+        caCertSecret:
+          name: "ca-cert-secret"
+          key: "ca.crt"
+        certSecret:
+          name: "cert-secret"
+          key: "tls.crt"
+        keySecret:
+          name: "key-secret"
+          key: "tls.key"
 
