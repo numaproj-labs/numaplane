@@ -1,15 +1,17 @@
 package sync
 
 import (
-	"context"
 	"errors"
 	"fmt"
+	"github.com/argoproj/gitops-engine/pkg/diff"
+	"github.com/cespare/xxhash/v2"
 	"github.com/numaproj-labs/numaplane/internal/kubernates"
 	"github.com/numaproj-labs/numaplane/internal/shared"
 	"go.uber.org/zap"
 	"net"
 	"net/url"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -18,15 +20,13 @@ import (
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"golang.org/x/sync/semaphore"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 )
 
 // GitOps engine cluster cache tuning options
@@ -70,8 +70,6 @@ type ResourceInfo struct {
 type LiveStateCache interface {
 	// GetManagedLiveObjs Returns state of live nodes which correspond for target nodes of specified gitsync.
 	GetManagedLiveObjs(gitsync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (map[kube.ResourceKey]*unstructured.Unstructured, error)
-	// Run Starts watching resources of each controlled cluster.
-	Run(ctx context.Context) error
 	// Init must be executed before cache can be used
 	Init() error
 }
@@ -88,12 +86,19 @@ type ObjectUpdatedHandler = func(managedByGitSync map[string]bool, ref v1.Object
 type liveStateCache struct {
 	clusterCacheConfig *rest.Config
 	logger             *zap.SugaredLogger
-	appInformer        cache.SharedIndexInformer
 	onObjectUpdated    ObjectUpdatedHandler
 
 	cluster       clustercache.ClusterCache
 	cacheSettings cacheSettings
 	lock          sync.RWMutex
+}
+
+func NewLiveStateCache(
+	onObjectUpdated ObjectUpdatedHandler,
+) LiveStateCache {
+	return &liveStateCache{
+		onObjectUpdated: onObjectUpdated,
+	}
 }
 
 func (c *liveStateCache) getCluster() (clustercache.ClusterCache, error) {
@@ -124,27 +129,7 @@ func (c *liveStateCache) getCluster() (clustercache.ClusterCache, error) {
 		clustercache.SetClusterSyncRetryTimeout(clusterSyncRetryTimeoutDuration),
 		clustercache.SetResyncTimeout(clusterCacheResyncDuration),
 		clustercache.SetSettings(cacheSettings.clusterSettings),
-		clustercache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (interface{}, bool) {
-			res := &ResourceInfo{}
-			c.lock.RLock()
-			cacheSettings := c.cacheSettings
-			c.lock.RUnlock()
-
-			res.Health, _ = health.GetResourceHealth(un, cacheSettings.clusterSettings.ResourceHealthOverride)
-
-			gvk := un.GroupVersionKind()
-
-			if cacheSettings.ignoreResourceUpdatesEnabled && shouldHashManifest("", gvk) {
-				hash, err := generateManifestHash(un)
-				if err != nil {
-					c.logger.Errorf("Failed to generate manifest hash: %v", err)
-				} else {
-					res.manifestHash = hash
-				}
-			}
-
-			return res, true
-		}),
+		clustercache.SetPopulateResourceInfoHandler(c.PopulateResourceInfo),
 		clustercache.SetRetryOptions(clusterCacheAttemptLimit, clusterCacheRetryUseBackoff, isRetryableError),
 	}
 
@@ -168,8 +153,37 @@ func (c *liveStateCache) getCluster() (clustercache.ClusterCache, error) {
 	return clusterCache, nil
 }
 
-// getAppName retrieve application name base on tracking method
-func getAppName(un *unstructured.Unstructured) string {
+func (c *liveStateCache) PopulateResourceInfo(un *unstructured.Unstructured, isRoot bool) (interface{}, bool) {
+	res := &ResourceInfo{}
+	c.lock.RLock()
+	settings := c.cacheSettings
+	c.lock.RUnlock()
+
+	res.Health, _ = health.GetResourceHealth(un, settings.clusterSettings.ResourceHealthOverride)
+
+	gitSyncName := getGitSyncName(un)
+	if isRoot && gitSyncName != "" {
+		res.GitSyncName = gitSyncName
+	}
+
+	gvk := un.GroupVersionKind()
+
+	if settings.ignoreResourceUpdatesEnabled && shouldHashManifest("", gvk) {
+		hash, err := generateManifestHash(un)
+		if err != nil {
+			c.logger.Errorf("Failed to generate manifest hash: %v", err)
+		} else {
+			res.manifestHash = hash
+		}
+	}
+
+	// edge case. we do not label CRDs, so they miss the tracking label we inject. But we still
+	// want the full resource to be available in our cache (to diff), so we store all CRDs
+	return res, res.GitSyncName != "" || gvk.Kind == kube.CustomResourceDefinitionKind
+}
+
+// getGitSyncName retrieve application name base on tracking method
+func getGitSyncName(un *unstructured.Unstructured) string {
 	value, err := kubernates.GetGitSyncInstanceAnnotation(un, shared.AnnotationKeyGitSyncInstance)
 	if err != nil {
 		return ""
@@ -185,15 +199,39 @@ func resInfo(r *clustercache.Resource) *ResourceInfo {
 	return info
 }
 
-// TODO: add validation logic after resource tracking label is available.
-// shouldHashManifest validates if the API resource needs to be hashed if belongs to a GitSync CR.
-func shouldHashManifest(gitsyncName string, gvk schema.GroupVersionKind) bool {
-	return false
+// shouldHashManifest validates if the API resource needs to be hashed.
+// If there's an app name from resource tracking, or if this is itself an app, we should generate a hash.
+// Otherwise, the hashing should be skipped to save CPU time.
+func shouldHashManifest(gitSyncName string, gvk schema.GroupVersionKind) bool {
+	// Only hash if the resource belongs to an app.
+	// Best      - Only hash for resources that are part of an app or their dependencies
+	// (current) - Only hash for resources that are part of an app + all apps that might be from an ApplicationSet
+	// Orphan    - If orphan is enabled, hash should be made on all resource of that namespace and a config to disable it
+	// Worst     - Hash all resources watched by Argo
+	return gitSyncName != "" || (gvk.Group == "numaplane.numaproj.io" && gvk.Kind == "GitSync")
 }
 
-// TODO: implement Manifest hash generation
 func generateManifestHash(un *unstructured.Unstructured) (string, error) {
-	return "", nil
+
+	// Only use a noop normalizer for now.
+	normalizer := NewNoopNormalizer()
+
+	resource := un.DeepCopy()
+	err := normalizer.Normalize(resource)
+	if err != nil {
+		return "", fmt.Errorf("error normalizing resource: %w", err)
+	}
+
+	data, err := resource.MarshalJSON()
+	if err != nil {
+		return "", fmt.Errorf("error marshaling resource: %w", err)
+	}
+	hash := hash(data)
+	return hash, nil
+}
+
+func hash(data []byte) string {
+	return strconv.FormatUint(xxhash.Sum64(data), 16)
 }
 
 // isRetryableError is a helper method to see whether an error
@@ -280,6 +318,19 @@ func (c *liveStateCache) Init() error {
 	return nil
 }
 
+// Invalidate cache and executes callback that optionally might update cache settings
+func (c *liveStateCache) invalidate(cacheSettings cacheSettings) {
+	c.logger.Info("invalidating live state cache")
+	c.lock.Lock()
+	c.cacheSettings = cacheSettings
+	clusterCache := c.cluster
+	c.lock.Unlock()
+
+	clusterCache.Invalidate(clustercache.SetSettings(cacheSettings.clusterSettings))
+
+	c.logger.Info("live state cache invalidated")
+}
+
 func (c *liveStateCache) loadCacheSettings() (*cacheSettings, error) {
 
 	ignoreResourceUpdatesEnabled := false
@@ -296,4 +347,16 @@ func (c *liveStateCache) GetManagedLiveObjs(gitsync *v1alpha1.GitSync, targetObj
 	return clusterInfo.GetManagedLiveObjs(targetObjs, func(r *clustercache.Resource) bool {
 		return resInfo(r).GitSyncName == gitsync.Name
 	})
+}
+
+type NoopNormalizer struct {
+}
+
+func (n *NoopNormalizer) Normalize(un *unstructured.Unstructured) error {
+	return nil
+}
+
+// NewNoopNormalizer returns normalizer that does not apply any resource modifications
+func NewNoopNormalizer() diff.Normalizer {
+	return &NoopNormalizer{}
 }
