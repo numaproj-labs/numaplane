@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 )
@@ -40,15 +38,11 @@ type GlobalConfig struct {
 	RepoCredentials []RepoCredential `json:"repoCredentials"`
 }
 
-type GitCredential struct {
+type RepoCredential struct {
+	URL            string          `json:"url"`
 	HTTPCredential *HTTPCredential `json:"httpCredential"`
 	SSHCredential  *SSHCredential  `json:"sshCredential"`
 	TLS            *TLS            `json:"tls"`
-}
-
-type RepoCredential struct {
-	URL        string         `json:"url"`
-	Credential *GitCredential `json:"credential"`
 }
 
 type HTTPCredential struct {
@@ -61,16 +55,17 @@ type SSHCredential struct {
 }
 
 type TLS struct {
-	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
-	CACertSecret       SecretKeySelector `json:"caCertSecret"`
-	CertSecret         SecretKeySelector `json:"certSecret"`
-	KeySecret          SecretKeySelector `json:"keySecret"`
+	InsecureSkipVerify bool               `json:"insecureSkipVerify"`
+	CACertSecret       *SecretKeySelector `json:"caCertSecret"`
+	CertSecret         *SecretKeySelector `json:"certSecret"`
+	KeySecret          *SecretKeySelector `json:"keySecret"`
 }
 
+// SecretKeySelector is a reference to a key of a K8s secret.
+// We do not use the K8s provided one because it does not work for viper to correctly parse the config
 type SecretKeySelector struct {
-	corev1.LocalObjectReference `mapstructure:",squash"` // for viper to correctly parse the config
-	Key                         string                   `json:"key"`
-	Optional                    *bool                    `json:"optional,omitempty"`
+	Name string `json:"name"`
+	Key  string `json:"key"`
 }
 
 func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {

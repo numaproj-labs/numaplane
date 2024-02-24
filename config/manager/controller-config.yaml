@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: controller-config
+  namespace: numaplane-system
+data:
+  config.yaml: |
+    clusterName: "CLUSTER_NAME_VALUE" # Replace with the cluster name where numaplane will get deployed.
+    timeIntervalSec: 60
+    repoCredentials:
+      - url: "github.com/numaproj-labs/numaplane-test"
+        credential:
+          httpCredential:
+            username: "exampleUser"
+            password:
+              name: "http-creds"
+              key: "password"
+          tls:
+            caCertSecret:
+              name: "ca-cert-secret"
+              key: "ca.crt"
+            certSecret:
+              name: "cert-secret"
+              key: "tls.crt"
+            keySecret:
+              name: "key-secret"
+              key: "tls.key"
+      - url: "github.com:numaproj/my-repo.git"
+        credential:
+          sshCredential:
+            sshKey:
+              name: "ssh-creds"
+              key: "sshKey"
+          tls:
+            insecureSkipVerify: true
+      - url: "github.com/numaproj/my-repo"
+        credential:
+          httpCredential:
+            username: "exampleuser3"
+            password:
+              name: "http-creds"
+              key: "password"
+          tls:
+            insecureSkipVerify: true
