@@ -1,1 +1,193 @@
 package sync
+
+import (
+	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"testing"
+	"time"
+
+	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+	"github.com/argoproj/gitops-engine/pkg/utils/kube/kubetest"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	testcore "k8s.io/client-go/testing"
+	"sigs.k8s.io/yaml"
+)
+
+var (
+	testGitSyncName     = "my-gitsync"
+	testNamespace       = "default"
+	testCreationTime, _ = time.Parse(time.RFC3339, "2018-09-20T06:47:27Z")
+
+	defaultGitSync = &apiv1.GitSync{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testGitSyncName,
+		},
+		Spec: apiv1.GitSyncSpec{
+			RepositoryPath: apiv1.RepositoryPath{
+				Name:           "my-controller",
+				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
+				Path:           "staging-usw2-k8s",
+				TargetRevision: "main",
+			},
+			Destination: apiv1.Destination{
+				Cluster:   "staging-usw2-k8s",
+				Namespace: "team-a-namespace",
+			},
+		},
+	}
+)
+
+func strToUnstructured(jsonStr string) *unstructured.Unstructured {
+	obj := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(jsonStr), &obj)
+	if err != nil {
+		panic(err)
+	}
+	return &unstructured.Unstructured{Object: obj}
+}
+
+func newCluster(t *testing.T, objs ...runtime.Object) clustercache.ClusterCache {
+	client := fake.NewSimpleDynamicClient(scheme.Scheme, objs...)
+	reactor := client.ReactionChain[0]
+	client.PrependReactor("list", "*", func(action testcore.Action) (handled bool, ret runtime.Object, err error) {
+		handled, ret, err = reactor.React(action)
+		if err != nil || !handled {
+			return
+		}
+		// make sure list response have resource version
+		ret.(metav1.ListInterface).SetResourceVersion("123")
+		return
+	})
+
+	apiResources := []kube.APIResourceInfo{{
+		GroupKind:            schema.GroupKind{Group: "", Kind: "Pod"},
+		GroupVersionResource: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		Meta:                 metav1.APIResource{Namespaced: true},
+	}, {
+		GroupKind:            schema.GroupKind{Group: "apps", Kind: "ReplicaSet"},
+		GroupVersionResource: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"},
+		Meta:                 metav1.APIResource{Namespaced: true},
+	}, {
+		GroupKind:            schema.GroupKind{Group: "apps", Kind: "Deployment"},
+		GroupVersionResource: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		Meta:                 metav1.APIResource{Namespaced: true},
+	}}
+
+	cache := clustercache.NewClusterCache(
+		&rest.Config{Host: "https://test"}, clustercache.SetKubectl(&kubetest.MockKubectlCmd{APIResources: apiResources, DynamicClient: client}))
+	t.Cleanup(func() {
+		cache.Invalidate()
+	})
+	return cache
+}
+
+func testPod() *corev1.Pod {
+	return &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "my-app-pod",
+			Namespace:         testNamespace,
+			UID:               "1",
+			ResourceVersion:   "123",
+			CreationTimestamp: metav1.NewTime(testCreationTime),
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "apps/v1",
+					Kind:       "ReplicaSet",
+					Name:       "my-app-rs",
+					UID:        "2",
+				},
+			},
+		},
+	}
+}
+
+func testRS() *appsv1.ReplicaSet {
+	return &appsv1.ReplicaSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "ReplicaSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "my-app-rs",
+			Namespace:         "default",
+			UID:               "2",
+			ResourceVersion:   "123",
+			CreationTimestamp: metav1.NewTime(testCreationTime),
+			Annotations: map[string]string{
+				"deployment.kubernetes.io/revision": "2",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "apps/v1beta1",
+					Kind:       "Deployment",
+					Name:       "my-app",
+					UID:        "3",
+				},
+			},
+		},
+		Spec:   appsv1.ReplicaSetSpec{},
+		Status: appsv1.ReplicaSetStatus{},
+	}
+}
+
+func testDeploy() *appsv1.Deployment {
+	return &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "my-app",
+			Namespace:         testNamespace,
+			UID:               "3",
+			ResourceVersion:   "123",
+			CreationTimestamp: metav1.NewTime(testCreationTime),
+			Annotations: map[string]string{
+				"numaplane.numaproj.io/tracking-id": testGitSyncName,
+			},
+		},
+	}
+}
+
+func mustToUnstructured(obj interface{}) *unstructured.Unstructured {
+	un, err := kube.ToUnstructured(obj)
+	if err != nil {
+		panic(err)
+	}
+	return un
+}
+
+func TestGetManagedLiveObjs(t *testing.T) {
+	cluster := newCluster(t, testPod(), testRS(), testDeploy())
+	clusterCache := newLiveStateCache(cluster)
+	cluster.Invalidate(clustercache.SetPopulateResourceInfoHandler(clusterCache.PopulateResourceInfo))
+
+	targetDeploy := strToUnstructured(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+  annotations:
+    numaplane.numaproj.io/tracking-id: my-gitsync`)
+
+	managedObjs, err := clusterCache.GetManagedLiveObjs(defaultGitSync, []*unstructured.Unstructured{targetDeploy})
+	require.NoError(t, err)
+	assert.Equal(t, map[kube.ResourceKey]*unstructured.Unstructured{
+		kube.NewResourceKey("apps", "Deployment", "default", "my-app"): mustToUnstructured(testDeploy()),
+	}, managedObjs)
+}

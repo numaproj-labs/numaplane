@@ -3,11 +3,6 @@ package sync
 import (
 	"errors"
 	"fmt"
-	"github.com/argoproj/gitops-engine/pkg/diff"
-	"github.com/cespare/xxhash/v2"
-	"github.com/numaproj-labs/numaplane/internal/kubernates"
-	"github.com/numaproj-labs/numaplane/internal/shared"
-	"go.uber.org/zap"
 	"net"
 	"net/url"
 	"os/exec"
@@ -18,15 +13,21 @@ import (
 	"time"
 
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
+	"github.com/argoproj/gitops-engine/pkg/diff"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/cespare/xxhash/v2"
+	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
+
+	"github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/numaproj-labs/numaplane/internal/kubernates"
+	"github.com/numaproj-labs/numaplane/internal/shared"
 )
 
 // GitOps engine cluster cache tuning options
@@ -72,6 +73,8 @@ type LiveStateCache interface {
 	GetManagedLiveObjs(gitsync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (map[kube.ResourceKey]*unstructured.Unstructured, error)
 	// Init must be executed before cache can be used
 	Init() error
+
+	PopulateResourceInfo(un *unstructured.Unstructured, isRoot bool) (interface{}, bool)
 }
 
 type cacheSettings struct {
@@ -91,6 +94,16 @@ type liveStateCache struct {
 	cluster       clustercache.ClusterCache
 	cacheSettings cacheSettings
 	lock          sync.RWMutex
+}
+
+func newLiveStateCache(
+	cluster clustercache.ClusterCache,
+	// onObjectUpdated ObjectUpdatedHandler,
+) LiveStateCache {
+	return &liveStateCache{
+		cluster: cluster,
+		//onObjectUpdated: onObjectUpdated,
+	}
 }
 
 func NewLiveStateCache(
@@ -316,19 +329,6 @@ func (c *liveStateCache) Init() error {
 	}
 	c.cacheSettings = *cacheSettings
 	return nil
-}
-
-// Invalidate cache and executes callback that optionally might update cache settings
-func (c *liveStateCache) invalidate(cacheSettings cacheSettings) {
-	c.logger.Info("invalidating live state cache")
-	c.lock.Lock()
-	c.cacheSettings = cacheSettings
-	clusterCache := c.cluster
-	c.lock.Unlock()
-
-	clusterCache.Invalidate(clustercache.SetSettings(cacheSettings.clusterSettings))
-
-	c.logger.Info("live state cache invalidated")
 }
 
 func (c *liveStateCache) loadCacheSettings() (*cacheSettings, error) {
