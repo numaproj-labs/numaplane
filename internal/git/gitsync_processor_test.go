@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/ory/dockertest/v3/docker"
 	"log"
 	"math"
 	"math/rand"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/ory/dockertest/v3"
-	"github.com/ory/dockertest/v3/docker"
 	cryptossh "golang.org/x/crypto/ssh"
 
 	"github.com/go-git/go-billy/v5/osfs"
@@ -118,9 +118,9 @@ func TestMain(m *testing.M) {
 		Tag:          "latest",
 		ExposedPorts: []string{"22", "80", "443"},
 		PortBindings: map[docker.Port][]docker.PortBinding{
-			"22":  {{HostIP: "127.0.0.1", HostPort: "2222"}},
-			"443": {{HostIP: "127.0.0.1", HostPort: "8443"}},
-			"80":  {{HostIP: "127.0.0.1", HostPort: "8080"}},
+			"22/tcp":  {{HostIP: "127.0.0.1", HostPort: "2222"}},
+			"443/tcp": {{HostIP: "127.0.0.1", HostPort: "8443"}},
+			"80/tcp":  {{HostIP: "127.0.0.1", HostPort: "8080"}},
 		},
 	}
 	resource, err := pool.RunWithOptions(&opts)
@@ -133,10 +133,17 @@ func TestMain(m *testing.M) {
 		// Implement checks for both the Apache server and SSH service here
 
 		// Check Apache server availability
-		resp, err := http.Get("http://localhost:8080") // Adjust port if necessary
+		client := &http.Client{}
+		req, err := http.NewRequest("GET", "http://localhost:8080", nil)
+		if err != nil {
+			return fmt.Errorf("Error creating request: %s", err)
+		}
+		req.SetBasicAuth("root", "root") // Replace with actual username and password
+		resp, err := client.Do(req)
 		if err != nil || resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("Apache server not yet ready")
 		}
+		defer resp.Body.Close()
 
 		// Check SSH service availability
 		_, err = net.Dial("tcp", "localhost:2222") // Adjust port if necessary
