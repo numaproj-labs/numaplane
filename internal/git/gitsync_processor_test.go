@@ -4,10 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"github.com/ory/dockertest/v3"
-	"github.com/ory/dockertest/v3/docker"
-	cryptossh "golang.org/x/crypto/ssh"
 	"log"
 	"math"
 	"math/rand"
@@ -17,6 +13,11 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v3/docker"
+	cryptossh "golang.org/x/crypto/ssh"
 
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"

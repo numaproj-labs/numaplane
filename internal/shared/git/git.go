@@ -3,10 +3,11 @@ package git
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing/transport"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/go-git/go-git/v5/plumbing/transport"
 
 	"github.com/go-git/go-git/v5"
 
