@@ -102,7 +102,7 @@ func main() {
 	configManager := config.GetConfigManagerInstance()
 	err = configManager.LoadConfig(func(err error) {
 		logger.Errorw("Failed to reload global configuration file", err)
-	}, configPath)
+	}, configPath, "config", "yaml")
 	if err != nil {
 		logger.Fatalw("Failed to load config file", err)
 	}

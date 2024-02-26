@@ -1,26 +1,34 @@
-clusterName: "example-cluster"
+clusterName: "staging-usw2-k8s"
 timeIntervalSec: 60
 repoCredentials:
-  "key1":
-    HTTPCredential:
-      Username: "exampleUser"
-      Password:
+  - url: "github.com/numaproj-labs"
+    httpCredential:
+      username: "exampleUser"
+      password:
         name: "http-creds"
         key: "password"
-  "key2":
-    SSHCredential:
-      SSHKey:
-        name: "ssh-creds"
-        key: "sshKey"
-  "key3":
-    TLS:
-      insecureSkipVerify: false
-      CACertSecret:
+    tls:
+      caCertSecret:
         name: "ca-cert-secret"
         key: "ca.crt"
       certSecret:
         name: "cert-secret"
         key: "tls.crt"
-      KeySecret:
+      keySecret:
         name: "key-secret"
         key: "tls.key"
+  - url: "github.com/numaproj"
+    sshCredential:
+      SSHKey:
+        name: "ssh-creds"
+        key: "sshKey"
+    tls:
+      insecureSkipVerify: true
+  - url: "github.com/numalabs"
+    httpCredential:
+      username: "exampleuser3"
+      password:
+        name: "http-creds"
+        key: "password"
+    tls:
+      insecureSkipVerify: true

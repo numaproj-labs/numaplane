@@ -1,9 +1,12 @@
-package validations
+package git
 
 import (
+	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/numaproj-labs/numaplane/internal/shared/k8"
 )
 
 func TestCheckGitURL(t *testing.T) {
@@ -94,8 +97,38 @@ func TestIsValidName(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ok := IsValidKubernetesNamespace(tc.resourceName)
+			ok := k8.IsValidKubernetesNamespace(tc.resourceName)
 			assert.Equal(t, tc.expected, ok)
+		})
+	}
+
+}
+
+func TestParse(t *testing.T) {
+
+	testCases := []struct {
+		name         string
+		resourceName string
+		expected     string
+	}{
+		{
+			name:         "should Return git as username",
+			resourceName: "git@github.com:shubhamdixit863/september2023web.git",
+			expected:     "git",
+		},
+
+		{
+			name:         "should return root as username",
+			resourceName: "ssh://root@localhost:2222/var/www/git/test.git",
+			expected:     "root",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			url, err := Parse(tc.resourceName)
+			log.Println(url.User)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expected, url.User.Username())
 		})
 	}
 

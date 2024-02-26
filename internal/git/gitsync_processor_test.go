@@ -2,10 +2,17 @@ package git
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v3/docker"
+	cryptossh "golang.org/x/crypto/ssh"
 	"log"
 	"math"
 	"math/rand"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,7 +36,9 @@ import (
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
+	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
+	gitshared "github.com/numaproj-labs/numaplane/internal/shared/git"
 )
 
 const (
@@ -40,6 +49,7 @@ const (
 	defaultNameSpace    = "numaflowtest"
 )
 
+var pool *dockertest.Pool
 var kubernetesYamlString = `apiVersion: v1
 kind: Service
 metadata:
@@ -82,6 +92,80 @@ func init() {
 	_ = corev1.AddToScheme(scheme.Scheme)
 }
 
+// TestMain configures the testing environment by initializing a Docker container that serves as a local git server.
+// This function handles the connection to Docker, initiates the specified container if it's not currently active,
+// and performs test case execution. Post-execution, it ensures thorough cleanup of all utilized resources.
+// Inside the Docker container, it sets up a test repository accessible via:
+// - SSH at ssh://root@localhost:2222/var/www/git/test.git
+// - HTTP at http://localhost:8080/git/test.git, served by the Apache HTTP server
+// - HTTPS at https://localhost:8443/git/test.git, secured with a self-signed certificate.
+// The default credentials for HTTP access are root:root.
+// The default credentials for SSH access are also root:root.
+// A default public SSH key (ssh-ed25519) is pre-added to the container's authorized keys.
+// The corresponding private key should be used to clone the repository.
+func TestMain(m *testing.M) {
+	// Connect to Docker
+	p, err := dockertest.NewPool("")
+	if err != nil {
+		log.Fatalf("Could not connect to Docker; is it running? %s", err)
+	}
+	pool = p
+
+	// Start the local Git server container if not already running
+	opts := dockertest.RunOptions{
+		Repository:   "shubhamdixit863/localgitsshhttpserver",
+		Tag:          "latest",
+		ExposedPorts: []string{"22", "80", "443"},
+		PortBindings: map[docker.Port][]docker.PortBinding{
+			"22":  {{HostIP: "127.0.0.1", HostPort: "2222"}},
+			"443": {{HostIP: "127.0.0.1", HostPort: "8443"}},
+			"80":  {{HostIP: "127.0.0.1", HostPort: "8080"}},
+		},
+	}
+	resource, err := pool.RunWithOptions(&opts)
+	if err != nil {
+		log.Fatalf("Could not start the Docker resource: %s", err)
+	}
+
+	// Wait for the local Git server to be ready
+	if err := pool.Retry(func() error {
+		// Implement checks for both the Apache server and SSH service here
+
+		// Check Apache server availability
+		resp, err := http.Get("http://localhost:8080") // Adjust port if necessary
+		if err != nil || resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("Apache server not yet ready")
+		}
+
+		// Check SSH service availability
+		_, err = net.Dial("tcp", "localhost:2222") // Adjust port if necessary
+		if err != nil {
+			return fmt.Errorf("SSH service not yet ready")
+		}
+
+		// If both checks pass, return nil to indicate success
+		return nil
+	}); err != nil {
+		if resource != nil {
+			_ = pool.Purge(resource)
+		}
+		log.Fatalf("Could not ensure local Git server services were ready: %s", err)
+	}
+
+	// Execute the test cases
+	code := m.Run()
+
+	// Ensure resources are cleaned up
+	if resource != nil {
+		if err := pool.Purge(resource); err != nil {
+			log.Fatalf("Couldn't purge the Docker resource: %s", err)
+		}
+	}
+
+	// Exit with the status code from the test execution
+	os.Exit(code)
+}
+
 func Test_cloneRepo(t *testing.T) {
 	testCases := []struct {
 		name   string
@@ -103,7 +187,10 @@ func Test_cloneRepo(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			localRepoPath := getLocalRepoPath("gitsync-test-example")
-			r, err := cloneRepo(context.Background(), localRepoPath, &tc.repo)
+			cloneOptions := &git.CloneOptions{
+				URL: tc.repo.RepoUrl,
+			}
+			r, err := cloneRepo(context.Background(), localRepoPath, cloneOptions)
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
@@ -716,7 +803,10 @@ func Test_watchRepo(t *testing.T) {
 			localRepoPath := getLocalRepoPath(tc.gitSync.Name)
 			err := os.RemoveAll(localRepoPath)
 			assert.Nil(t, err)
-			r, cloneErr := cloneRepo(context.Background(), localRepoPath, repo)
+			cloneOptions := &git.CloneOptions{
+				URL: repo.RepoUrl,
+			}
+			r, cloneErr := cloneRepo(context.Background(), localRepoPath, cloneOptions)
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)
 
@@ -754,4 +844,243 @@ func TestGetSecret(t *testing.T) {
 	secret, err := getSecret(context.TODO(), c, "testNamespace", "test-secret")
 	assert.Nil(t, err)
 	assert.Equal(t, "admin", string(secret.Data["username"]))
+}
+
+// All tests for cloning the repositories with authentication
+
+// As we are using a passkey for a real GitHub account, we have reversed the string such that Git does not invalidate it if found publicly.
+func reverseString(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
+
+func FileExists(repo *git.Repository, fileName string) error {
+	head, err := repo.Head()
+	if err != nil {
+		return err
+	}
+
+	commit, err := repo.CommitObject(head.Hash())
+	if err != nil {
+		return err
+	}
+	tree, err := commit.Tree()
+	if err != nil {
+		return err
+	}
+	_, err = tree.File(fileName)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func TestGitCloneRepoHTTP(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+
+	data, err := base64.StdEncoding.DecodeString("QXdmSXQzTUt3YzJ2SkI1QnhmOEhKaTdiV0xlM0VSa2dnZlRvX3BoZw==")
+	assert.Nil(t, err)
+
+	secretData := map[string][]byte{"password": []byte(reverseString(string(data)))}
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "http-cred").Return(&corev1.Secret{Data: secretData}, nil)
+
+	credential := &controllerconfig.RepoCredential{
+		HTTPCredential: &controllerconfig.HTTPCredential{
+			Username: "rustyTest",
+			Password: controllerconfig.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "http-cred"},
+				Key:                  "password",
+				Optional:             nil,
+			},
+		},
+	}
+	repositoryPath := &v1alpha1.RepositoryPath{
+		Name:           "repoName",
+		RepoUrl:        "https://github.com/rustyTest/testprivateRepo.git",
+		Path:           "",
+		TargetRevision: "",
+	}
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", repositoryPath)
+	assert.NoError(t, err)
+	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
+	repo, err := cloneRepo(context.Background(), "gitCloned", cloneOptions)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+
+	// check if the cloned repository has the file existing
+	err = FileExists(repo, "config.json")
+	assert.NoError(t, err)
+	err = os.RemoveAll("gitCloned")
+	assert.NoError(t, err)
+
+}
+
+func TestGitCloneRepoSsh(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+	// We have  encoded private key so decoding it
+	data, err := base64.StdEncoding.DecodeString("LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNEVTl1elRwT1JwaDJublNtZ2tpSTJQQ25RdzBKbllaUFNGbk1Tc2NSSkltZ0FBQUtBbHBrU1BKYVpFCmp3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDRFU5dXpUcE9ScGgybm5TbWdraUkyUENuUXcwSm5ZWlBTRm5NU3NjUkpJbWcKQUFBRUN5YzdoS0RIODJvRGNnNWtrQWkrL3lZNERySEsva2cyZGg2VHduNXhnWTB0VDI3Tk9rNUdtSGFlZEthQ1NJalk4SwpkRERRbWRoazlJV2N4S3h4RWtpYUFBQUFHSEoxYzNSNWNISnZaM0poYldWeVFHZHRZV2xzTG1OdmJRRUNBd1FGCi0tLS0tRU5EIE9QRU5TU0ggUFJJVkFURSBLRVktLS0tLQ==")
+	assert.Nil(t, err)
+
+	secretData := map[string][]byte{"sshKey": data}
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "sshKey").Return(&corev1.Secret{Data: secretData}, nil)
+
+	credential := &controllerconfig.RepoCredential{
+		SSHCredential: &controllerconfig.SSHCredential{SSHKey: controllerconfig.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{Name: "sshKey"},
+			Key:                  "sshKey",
+			Optional:             nil,
+		}},
+	}
+	repositoryPath := &v1alpha1.RepositoryPath{
+		Name:           "repoName",
+		RepoUrl:        "git@github.com:rustyTest/testprivateRepo.git",
+		Path:           "",
+		TargetRevision: "",
+	}
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", repositoryPath)
+	assert.NoError(t, err)
+	assert.NotNil(t, cloneOptions)
+
+	repo, err := cloneRepo(context.Background(), "gitCloned", cloneOptions)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+	err = FileExists(repo, "config.json") // config.json exists in the cloned repo
+	assert.NoError(t, err)
+	err = os.RemoveAll("gitCloned")
+	assert.NoError(t, err)
+}
+
+// Tests With Local Git server running inside docker container
+
+func TestGitCloneRepoSshLocalGitServer(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+
+	// below private key is the pair of public key that has been set in authorized key in docker container
+	secretData := map[string][]byte{"sshKey": []byte(`-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACBBwLbaNG1RkwFAEyYYg04ymv5WYNS2LvoHSXMp+HCvAwAAAIhcN3LMXDdy
+zAAAAAtzc2gtZWQyNTUxOQAAACBBwLbaNG1RkwFAEyYYg04ymv5WYNS2LvoHSXMp+HCvAw
+AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
+/lZg1LYu+gdJcyn4cK8DAAAABWxvY2Fs
+-----END OPENSSH PRIVATE KEY-----`)}
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "sshKey").Return(&corev1.Secret{Data: secretData}, nil)
+
+	credential := &controllerconfig.RepoCredential{
+		SSHCredential: &controllerconfig.SSHCredential{SSHKey: controllerconfig.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{Name: "sshKey"},
+			Key:                  "sshKey",
+			Optional:             nil,
+		}},
+	}
+	repositoryPath := &v1alpha1.RepositoryPath{
+		Name:           "repoName",
+		RepoUrl:        "ssh://root@localhost:2222/var/www/git/test.git",
+		Path:           "",
+		TargetRevision: "",
+	}
+
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", repositoryPath)
+	cloneOptions.Auth.(*ssh.PublicKeys).HostKeyCallback = cryptossh.InsecureIgnoreHostKey()
+	assert.NoError(t, err)
+	assert.NotNil(t, cloneOptions)
+	repo, err := cloneRepo(context.Background(), "gitCloned", cloneOptions)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
+	assert.NoError(t, err)
+	err = os.RemoveAll("gitCloned")
+	assert.NoError(t, err)
+
+}
+
+func TestGitCloneRepoHTTPWithLocalGitServer(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+
+	secretData := map[string][]byte{"password": []byte(`root`)}
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "http-cred").Return(&corev1.Secret{Data: secretData}, nil)
+
+	credential := &controllerconfig.RepoCredential{
+		HTTPCredential: &controllerconfig.HTTPCredential{
+			Username: "root",
+			Password: controllerconfig.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "http-cred"},
+				Key:                  "password",
+				Optional:             nil,
+			},
+		},
+	}
+	repositoryPath := &v1alpha1.RepositoryPath{
+		Name:           "repoName",
+		RepoUrl:        "http://localhost:8080/git/test.git", // go-git adds ftp protocol if the protocol is missing by default
+		Path:           "",
+		TargetRevision: "",
+	}
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", repositoryPath)
+	assert.NoError(t, err)
+	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
+	repo, err := cloneRepo(context.Background(), "gitCloned", cloneOptions)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+
+	// check if the cloned repository has the file existing
+	err = FileExists(repo, "data.yaml")
+	assert.NoError(t, err)
+	err = os.RemoveAll("gitCloned")
+	assert.NoError(t, err)
+
+}
+
+func TestGitCloneRepoHTTPSWithLocalGitServer(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	c := mocksClient.NewMockClient(ctrl)
+
+	secretData := map[string][]byte{"password": []byte(`root`)}
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "http-cred").Return(&corev1.Secret{Data: secretData}, nil)
+
+	credential := &controllerconfig.RepoCredential{
+		HTTPCredential: &controllerconfig.HTTPCredential{
+			Username: "root",
+			Password: controllerconfig.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "http-cred"},
+				Key:                  "password",
+				Optional:             nil,
+			},
+		},
+		TLS: &controllerconfig.TLS{
+			InsecureSkipVerify: true, // As we are using local ca certificates in docker container so skipping strict checking
+
+		},
+	}
+	repositoryPath := &v1alpha1.RepositoryPath{
+		Name:           "repoName",
+		RepoUrl:        "https://localhost:8443/git/test.git", // go-git adds ftp protocol if the protocol is missing by default
+		Path:           "",
+		TargetRevision: "",
+	}
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", repositoryPath)
+	assert.NoError(t, err)
+	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
+	repo, err := cloneRepo(context.Background(), "gitCloned", cloneOptions)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+
+	// check if the cloned repository has the file existing
+	err = FileExists(repo, "data.yaml")
+	assert.NoError(t, err)
+	err = os.RemoveAll("gitCloned")
+	assert.NoError(t, err)
+
 }

@@ -1,8 +1,11 @@
 package kubernetes
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
+
+	corev1 "k8s.io/api/core/v1"
 
 	jsongo "github.com/json-iterator/go"
 	"go.uber.org/zap"
@@ -85,4 +88,17 @@ func ToUnstructured(manifest map[string]interface{}) (*unstructured.Unstructured
 	return &unstructured.Unstructured{
 		Object: m,
 	}, nil
+}
+
+// GetSecret  gets secret using the kubernetes client
+func (c *client) GetSecret(ctx context.Context, namespace, secretName string) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	key := k8sClient.ObjectKey{
+		Namespace: namespace,
+		Name:      secretName,
+	}
+	if err := c.Get(ctx, key, secret); err != nil {
+		return nil, err
+	}
+	return secret, nil
 }

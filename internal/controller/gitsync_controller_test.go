@@ -3,6 +3,8 @@ package controller
 import (
 	"context"
 	"log"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -58,8 +60,13 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
+		client.EXPECT().GetSecret(context.Background(), "team-a-namespace", "http-creds").Return(&corev1.Secret{}, nil).AnyTimes()
 		cm := config.GetConfigManagerInstance()
-		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
+		getwd, err := os.Getwd()
+		assert.Nil(t, err, "Failed to get working directory")
+		configPath := filepath.Join(getwd, "../../", "config", "samples")
+		err = cm.LoadConfig(func(err error) {
+		}, configPath, "config", "yaml")
 		assert.NoError(t, err)
 
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
@@ -97,9 +104,13 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		client := mocksClient.NewMockClient(ctrl)
+		client.EXPECT().GetSecret(context.Background(), "team-a-namespace", "http-creds").Return(&corev1.Secret{}, nil).AnyTimes()
 		cm := config.GetConfigManagerInstance()
-		err := cm.LoadConfigFromBuffer(`clusterName: "staging-usw2-k8s"`)
-		assert.NoError(t, err)
+		getwd, err := os.Getwd()
+		assert.Nil(t, err, "Failed to get working directory")
+		configPath := filepath.Join(getwd, "../../", "config", "samples")
+		err = cm.LoadConfig(func(err error) {
+		}, configPath, "config", "yaml")
 		assert.NoError(t, err)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
 		assert.Nil(t, err)
