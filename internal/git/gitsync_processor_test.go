@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -131,12 +132,26 @@ func TestMain(m *testing.M) {
 	if err := pool.Retry(func() error {
 		// Implement checks for both the Apache server and SSH service here
 
+		// Check Apache server availability
+		client := &http.Client{}
+		req, err := http.NewRequest("GET", "http://localhost:8080", nil)
+		if err != nil {
+			return fmt.Errorf("Error creating request: %s", err)
+		}
+		req.SetBasicAuth("root", "root") // Replace with actual username and password
+		resp, err := client.Do(req)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("Apache server not yet ready")
+		}
+		defer resp.Body.Close()
+
 		// Check SSH service availability
 		_, err = net.Dial("tcp", "localhost:2222") // Adjust port if necessary
 		if err != nil {
 			return fmt.Errorf("SSH service not yet ready")
 		}
 
+		// If both checks pass, return nil to indicate success
 		return nil
 	}); err != nil {
 		if resource != nil {

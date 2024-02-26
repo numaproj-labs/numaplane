@@ -17,6 +17,11 @@ jobs:
           - 2222:22
           - 8443:443
           - 8080:80
+      apache:
+        image: httpd:latest
+        ports:
+          - 80
+          - 443   -
     timeout-minutes: 10
     steps:
       - name: Set up Go 1.x
