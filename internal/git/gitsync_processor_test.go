@@ -140,7 +140,7 @@ func TestMain(m *testing.M) {
 		if err != nil {
 			return fmt.Errorf("error creating request: %s", err)
 		}
-		req.SetBasicAuth("root", "root") // Replace with actual username and password
+		req.SetBasicAuth("root", "root")
 		resp, err := client.Do(req)
 		if err != nil || resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("apache server not yet ready %s", err.Error())
@@ -153,7 +153,7 @@ func TestMain(m *testing.M) {
 		}(resp.Body)
 
 		// Check SSH service availability
-		_, err = net.Dial("tcp", "localhost:2222") // Adjust port if necessary
+		_, err = net.Dial("tcp", "localhost:2222")
 		if err != nil {
 			return fmt.Errorf("SSH service not yet ready")
 		}

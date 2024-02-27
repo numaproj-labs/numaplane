@@ -580,7 +580,7 @@ func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, 
 // The function clones the Git repository specified in the GitSync object and starts a goroutine to watch the repository for changes.
 // The goroutine will continuously monitor the repository and apply any changes to the Kubernetes cluster.
 // If any error occurs during the repository watching process, it will be logged and the commit status will be updated with the error.
-func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string, repoCred []controllerconfig.RepoCredential) (*GitSyncProcessor, error) {
+func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, clusterName string) (*GitSyncProcessor, error) {
 	logger := logging.FromContext(ctx)
 
 	namespace := gitSync.Spec.GetDestinationNamespace(clusterName)
