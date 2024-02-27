@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/ory/dockertest/v3/docker"
+	"io"
 	"log"
 	"math"
 	"math/rand"
@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/ory/dockertest/v3/docker"
 
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/ory/dockertest/v3"
@@ -143,7 +145,12 @@ func TestMain(m *testing.M) {
 		if err != nil || resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("Apache server not yet ready")
 		}
-		defer resp.Body.Close()
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
+			if err != nil {
+
+			}
+		}(resp.Body)
 
 		// Check SSH service availability
 		_, err = net.Dial("tcp", "localhost:2222") // Adjust port if necessary
