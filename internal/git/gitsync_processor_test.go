@@ -138,17 +138,17 @@ func TestMain(m *testing.M) {
 		client := &http.Client{}
 		req, err := http.NewRequest("GET", "http://localhost:8080", nil)
 		if err != nil {
-			return fmt.Errorf("Error creating request: %s", err)
+			return fmt.Errorf("error creating request: %s", err)
 		}
 		req.SetBasicAuth("root", "root") // Replace with actual username and password
 		resp, err := client.Do(req)
 		if err != nil || resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("Apache server not yet ready")
+			return fmt.Errorf("apache server not yet ready %s", err.Error())
 		}
 		defer func(Body io.ReadCloser) {
 			err := Body.Close()
 			if err != nil {
-
+				log.Println(err)
 			}
 		}(resp.Body)
 
