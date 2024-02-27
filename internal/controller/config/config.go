@@ -56,10 +56,7 @@ type SSHCredential struct {
 }
 
 type TLS struct {
-	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
-	CACertSecret       SecretKeySelector `json:"caCertSecret"`
-	CertSecret         SecretKeySelector `json:"certSecret"`
-	KeySecret          SecretKeySelector `json:"keySecret"`
+	InsecureSkipVerify bool `json:"insecureSkipVerify"`
 }
 
 type SecretKeySelector struct {

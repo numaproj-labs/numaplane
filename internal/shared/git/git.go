@@ -7,10 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-git/go-git/v5/plumbing/transport"
-
 	"github.com/go-git/go-git/v5"
-
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 
@@ -141,57 +139,54 @@ func ParseLocal(rawurl string) (*url.URL, error) {
 	}, nil
 }
 
+func GetURLScheme(rawUrl string) (string, error) {
+	parsedUrl, err := Parse(rawUrl)
+	if err != nil {
+		return "", err
+	}
+	scheme := parsedUrl.Scheme
+	return scheme, nil
+}
+
 // GetRepoCloneOptions creates git.CloneOptions for cloning a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
 func GetRepoCloneOptions(ctx context.Context, repoCred *controllerconfig.RepoCredential, kubeClient kubernetes.Client, namespace string, repo *v1alpha1.RepositoryPath) (*git.CloneOptions, error) {
 	endpoint, err := transport.NewEndpoint(repo.RepoUrl)
 	if err != nil {
 		return nil, err
 	}
-	var cloneOptions *git.CloneOptions
-	switch {
-	case repoCred.TLS != nil && repoCred.HTTPCredential != nil:
+	scheme, err := GetURLScheme(repo.RepoUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	cloneOptions := &git.CloneOptions{
+		URL: endpoint.String(),
+	}
+
+	// Configure TLS if applicable
+	if repoCred.TLS != nil {
+		cloneOptions.InsecureSkipTLS = repoCred.TLS.InsecureSkipVerify
+	}
+
+	// Switch between different schemes
+	switch scheme {
+	case "http", "https":
 		cred := repoCred.HTTPCredential
-		username := cred.Username
 		secret, err := kubeClient.GetSecret(ctx, namespace, cred.Password.Name)
 		if err != nil {
 			return nil, err
 		}
 		password := string(secret.Data[cred.Password.Key])
-		authMethod := &gitHttp.BasicAuth{
-			Username: username,
+		cloneOptions.Auth = &gitHttp.BasicAuth{
+			Username: cred.Username,
 			Password: password,
 		}
-		cloneOptions = &git.CloneOptions{
-			URL:             endpoint.String(),
-			Auth:            authMethod,
-			InsecureSkipTLS: repoCred.TLS.InsecureSkipVerify,
-		}
-		return cloneOptions, nil
 
-	case repoCred.HTTPCredential != nil:
-		cred := repoCred.HTTPCredential
-		username := cred.Username
-		secret, err := kubeClient.GetSecret(ctx, namespace, cred.Password.Name)
-		if err != nil {
-			return nil, err
-		}
-		password := string(secret.Data[cred.Password.Key])
-		authMethod := &gitHttp.BasicAuth{
-			Username: username,
-			Password: password,
-		}
-		cloneOptions = &git.CloneOptions{
-			URL:  endpoint.String(),
-			Auth: authMethod,
-		}
-		return cloneOptions, nil
-
-	case repoCred.SSHCredential != nil:
+	case "ssh":
 		secret, err := kubeClient.GetSecret(ctx, namespace, repoCred.SSHCredential.SSHKey.Name)
 		if err != nil {
 			return nil, err
 		}
-		// Parsing url is necessary to get the username from the url
 		parsedUrl, err := Parse(repo.RepoUrl)
 		if err != nil {
 			return nil, err
@@ -200,17 +195,13 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *controllerconfig.RepoCre
 		if err != nil {
 			return nil, err
 		}
-
-		cloneOptions = &git.CloneOptions{
-			URL:  endpoint.String(),
-			Auth: authMethod,
-		}
-		return cloneOptions, nil
+		cloneOptions.Auth = authMethod
 
 	default:
-		return nil, nil
+		return nil, nil // no authentication required
 	}
 
+	return cloneOptions, nil
 }
 
 // FindCredByUrl searches for GitCredential by the specified URL within the provided GlobalConfig.

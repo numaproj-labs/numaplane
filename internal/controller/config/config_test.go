@@ -37,13 +37,6 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Equal(t, "password", config.RepoCredentials[0].HTTPCredential.Password.Key, "Password Key for HTTPCredential of numaproj-labs does not match")
 
 	assert.NotNil(t, config.RepoCredentials[0].TLS, "TLS for numaproj-labs is missing")
-	assert.Equal(t, "ca-cert-secret", config.RepoCredentials[0].TLS.CACertSecret.Name, "CACertSecret Name for TLS of numaproj-labs does not match")
-	assert.Equal(t, "ca.crt", config.RepoCredentials[0].TLS.CACertSecret.Key, "CACertSecret Key for TLS of numaproj-labs does not match")
-	assert.Equal(t, "cert-secret", config.RepoCredentials[0].TLS.CertSecret.Name, "CertSecret Name for TLS of numaproj-labs does not match")
-	assert.Equal(t, "tls.crt", config.RepoCredentials[0].TLS.CertSecret.Key, "CertSecret Key for TLS of numaproj-labs does not match")
-	assert.Equal(t, "key-secret", config.RepoCredentials[0].TLS.KeySecret.Name, "KeySecret Name for TLS of numaproj-labs does not match")
-	assert.Equal(t, "tls.key", config.RepoCredentials[0].TLS.KeySecret.Key, "KeySecret Key for TLS of numaproj-labs does not match")
-
 	assert.NotNil(t, config.RepoCredentials[1].SSHCredential, "SSHCredential for numaproj is missing")
 	assert.Equal(t, "ssh-creds", config.RepoCredentials[1].SSHCredential.SSHKey.Name, "SSHKey Name for SSHCredential of numaproj does not match")
 	assert.Equal(t, "sshKey", config.RepoCredentials[1].SSHCredential.SSHKey.Key, "SSHKey Key for SSHCredential of numaproj does not match")
@@ -166,13 +159,6 @@ func TestCloneWithSerialization(t *testing.T) {
 				},
 				TLS: &TLS{
 					InsecureSkipVerify: true,
-					CACertSecret: SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "caCertSecretName",
-						},
-						Key:      "caCert",
-						Optional: nil,
-					},
 				},
 			},
 		},
@@ -224,13 +210,6 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 				},
 				TLS: &TLS{
 					InsecureSkipVerify: true,
-					CACertSecret: SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "caCertSecretName",
-						},
-						Key:      "caCert",
-						Optional: nil,
-					},
 				},
 			},
 		},

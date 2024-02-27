@@ -133,3 +133,43 @@ func TestParse(t *testing.T) {
 	}
 
 }
+
+func TestGetURLScheme(t *testing.T) {
+
+	testCases := []struct {
+		name         string
+		resourceName string
+		scheme       string
+	}{
+		{
+			name:         "should Return shh as scheme",
+			resourceName: "git@github.com:shubhamdixit863/september2023web.git",
+			scheme:       "ssh",
+		},
+
+		{
+			name:         "should return ssh as scheme",
+			resourceName: "ssh://root@localhost:2222/var/www/git/test.git",
+			scheme:       "ssh",
+		},
+		{
+			name:         "should return https as scheme",
+			resourceName: "https://github.com/numaflow",
+			scheme:       "https",
+		},
+		{
+			name:         "should return http as scheme",
+			resourceName: "http://github.com/numaflow",
+			scheme:       "http",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			url, err := Parse(tc.resourceName)
+			log.Println(url.User)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.scheme, url.Scheme)
+		})
+	}
+
+}
