@@ -116,7 +116,7 @@ func TestMain(m *testing.M) {
 
 	// Start the local Git server container if not already running
 	opts := dockertest.RunOptions{
-		Repository:   "shubhamdixit863/gitapache",
+		Repository:   "quay.io/numaio/localgitserver",
 		Tag:          "latest",
 		ExposedPorts: []string{"22", "80", "443"},
 		PortBindings: map[docker.Port][]docker.PortBinding{
