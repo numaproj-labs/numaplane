@@ -154,9 +154,6 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 		}
 	}
 
-	// Only create the resources for the first time if not created yet.
-	// Otherwise, monitoring with intervals.
-
 	// kustomizePath will be the path of clone repository + the path where kustomize file is present.
 	kustomizePath := localRepoPath + "/" + specs.Path
 	k := kustomize.NewKustomizeApp(kustomizePath, specs.RepoUrl, os.Getenv("KUSTOMIZE_BINARY_PATH"))
@@ -166,44 +163,12 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 		return hash.String(), err
 	}
 
+	// Only create the resources for the first time if not created yet.
+	// Otherwise, monitoring with intervals.
 	if gitSync.Status.CommitStatus == nil || gitSync.Status.CommitStatus.Hash == "" {
-		switch sourceType {
-		case v1alpha1.ApplicationSourceTypeHelm:
-		case v1alpha1.ApplicationSourceTypeKustomize:
-			manifests, err := k.Build(nil)
-			if err != nil {
-				logger.Errorw("cannot build kustomize yaml", "err", err)
-				return hash.String(), err
-			}
-
-			for _, manifest := range manifests {
-				err = kubeClient.ApplyResource([]byte(manifest), namespace)
-				if err != nil {
-					return hash.String(), err
-				}
-			}
-		case v1alpha1.ApplicationSourceTypeRaw:
-			// Retrieving the commit object matching the hash.
-			tree, err := getCommitTreeAtPath(r, specs.Path, *hash)
-			if err != nil {
-				return hash.String(), err
-			}
-			// Read all the files under the path and apply each one respectively.
-			err = tree.Files().ForEach(func(f *object.File) error {
-				logger.Debugw("read file", "file_name", f.Name)
-				// TODO: this currently assumes that one file contains just one manifest - modify for multiple
-				manifest, err := f.Contents()
-				if err != nil {
-					logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
-					return err
-				}
-
-				// Apply manifest in cluster
-				return kubeClient.ApplyResource([]byte(manifest), namespace)
-			})
-			if err != nil {
-				return hash.String(), err
-			}
+		err = runInitialSetup(r, sourceType, kubeClient, specs, k, namespace, hash)
+		if err != nil {
+			return hash.String(), err
 		}
 
 		err = updateCommitStatus(ctx, kubeClient, logger, namespacedName, hash.String(), nil)
@@ -270,6 +235,46 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 	}
 
 	return hash.String(), nil
+}
+
+func runInitialSetup(r *git.Repository, sourceType v1alpha1.ApplicationSourceType, kubeClient kubernetes.Client, specs *v1alpha1.GitSyncSpec, k kustomize.Kustomize, namespace string, hash *plumbing.Hash) error {
+	switch sourceType {
+	case v1alpha1.ApplicationSourceTypeHelm:
+	case v1alpha1.ApplicationSourceTypeKustomize:
+		manifests, err := k.Build(nil)
+		if err != nil {
+			return fmt.Errorf("cannot build kustomize yaml, err: %v", err)
+		}
+
+		for _, manifest := range manifests {
+			err = kubeClient.ApplyResource([]byte(manifest), namespace)
+			if err != nil {
+				return err
+			}
+		}
+	case v1alpha1.ApplicationSourceTypeRaw:
+		// Retrieving the commit object matching the hash.
+		tree, err := getCommitTreeAtPath(r, specs.Path, *hash)
+		if err != nil {
+			return err
+		}
+		// Read all the files under the path and apply each one respectively.
+		err = tree.Files().ForEach(func(f *object.File) error {
+			// TODO: this currently assumes that one file contains just one manifest - modify for multiple
+			manifest, err := f.Contents()
+			if err != nil {
+				return fmt.Errorf("cannot get file content for filename %s, err: %v", f.Name, err)
+			}
+
+			// Apply manifest in cluster
+			return kubeClient.ApplyResource([]byte(manifest), namespace)
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ApplyPatchToResources applies changes to Kubernetes resources based on the provided PatchedResource.
