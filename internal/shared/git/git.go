@@ -150,13 +150,6 @@ func GetURLScheme(rawUrl string) (string, error) {
 
 // GetRepoCloneOptions creates git.CloneOptions for cloning a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
 func GetRepoCloneOptions(ctx context.Context, repoCred *controllerconfig.RepoCredential, kubeClient kubernetes.Client, namespace string, repo *v1alpha1.RepositoryPath) (*git.CloneOptions, error) {
-	if repoCred == nil {
-		return nil, fmt.Errorf("repository credentials cannot be nil")
-	}
-	if repo == nil || repo.RepoUrl == "" {
-		return nil, fmt.Errorf("repository URL cannot be empty")
-	}
-
 	endpoint, err := transport.NewEndpoint(repo.RepoUrl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid repository URL: %w", err)
@@ -168,6 +161,14 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *controllerconfig.RepoCre
 
 	cloneOptions := &git.CloneOptions{
 		URL: endpoint.String(),
+	}
+	if repo == nil || repo.RepoUrl == "" {
+		return nil, fmt.Errorf("repository URL cannot be empty")
+	}
+
+	// Assuming the CRD git url is public url
+	if repoCred == nil {
+		return cloneOptions, nil
 	}
 
 	// Configure TLS if applicable

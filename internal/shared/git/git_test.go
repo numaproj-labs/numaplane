@@ -193,8 +193,8 @@ func TestGetRepoCloneOptionsPrefixNotFound(t *testing.T) {
 	repoPath := &v1alpha1.RepositoryPath{RepoUrl: "https://github.com/numaproj-labs/numaplane.git"}
 	// repoCred will be nil in this case
 	options, err := GetRepoCloneOptions(context.Background(), nil, client, "testnamespace", repoPath)
-	assert.Error(t, err)
-	assert.Nil(t, options)
+	assert.NoError(t, err)
+	assert.Nil(t, options.Auth) // if repocredentials are nil then its public url
 }
 
 func TestGetRepoCloneOptionsPrefixFoundCredNilHttp(t *testing.T) {
