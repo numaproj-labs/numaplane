@@ -67,6 +67,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		assert.NotNil(t, r)
 
 		// reconcile the newly created GitSync
+		client.EXPECT().Get(gomock.Any(), "test-ns/test-gitsync", gomock.Any()).Return(nil).AnyTimes()
 		reconcile(t, r, gitSync)
 		verifyRunning(t, r, gitSync)
 
