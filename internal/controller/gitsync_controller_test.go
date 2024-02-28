@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/types"
 	"log"
 	"testing"
 
@@ -66,8 +67,12 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 
+		namespacedName := types.NamespacedName{
+			Namespace: gitSync.Namespace,
+			Name:      gitSync.Name,
+		}
 		// reconcile the newly created GitSync
-		client.EXPECT().Get(gomock.Any(), "test-ns/test-gitsync", gomock.Any()).Return(nil).AnyTimes()
+		client.EXPECT().Get(gomock.Any(), namespacedName, gomock.Any()).Return(nil).AnyTimes()
 		reconcile(t, r, gitSync)
 		verifyRunning(t, r, gitSync)
 
