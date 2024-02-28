@@ -281,18 +281,18 @@ func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
-	repositoryPath := gitSync.Spec.RepositoryPath
+	specs := gitSync.Spec
 	destination := gitSync.Spec.Destination
 
-	// Validate the repositoryPath
-	if ok := validations.CheckGitURL(repositoryPath.RepoUrl); !ok {
-		return fmt.Errorf("invalid remote repository url %s", repositoryPath.RepoUrl)
+	// Validate the specs
+	if ok := validations.CheckGitURL(specs.RepoUrl); !ok {
+		return fmt.Errorf("invalid remote repository url %s", specs.RepoUrl)
 	}
-	if len(repositoryPath.Name) == 0 {
-		return fmt.Errorf("repositoryPath name cannot be empty %s", repositoryPath.Name)
+	if len(specs.Name) == 0 {
+		return fmt.Errorf("specs name cannot be empty %s", specs.Name)
 	}
-	if len(repositoryPath.TargetRevision) == 0 {
-		return fmt.Errorf("targetRevision cannot be empty for repository Path %s", repositoryPath.Name)
+	if len(specs.TargetRevision) == 0 {
+		return fmt.Errorf("targetRevision cannot be empty for repository Path %s", specs.Name)
 	}
 
 	// Validate destination

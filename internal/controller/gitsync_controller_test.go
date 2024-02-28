@@ -30,12 +30,10 @@ var (
 			Name:      testGitSyncName,
 		},
 		Spec: apiv1.GitSyncSpec{
-			RepositoryPath: apiv1.RepositoryPath{
-				Name:           "my-controller",
-				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
-				Path:           "staging-usw2-k8s",
-				TargetRevision: "main",
-			},
+			Name:           "my-controller",
+			RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
+			Path:           "staging-usw2-k8s",
+			TargetRevision: "main",
 			Destination: apiv1.Destination{
 				Cluster:   "staging-usw2-k8s",
 				Namespace: "team-a-namespace",
@@ -71,7 +69,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		verifyRunning(t, r, gitSync)
 
 		// update the spec
-		gitSync.Spec.RepositoryPath.Path = gitSync.Spec.RepositoryPath.Path + "xyz"
+		gitSync.Spec.Path = gitSync.Spec.Path + "xyz"
 		reconcile(t, r, gitSync)
 		verifyRunning(t, r, gitSync)
 

@@ -29,6 +29,10 @@ type GitSyncPhase string
 
 type ConditionType string
 
+// +kubebuilder:validation:Enum=Helm;Kustomize;Raw
+// ApplicationSourceType specifies the type of the application source
+type ApplicationSourceType string
+
 const (
 	GitSyncPhasePending GitSyncPhase = "Pending"
 	GitSyncPhaseRunning GitSyncPhase = "Running"
@@ -38,16 +42,42 @@ const (
 	// GitSyncConditionConfigured has the status True when the GitSync
 	// has valid configuration.
 	GitSyncConditionConfigured ConditionType = "Configured"
+
+	ApplicationSourceTypeHelm      ApplicationSourceType = "Helm"
+	ApplicationSourceTypeKustomize ApplicationSourceType = "Kustomize"
+	ApplicationSourceTypeDirectory ApplicationSourceType = "Raw"
 )
 
 // GitSyncSpec defines the desired state of GitSync
 type GitSyncSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// RepositoryPath lists the Git Repository path to watch
-	RepositoryPath RepositoryPath `json:"repositoryPath"`
+	// Name is a unique name
+	Name string `json:"name"`
 
-	// Destination describe which cluster/namespace to sync it
+	// RepoUrl is the URL to the repository itself
+	RepoUrl string `json:"repoUrl"`
+
+	// Path is the full path from the root of the repository to where the resources are held
+	//  If the Path is empty, then the root directory will be used.
+	// Can be a file or a directory
+	// Note that all resources within this path (described by .yaml files) will be synced
+	Path string `json:"path"`
+
+	// TargetRevision specifies the target revision to sync to, it can be a branch, a tag,
+	// or a commit hash.
+	TargetRevision string `json:"targetRevision"`
+
+	// Kustomize holds kustomize specific options
+	Kustomize *KustomizeSource `json:"kustomize,omitempty"`
+
+	//// Helm holds helm specific options
+	Helm *HelmSource `json:"helm,omitempty"`
+
+	// Raw holds path or directory-specific options
+	Raw *RawSource `json:"raw,omitempty"`
+
+	// Destination describes which cluster/namespace to sync it
 	Destination Destination `json:"destination"`
 }
 
@@ -67,24 +97,27 @@ type GitSyncStatus struct {
 	CommitStatus *CommitStatus `json:"commitStatus,omitempty"`
 }
 
-// RepositoryPath indicates a particular Git path
-type RepositoryPath struct {
-	// Name is a unique name
-	Name string `json:"name"`
+// KustomizeSource holds kustomize specific options
+type KustomizeSource struct{}
 
-	// RepoUrl is the URL to the repository itself
-	RepoUrl string `json:"repoUrl"`
-
-	// Path is the full path from the root of the repository to where the resources are held
-	// If Path is empty, then the root directory will be used.
-	// Can be a file or a directory
-	// Note that all resources within this path (described by .yaml files) will be synced
-	Path string `json:"path"`
-
-	// TargetRevision specifies the target revision to sync to, it can be a branch, a tag,
-	// or a commit hash.
-	TargetRevision string `json:"targetRevision"`
+// HelmSource holds helm-specific options
+type HelmSource struct {
+	// ValuesFiles is a list of Helm value files to use when generating a template
+	ValueFiles []string `json:"valueFiles,omitempty"`
+	// Parameters is a list of Helm parameters which are passed to the helm template command upon manifest generation
+	Parameters []HelmParameter `json:"parameters,omitempty"`
 }
+
+// HelmParameter is a parameter passed to helm template during manifest generation
+type HelmParameter struct {
+	// Name is the name of the Helm parameter
+	Name string `json:"name,omitempty"`
+	// Value is the value for the Helm parameter
+	Value string `json:"value,omitempty"`
+}
+
+// RawSource holds raw specific options
+type RawSource struct{}
 
 // Destination indicates a Cluster to sync to
 type Destination struct {
