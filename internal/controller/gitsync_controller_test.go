@@ -75,6 +75,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		// reconcile the newly created GitSync
 		client.EXPECT().Get(gomock.Any(), namespacedName, gomock.Any()).Return(nil).AnyTimes()
 		client.EXPECT().ApplyResource(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		client.EXPECT().StatusUpdate(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		reconcile(t, r, gitSync)
 		verifyRunning(t, r, gitSync)
 
@@ -121,6 +122,8 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		// our cluster is not one of the destinations, so it shouldn't end up in the map
 		client.EXPECT().Get(gomock.Any(), namespacedName, gomock.Any()).Return(nil).AnyTimes()
 		client.EXPECT().ApplyResource(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		client.EXPECT().StatusUpdate(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
 		reconcile(t, r, gitSync)
 		verifyNotApplicable(t, r, gitSync)
 
