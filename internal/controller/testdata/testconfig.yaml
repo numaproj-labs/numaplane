@@ -7,6 +7,8 @@ repoCredentials:
       password:
         name: "http-creds"
         key: "password"
+    tls:
+      insecureSkipVerify: true
   - url: "github.com:numaproj"
     sshCredential:
       SSHKey:

@@ -601,7 +601,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		gitCredentials := gitshared.FindCredByUrl(repo.RepoUrl, globalConfig)
 		cloneOptions, err := gitshared.GetRepoCloneOptions(ctx, gitCredentials, kubeClient, namespace, repo)
 		if err != nil {
-			logger.Errorw("error getting  the  auth method", "err", err)
+			logger.Errorw("error getting  the  clone options", "err", err)
 		}
 
 		r, err := cloneRepo(ctx, localRepoPath, cloneOptions)
