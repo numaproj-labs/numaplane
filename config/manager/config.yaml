@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: numaplane-controller-config
+  name: controller-config
   namespace: numaplane-system
 data:
   config.yaml: |
