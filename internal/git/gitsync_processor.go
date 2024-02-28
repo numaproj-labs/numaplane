@@ -161,8 +161,15 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 	kustomizePath := localRepoPath + "/" + specs.Path
 	k := kustomize.NewKustomizeApp(kustomizePath, specs.RepoUrl, os.Getenv("KUSTOMIZE_BINARY_PATH"))
 
+	sourceType, err := specs.ExplicitType()
+	if err != nil {
+		return hash.String(), err
+	}
+
 	if gitSync.Status.CommitStatus == nil || gitSync.Status.CommitStatus.Hash == "" {
-		if kustomize.IsKustomizationRepository(kustomizePath) {
+		switch sourceType {
+		case v1alpha1.ApplicationSourceTypeHelm:
+		case v1alpha1.ApplicationSourceTypeKustomize:
 			manifests, err := k.Build(nil)
 			if err != nil {
 				logger.Errorw("cannot build kustomize yaml", "err", err)
@@ -175,7 +182,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 					return hash.String(), err
 				}
 			}
-		} else {
+		case v1alpha1.ApplicationSourceTypeRaw:
 			// Retrieving the commit object matching the hash.
 			tree, err := getCommitTreeAtPath(r, specs.Path, *hash)
 			if err != nil {
@@ -228,13 +235,14 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 					recentHash       string
 					patchedResources PatchedResource
 				)
-				// TODO: Add switch case based on type(Kustomize/Helm/Yaml) of repo, Once type field is available in GitSync CR.
-				if kustomize.IsKustomizationRepository(kustomizePath) {
+				switch sourceType {
+				case v1alpha1.ApplicationSourceTypeHelm:
+				case v1alpha1.ApplicationSourceTypeKustomize:
 					patchedResources, recentHash, err = CheckRepoUpdatesForKustomize(ctx, r, specs, lastCommitHash, namespace, k)
 					if err != nil {
 						return hash.String(), err
 					}
-				} else {
+				case v1alpha1.ApplicationSourceTypeRaw:
 					patchedResources, recentHash, err = CheckForRepoUpdates(ctx, r, specs, lastCommitHash, namespace)
 					if err != nil {
 						return hash.String(), err

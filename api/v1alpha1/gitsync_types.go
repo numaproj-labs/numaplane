@@ -17,8 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"errors"
+	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,7 +48,7 @@ const (
 
 	ApplicationSourceTypeHelm      ApplicationSourceType = "Helm"
 	ApplicationSourceTypeKustomize ApplicationSourceType = "Kustomize"
-	ApplicationSourceTypeDirectory ApplicationSourceType = "Raw"
+	ApplicationSourceTypeRaw       ApplicationSourceType = "Raw"
 )
 
 // GitSyncSpec defines the desired state of GitSync
@@ -185,6 +188,32 @@ func (gitSyncSpec *GitSyncSpec) GetDestinationNamespace(cluster string) string {
 		return gitSyncSpec.Destination.Namespace
 	}
 	return ""
+}
+
+// ExplicitType returns the type (e.g., Helm, Kustomize, etc.) of the application. If either none or multiple types are defined, returns an error.
+func (gitSyncSpec *GitSyncSpec) ExplicitType() (ApplicationSourceType, error) {
+	var appTypes []ApplicationSourceType
+	if gitSyncSpec.Kustomize != nil {
+		appTypes = append(appTypes, ApplicationSourceTypeKustomize)
+	}
+	if gitSyncSpec.Helm != nil {
+		appTypes = append(appTypes, ApplicationSourceTypeHelm)
+	}
+	if gitSyncSpec.Raw != nil {
+		appTypes = append(appTypes, ApplicationSourceTypeRaw)
+	}
+	if len(appTypes) == 0 {
+		return "", errors.New("failed to get application source type, either one should be present from kustomize/helm/raw")
+	}
+	if len(appTypes) > 1 {
+		typeNames := make([]string, len(appTypes))
+		for i := range appTypes {
+			typeNames[i] = string(appTypes[i])
+		}
+		return "", fmt.Errorf("multiple application sources defined: %s", strings.Join(typeNames, ","))
+	}
+	appType := appTypes[0]
+	return appType, nil
 }
 
 func (status *GitSyncStatus) SetPhase(phase GitSyncPhase, msg string) {
