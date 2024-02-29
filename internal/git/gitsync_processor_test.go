@@ -184,13 +184,12 @@ func TestMain(m *testing.M) {
 func Test_cloneRepo(t *testing.T) {
 	testCases := []struct {
 		name   string
-		repo   v1alpha1.RepositoryPath
+		specs  v1alpha1.GitSyncSpec
 		hasErr bool
 	}{
 		{
 			name: "valid repo",
-			repo: v1alpha1.RepositoryPath{
-				Name:           "numaplane",
+			specs: v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				TargetRevision: "main",
 			},
@@ -203,9 +202,10 @@ func Test_cloneRepo(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			localRepoPath := getLocalRepoPath("gitsync-test-example")
 			cloneOptions := &git.CloneOptions{
-				URL: tc.repo.RepoUrl,
+				URL: tc.specs.RepoUrl,
 			}
 			r, err := cloneRepo(context.Background(), localRepoPath, cloneOptions)
+
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
@@ -418,14 +418,13 @@ func TestCheckForRepoUpdatesBranch(t *testing.T) {
 	assert.Nil(t, err)
 	absolutePath, err := filepath.Abs(remoteRepo)
 	assert.Nil(t, err)
-	path := &v1alpha1.RepositoryPath{
-		Name:           "test",
+	specs := &v1alpha1.GitSyncSpec{
 		RepoUrl:        fmt.Sprintf("file:///%s", absolutePath),
 		Path:           "config",
 		TargetRevision: "master",
 	}
 
-	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, path, lastCommitHash, defaultNameSpace)
+	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, specs, lastCommitHash, defaultNameSpace)
 	assert.Nil(t, err)
 	assert.Equal(t, hash.String(), recentHash)
 	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After[fmt.Sprintf("%s/my-nginx-svc", defaultNameSpace)], patchedContent.After[fmt.Sprintf("%s/my-nginx", defaultNameSpace)]))
@@ -455,13 +454,12 @@ func TestCheckForRepoUpdatesVersion(t *testing.T) {
 
 	assert.Nil(t, err)
 
-	path := &v1alpha1.RepositoryPath{
-		Name:           "test",
+	specs := &v1alpha1.GitSyncSpec{
 		RepoUrl:        fmt.Sprintf("file:///%s", absolutePath),
 		Path:           "config",
 		TargetRevision: tag,
 	}
-	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, path, lastCommitHash, defaultNameSpace)
+	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, specs, lastCommitHash, defaultNameSpace)
 	assert.Nil(t, err)
 	assert.Equal(t, hash.String(), recentHash)
 	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After[fmt.Sprintf("%s/my-nginx-svc", defaultNameSpace)], patchedContent.After[fmt.Sprintf("%s/my-nginx", defaultNameSpace)]))
@@ -694,16 +692,14 @@ func getNamespacedName() types.NamespacedName {
 	}
 }
 
-func newGitSync(repo v1alpha1.RepositoryPath) *v1alpha1.GitSync {
+func newGitSync(specs v1alpha1.GitSyncSpec) *v1alpha1.GitSync {
 	return &v1alpha1.GitSync{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testGitSyncName,
 		},
-		Spec: v1alpha1.GitSyncSpec{
-			RepositoryPath: repo,
-		},
+		Spec:   specs,
 		Status: v1alpha1.GitSyncStatus{},
 	}
 }
@@ -716,91 +712,88 @@ func Test_watchRepo(t *testing.T) {
 	}{
 		{
 			name: "`main` as a TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "main",
-				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
 		{
 			name: "tag name as a TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "v0.0.1",
-				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
 		{
 			name: "commit hash as a TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "7b68200947f2d2624797e56edf02c6d848bc48d1",
-				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
 		{
 			name: "remote branch name as a TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "refs/remotes/origin/pipeline",
-				Name:           "control-manifest",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
 		},
 		{
 			name: "local branch name as a TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "pipeline",
-				Name:           "control-manifest",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
 		},
 		{
 			name: "root path",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "",
 				TargetRevision: "pipeline",
-				Name:           "control-manifest",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
 		},
 		{
 			name: "unresolvable TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				Path:           "config/samples",
 				TargetRevision: "unresolvable",
-				Name:           "control-manifest",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: true,
 		},
 		{
 			name: "invalid path",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				Path:           "invalid_path",
 				TargetRevision: "main",
-				Name:           "control-manifest",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: true,
 		},
 		{
 			name: "Apply manifest from kustomize enabled repo",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj/numaflow.git",
 				Path:           "config/namespace-install",
 				TargetRevision: "main",
-				Name:           "numaflow",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
 		},
@@ -811,17 +804,17 @@ func Test_watchRepo(t *testing.T) {
 	defer ctrl.Finish()
 
 	for _, tc := range testCases {
-
 		t.Run(tc.name, func(t *testing.T) {
-			repo := &tc.gitSync.Spec.RepositoryPath
+			specs := &tc.gitSync.Spec
 
 			localRepoPath := getLocalRepoPath(tc.gitSync.Name)
 			err := os.RemoveAll(localRepoPath)
 			assert.Nil(t, err)
 			cloneOptions := &git.CloneOptions{
-				URL: repo.RepoUrl,
+				URL: specs.RepoUrl,
 			}
 			r, cloneErr := cloneRepo(context.Background(), localRepoPath, cloneOptions)
+
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)
 
@@ -834,12 +827,15 @@ func Test_watchRepo(t *testing.T) {
 			client.EXPECT().ApplyResource(gomock.Any(), testNamespace).AnyTimes()
 			client.EXPECT().StatusUpdate(ctx, gomock.Any()).AnyTimes()
 
-			_, watchErr := watchRepo(ctx, r, tc.gitSync, client, repo, testNamespace, localRepoPath)
+			_, watchErr := watchRepo(ctx, r, tc.gitSync, client, specs, testNamespace, localRepoPath)
 			if tc.hasErr {
 				assert.NotNil(t, watchErr)
 			} else {
 				assert.Nil(t, watchErr)
 			}
+			// cleanup test data after running each test
+			err = os.RemoveAll(localRepoPath)
+			assert.Nil(t, err)
 		})
 	}
 }
@@ -915,13 +911,8 @@ func TestGitCloneRepoHTTP(t *testing.T) {
 			},
 		},
 	}
-	repositoryPath := &v1alpha1.RepositoryPath{
-		Name:           "repoName",
-		RepoUrl:        "https://github.com/rustyTest/testprivateRepo.git",
-		Path:           "",
-		TargetRevision: "",
-	}
-	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", repositoryPath)
+
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", "https://github.com/rustyTest/testprivateRepo.git")
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
 	repo, err := cloneRepo(context.Background(), "gitCloned", cloneOptions)
@@ -941,11 +932,11 @@ func TestGitCloneRepoSsh(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	c := mocksClient.NewMockClient(ctrl)
 	// We have  encoded private key so decoding it
-	data, err := base64.StdEncoding.DecodeString("LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNEVTl1elRwT1JwaDJublNtZ2tpSTJQQ25RdzBKbllaUFNGbk1Tc2NSSkltZ0FBQUtBbHBrU1BKYVpFCmp3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDRFU5dXpUcE9ScGgybm5TbWdraUkyUENuUXcwSm5ZWlBTRm5NU3NjUkpJbWcKQUFBRUN5YzdoS0RIODJvRGNnNWtrQWkrL3lZNERySEsva2cyZGg2VHduNXhnWTB0VDI3Tk9rNUdtSGFlZEthQ1NJalk4SwpkRERRbWRoazlJV2N4S3h4RWtpYUFBQUFHSEoxYzNSNWNISnZaM0poYldWeVFHZHRZV2xzTG1OdmJRRUNBd1FGCi0tLS0tRU5EIE9QRU5TU0ggUFJJVkFURSBLRVktLS0tLQ==")
+	data, err := base64.StdEncoding.DecodeString("LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNBZVZPMG4wYUF1RWI2YnFjZkEwaW15Wld6Q3ZxNDQwVlRmVE9jWkFZR3NuQUFBQUpBcTdPMlRLdXp0Cmt3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDQWVWTzBuMGFBdUViNmJxY2ZBMGlteVpXekN2cTQ0MFZUZlRPY1pBWUdzbkEKQUFBRURNa0M1SlN2bVUwQTFUeE5qb0ZLYlEyTnlhQmdUYWxZVTV3RjI2a0FCUWt4NVU3U2ZSb0M0UnZwdXB4OERTS2JKbApiTUsrcmpqUlZOOU01eGtCZ2F5Y0FBQUFCbWRwZEd4aFlnRUNBd1FGQmdjPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=")
 	assert.Nil(t, err)
 
 	secretData := map[string][]byte{"sshKey": data}
-	c.EXPECT().GetSecret(context.Background(), "testNamespace", "sshKey").Return(&corev1.Secret{Data: secretData}, nil)
+	c.EXPECT().GetSecret(context.Background(), "testNamespace", "sshKey").Return(&corev1.Secret{Data: secretData}, nil).AnyTimes()
 
 	credential := &controllerconfig.RepoCredential{
 		SSHCredential: &controllerconfig.SSHCredential{SSHKey: controllerconfig.SecretKeySelector{
@@ -954,13 +945,7 @@ func TestGitCloneRepoSsh(t *testing.T) {
 			Optional:             nil,
 		}},
 	}
-	repositoryPath := &v1alpha1.RepositoryPath{
-		Name:           "repoName",
-		RepoUrl:        "git@github.com:rustyTest/testprivateRepo.git",
-		Path:           "",
-		TargetRevision: "",
-	}
-	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", repositoryPath)
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", "git@github.com:rustyTest/testprivateRepo.git")
 	assert.NoError(t, err)
 	assert.NotNil(t, cloneOptions)
 
@@ -997,14 +982,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 			Optional:             nil,
 		}},
 	}
-	repositoryPath := &v1alpha1.RepositoryPath{
-		Name:           "repoName",
-		RepoUrl:        "ssh://root@localhost:2222/var/www/git/test.git",
-		Path:           "",
-		TargetRevision: "",
-	}
-
-	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", repositoryPath)
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", "ssh://root@localhost:2222/var/www/git/test.git")
 	cloneOptions.Auth.(*ssh.PublicKeys).HostKeyCallback = cryptossh.InsecureIgnoreHostKey()
 	assert.NoError(t, err)
 	assert.NotNil(t, cloneOptions)
@@ -1036,13 +1014,8 @@ func TestGitCloneRepoHTTPWithLocalGitServer(t *testing.T) {
 			},
 		},
 	}
-	repositoryPath := &v1alpha1.RepositoryPath{
-		Name:           "repoName",
-		RepoUrl:        "http://localhost:8080/git/test.git", // go-git adds ftp protocol if the protocol is missing by default
-		Path:           "",
-		TargetRevision: "",
-	}
-	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", repositoryPath)
+
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", "http://localhost:8080/git/test.git")
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
 	repo, err := cloneRepo(context.Background(), "gitCloned", cloneOptions)
@@ -1079,13 +1052,8 @@ func TestGitCloneRepoHTTPSWithLocalGitServer(t *testing.T) {
 
 		},
 	}
-	repositoryPath := &v1alpha1.RepositoryPath{
-		Name:           "repoName",
-		RepoUrl:        "https://localhost:8443/git/test.git", // go-git adds ftp protocol if the protocol is missing by default
-		Path:           "",
-		TargetRevision: "",
-	}
-	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", repositoryPath)
+
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, c, "testNamespace", "https://localhost:8443/git/test.git")
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
 	repo, err := cloneRepo(context.Background(), "gitCloned", cloneOptions)

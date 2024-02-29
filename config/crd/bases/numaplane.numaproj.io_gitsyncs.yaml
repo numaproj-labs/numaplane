@@ -35,7 +35,7 @@ spec:
             description: GitSyncSpec defines the desired state of GitSync
             properties:
               destination:
-                description: Destination describe which cluster/namespace to sync
+                description: Destination describes which cluster/namespace to sync
                   it
                 properties:
                   cluster:
@@ -49,35 +49,55 @@ spec:
                 required:
                 - cluster
                 type: object
-              repositoryPath:
-                description: RepositoryPath lists the Git Repository path to watch
+              helm:
+                description: Helm holds helm specific options
                 properties:
-                  name:
-                    description: Name is a unique name
-                    type: string
-                  path:
-                    description: Path is the full path from the root of the repository
-                      to where the resources are held If Path is empty, then the root
-                      directory will be used. Can be a file or a directory Note that
-                      all resources within this path (described by .yaml files) will
-                      be synced
-                    type: string
-                  repoUrl:
-                    description: RepoUrl is the URL to the repository itself
-                    type: string
-                  targetRevision:
-                    description: TargetRevision specifies the target revision to sync
-                      to, it can be a branch, a tag, or a commit hash.
-                    type: string
-                required:
-                - name
-                - path
-                - repoUrl
-                - targetRevision
+                  parameters:
+                    description: Parameters is a list of Helm parameters which are
+                      passed to the helm template command upon manifest generation
+                    items:
+                      description: HelmParameter is a parameter passed to helm template
+                        during manifest generation
+                      properties:
+                        name:
+                          description: Name is the name of the Helm parameter
+                          type: string
+                        value:
+                          description: Value is the value for the Helm parameter
+                          type: string
+                      type: object
+                    type: array
+                  valueFiles:
+                    description: ValuesFiles is a list of Helm value files to use
+                      when generating a template
+                    items:
+                      type: string
+                    type: array
                 type: object
+              kustomize:
+                description: Kustomize holds kustomize specific options
+                type: object
+              path:
+                description: Path is the full path from the root of the repository
+                  to where the resources are held If the Path is empty, then the root
+                  directory will be used. Can be a file or a directory Note that all
+                  resources within this path (described by .yaml files) will be synced
+                type: string
+              raw:
+                description: Raw holds path or directory-specific options
+                type: object
+              repoUrl:
+                description: RepoUrl is the URL to the repository itself
+                type: string
+              targetRevision:
+                description: TargetRevision specifies the target revision to sync
+                  to, it can be a branch, a tag, or a commit hash.
+                type: string
             required:
             - destination
-            - repositoryPath
+            - path
+            - repoUrl
+            - targetRevision
             type: object
           status:
             description: GitSyncStatus defines the observed state of GitSync

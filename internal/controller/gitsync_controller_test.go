@@ -32,12 +32,9 @@ var (
 			Name:      testGitSyncName,
 		},
 		Spec: apiv1.GitSyncSpec{
-			RepositoryPath: apiv1.RepositoryPath{
-				Name:           "my-controller",
-				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
-				Path:           "staging-usw2-k8s",
-				TargetRevision: "main",
-			},
+			RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
+			Path:           "staging-usw2-k8s",
+			TargetRevision: "main",
 			Destination: apiv1.Destination{
 				Cluster:   "staging-usw2-k8s",
 				Namespace: "team-a-namespace",
@@ -80,7 +77,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		verifyRunning(t, r, gitSync)
 
 		// update the spec
-		gitSync.Spec.RepositoryPath.Path = gitSync.Spec.RepositoryPath.Path + "xyz"
+		gitSync.Spec.Path = gitSync.Spec.Path + "xyz"
 		reconcile(t, r, gitSync)
 		verifyRunning(t, r, gitSync)
 
@@ -93,7 +90,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 
 }
 
-// Test the changing of destinations in the GitSync
+// Test the changing of destinations in the
 // GitSync should be added to our GitSyncProcessor map if our cluster matches one of the clusters, but removed if it's not
 func Test_GitSyncDestinationChanges(t *testing.T) {
 	t.Run("GitSync destination test", func(t *testing.T) {

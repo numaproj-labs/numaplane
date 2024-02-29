@@ -38,7 +38,7 @@ type kustomize struct {
 type KustomizeOptions struct {
 	// BuildOptions is a string of build parameters to use when calling `kustomize build`
 	BuildOptions string `protobuf:"bytes,1,opt,name=buildOptions"`
-	// BinaryPath holds optional path to kustomize binary
+	// BinaryPath holds an optional path to kustomize binary
 	BinaryPath string `protobuf:"bytes,2,opt,name=binaryPath"`
 }
 

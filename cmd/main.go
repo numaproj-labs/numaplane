@@ -92,7 +92,7 @@ func main() {
 		logger.Fatalw("Unable to get a controller-runtime manager", err)
 	}
 
-	// create kubernetes client
+	// create a kubernetes client
 	kubeClient, err := kubernetes.NewClient(mgr.GetConfig(), mgr.GetClient(), logger)
 	if err != nil {
 		logger.Fatalw("failed to create kubernetes client", err)

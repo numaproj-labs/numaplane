@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
 	"github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
@@ -189,10 +188,8 @@ func TestGetRepoCloneOptionsPrefixNotFound(t *testing.T) {
 
 	secret := &v1.Secret{}
 	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-
-	repoPath := &v1alpha1.RepositoryPath{RepoUrl: "https://github.com/numaproj-labs/numaplane.git"}
 	// repoCred will be nil in this case
-	options, err := GetRepoCloneOptions(context.Background(), nil, client, "testnamespace", repoPath)
+	options, err := GetRepoCloneOptions(context.Background(), nil, client, "testnamespace", "https://github.com/numaproj-labs/numaplane.git")
 	assert.NoError(t, err)
 	assert.Nil(t, options.Auth) // if repocredentials are nil then its public url
 }
@@ -204,10 +201,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNilHttp(t *testing.T) {
 	cred := &config.RepoCredential{}
 	secret := &v1.Secret{}
 	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-
-	repoPath := &v1alpha1.RepositoryPath{RepoUrl: "https://github.com/numaproj-labs/numaplane.git"}
-
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", repoPath)
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "https://github.com/numaproj-labs/numaplane.git")
 	assert.NoError(t, err)
 	assert.Equal(t, options.URL, "https://github.com/numaproj-labs/numaplane.git")
 	// In this case only auth method would be nil as it is asssumed that its public repository and doesn't require auth
@@ -221,10 +215,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNilSSh(t *testing.T) {
 	cred := &config.RepoCredential{}
 	secret := &v1.Secret{}
 	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-
-	repoPath := &v1alpha1.RepositoryPath{RepoUrl: "git@github.com:numaproj-labs/numaplane.git"}
-
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", repoPath)
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "git@github.com:numaproj-labs/numaplane.git")
 	assert.NoError(t, err)
 	assert.Equal(t, options.URL, "ssh://git@github.com/numaproj-labs/numaplane.git") // go git transport.endPoint appends the protocol ssh
 	// In this case only auth method would be nil as it is asssumed that its public repository and doesn't require auth
@@ -245,10 +236,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredEmptySSH(t *testing.T) {
 	}
 	secret := &v1.Secret{}
 	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-
-	repoPath := &v1alpha1.RepositoryPath{RepoUrl: "git@github.com:numaproj-labs/numaplane.git"}
-
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", repoPath)
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "git@github.com:numaproj-labs/numaplane.git")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
@@ -267,10 +255,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptySSH(t *testing.T) {
 	}
 	secret := &v1.Secret{}
 	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-
-	repoPath := &v1alpha1.RepositoryPath{RepoUrl: "git@github.com:numaproj-labs/numaplane.git"}
-
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", repoPath)
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "git@github.com:numaproj-labs/numaplane.git")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
@@ -290,9 +275,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptySSH(t *testing.T) {
 	secret := &v1.Secret{}
 	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
 
-	repoPath := &v1alpha1.RepositoryPath{RepoUrl: "git@github.com:numaproj-labs/numaplane.git"}
-
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", repoPath)
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "git@github.com:numaproj-labs/numaplane.git")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
@@ -314,10 +297,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptyHTTP(t *testing.T) {
 	}
 	secret := &v1.Secret{}
 	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-
-	repoPath := &v1alpha1.RepositoryPath{RepoUrl: "https://github.com/numaproj-labs/numaplane.git"}
-
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", repoPath)
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "https://github.com/numaproj-labs/numaplane.git")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
@@ -340,9 +320,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptyHTTP(t *testing.T) {
 	secret := &v1.Secret{}
 	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
 
-	repoPath := &v1alpha1.RepositoryPath{RepoUrl: "https://github.com/numaproj-labs/numaplane.git"}
-
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", repoPath)
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "https://github.com/numaproj-labs/numaplane.git")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
