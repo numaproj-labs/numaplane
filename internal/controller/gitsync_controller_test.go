@@ -30,7 +30,6 @@ var (
 			Name:      testGitSyncName,
 		},
 		Spec: apiv1.GitSyncSpec{
-			Name:           "my-controller",
 			RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 			Path:           "staging-usw2-k8s",
 			TargetRevision: "main",

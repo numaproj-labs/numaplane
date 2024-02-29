@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -54,9 +53,6 @@ const (
 // GitSyncSpec defines the desired state of GitSync
 type GitSyncSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
-
-	// Name is a unique name
-	Name string `json:"name"`
 
 	// RepoUrl is the URL to the repository itself
 	RepoUrl string `json:"repoUrl"`
@@ -203,7 +199,8 @@ func (gitSyncSpec *GitSyncSpec) ExplicitType() (SourceType, error) {
 		appTypes = append(appTypes, SourceTypeRaw)
 	}
 	if len(appTypes) == 0 {
-		return "", errors.New("failed to get source type, either one should be present from kustomize/helm/raw")
+		// Fallback to a raw source type if a user has not specified anything.
+		return SourceTypeRaw, nil
 	}
 	if len(appTypes) > 1 {
 		typeNames := make([]string, len(appTypes))

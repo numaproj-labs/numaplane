@@ -77,9 +77,6 @@ spec:
               kustomize:
                 description: Kustomize holds kustomize specific options
                 type: object
-              name:
-                description: Name is a unique name
-                type: string
               path:
                 description: Path is the full path from the root of the repository
                   to where the resources are held If the Path is empty, then the root
@@ -98,7 +95,6 @@ spec:
                 type: string
             required:
             - destination
-            - name
             - path
             - repoUrl
             - targetRevision

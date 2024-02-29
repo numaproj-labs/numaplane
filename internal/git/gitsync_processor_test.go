@@ -91,7 +91,6 @@ func Test_cloneRepo(t *testing.T) {
 		{
 			name: "valid repo",
 			specs: v1alpha1.GitSyncSpec{
-				Name:           "numaplane",
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				TargetRevision: "main",
 			},
@@ -317,7 +316,6 @@ func TestCheckForRepoUpdatesBranch(t *testing.T) {
 	absolutePath, err := filepath.Abs(remoteRepo)
 	assert.Nil(t, err)
 	specs := &v1alpha1.GitSyncSpec{
-		Name:           "test",
 		RepoUrl:        fmt.Sprintf("file:///%s", absolutePath),
 		Path:           "config",
 		TargetRevision: "master",
@@ -354,7 +352,6 @@ func TestCheckForRepoUpdatesVersion(t *testing.T) {
 	assert.Nil(t, err)
 
 	specs := &v1alpha1.GitSyncSpec{
-		Name:           "test",
 		RepoUrl:        fmt.Sprintf("file:///%s", absolutePath),
 		Path:           "config",
 		TargetRevision: tag,
@@ -616,8 +613,6 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "main",
-				Name:           "control-manifest",
-				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
 		},
@@ -627,8 +622,6 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "v0.0.1",
-				Name:           "control-manifest",
-				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
 		},
@@ -638,8 +631,6 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "7b68200947f2d2624797e56edf02c6d848bc48d1",
-				Name:           "control-manifest",
-				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
 		},
@@ -649,7 +640,6 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "refs/remotes/origin/pipeline",
-				Name:           "control-manifest",
 				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
@@ -660,7 +650,6 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "pipeline",
-				Name:           "control-manifest",
 				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
@@ -671,7 +660,6 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "",
 				TargetRevision: "pipeline",
-				Name:           "control-manifest",
 				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
@@ -682,7 +670,6 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				Path:           "config/samples",
 				TargetRevision: "unresolvable",
-				Name:           "control-manifest",
 				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: true,
@@ -693,7 +680,6 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				Path:           "invalid_path",
 				TargetRevision: "main",
-				Name:           "control-manifest",
 				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: true,
@@ -704,7 +690,6 @@ func Test_watchRepo(t *testing.T) {
 				RepoUrl:        "https://github.com/numaproj/numaflow.git",
 				Path:           "config/namespace-install",
 				TargetRevision: "main",
-				Name:           "numaflow",
 				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,

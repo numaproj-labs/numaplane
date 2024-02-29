@@ -123,7 +123,7 @@ func cloneRepo(ctx context.Context, path string, specs *v1alpha1.GitSyncSpec) (*
 // checks the latest commit hash against the stored hash in the GitSync object,
 // and applies any changes to the Kubernetes cluster. It also periodically checks for updates based on a ticker.
 func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, specs *v1alpha1.GitSyncSpec, namespace, localRepoPath string) (string, error) {
-	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name, "Specs Name", specs.Name)
+	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name)
 	var lastCommitHash string
 
 	// Fetch all remote branches
@@ -320,7 +320,7 @@ func CheckRepoUpdatesForKustomize(ctx context.Context, r *git.Repository, specs 
 	var patchedResources PatchedResource
 	var recentHash string
 
-	logger := logging.FromContext(ctx).With("Specs Name", specs.Name, "Repository Url", specs.RepoUrl)
+	logger := logging.FromContext(ctx).With("Repository Url", specs.RepoUrl)
 	// Build the kustomize manifest with old changes.
 	oldManifest, err := k.Build(nil)
 	if err != nil {
@@ -379,7 +379,7 @@ func CheckRepoUpdatesForKustomize(ctx context.Context, r *git.Repository, specs 
 func CheckForRepoUpdates(ctx context.Context, r *git.Repository, specs *v1alpha1.GitSyncSpec, lastCommitHash string, defaultNameSpace string) (PatchedResource, string, error) {
 	var patchedResources PatchedResource
 	var recentHash string
-	logger := logging.FromContext(ctx).With("Specs Name", specs.Name, "Repository Url", specs.RepoUrl)
+	logger := logging.FromContext(ctx).With("Repository Url", specs.RepoUrl)
 	if err := fetchUpdates(r); err != nil {
 		logger.Errorw("error checking for updates in the github repo", "err", err)
 		return patchedResources, recentHash, err
