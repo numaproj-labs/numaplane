@@ -64,7 +64,7 @@ func CheckGitURL(gitURL string) bool {
 	return true
 }
 
-// Parser converts a string into a URL.
+// GitUrlParser converts a string into a URL.
 type GitUrlParser func(string) (*url.URL, error)
 
 // Parse parses rawurl into a URL structure. Parse first attempts to
