@@ -65,7 +65,7 @@ func CheckGitURL(gitURL string) bool {
 }
 
 // Parser converts a string into a URL.
-type Parser func(string) (*url.URL, error)
+type GitUrlParser func(string) (*url.URL, error)
 
 // Parse parses rawurl into a URL structure. Parse first attempts to
 // find a standard URL with a valid Git transport as its scheme. If
@@ -73,7 +73,7 @@ type Parser func(string) (*url.URL, error)
 // if that cannot be found, it assumes rawurl is a local path. If none
 // of these rules apply, Parse returns an error.
 func Parse(rawurl string) (u *url.URL, err error) {
-	parsers := []Parser{
+	parsers := []GitUrlParser{
 		ParseTransport,
 		ParseScp,
 		ParseLocal,

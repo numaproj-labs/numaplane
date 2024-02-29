@@ -13,7 +13,7 @@ import (
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
-	"github.com/numaproj-labs/numaplane/internal/shared/k8"
+	"github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
 )
 
 func TestCheckGitURL(t *testing.T) {
@@ -104,7 +104,7 @@ func TestIsValidName(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ok := k8.IsValidKubernetesNamespace(tc.resourceName)
+			ok := kubernetes.IsValidKubernetesNamespace(tc.resourceName)
 			assert.Equal(t, tc.expected, ok)
 		})
 	}

@@ -45,7 +45,7 @@ import (
 )
 
 const (
-	fileNameToBeWatched = "k8.yaml"
+	fileNameToBeWatched = "kubernetes.yaml"
 	path                = "config"
 	remoteRepo          = "temp/remote"
 	localRepo           = "temp/local"
@@ -328,7 +328,7 @@ func getCommitHashAndRepo() (*git.Repository, string, error) {
 	}
 
 	directory := filepath.Join(localRepo, "config")
-	filename := filepath.Join(directory, "k8.yaml")
+	filename := filepath.Join(directory, "kubernetes.yaml")
 
 	err = os.MkdirAll(directory, 0755)
 	if err != nil {
@@ -343,7 +343,7 @@ func getCommitHashAndRepo() (*git.Repository, string, error) {
 	}
 
 	// Add the file and commit
-	_, err = w.Add("config/k8.yaml")
+	_, err = w.Add("config/kubernetes.yaml")
 	if err != nil {
 		log.Println("error adding file", err)
 

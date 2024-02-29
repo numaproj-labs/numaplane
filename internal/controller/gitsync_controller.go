@@ -33,7 +33,7 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	gitshared "github.com/numaproj-labs/numaplane/internal/shared/git"
-	"github.com/numaproj-labs/numaplane/internal/shared/k8"
+	kubernetesshared "github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
 
@@ -296,7 +296,7 @@ func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 	if len(destination.Cluster) == 0 {
 		return fmt.Errorf("cluster name cannot be empty")
 	}
-	if !k8.IsValidKubernetesNamespace(destination.Namespace) {
+	if !kubernetesshared.IsValidKubernetesNamespace(destination.Namespace) {
 		return fmt.Errorf("namespace is not a valid string for cluster %s", destination.Cluster)
 	}
 

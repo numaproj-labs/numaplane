@@ -1,4 +1,4 @@
-package k8
+package kubernetes
 
 import (
 	"regexp"
