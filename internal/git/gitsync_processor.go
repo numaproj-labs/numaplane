@@ -201,13 +201,13 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 					patchedResources PatchedResource
 				)
 				switch sourceType {
-				case v1alpha1.ApplicationSourceTypeHelm:
-				case v1alpha1.ApplicationSourceTypeKustomize:
+				case v1alpha1.SourceTypeHelm:
+				case v1alpha1.SourceTypeKustomize:
 					patchedResources, recentHash, err = CheckRepoUpdatesForKustomize(ctx, r, specs, lastCommitHash, namespace, k)
 					if err != nil {
 						return hash.String(), err
 					}
-				case v1alpha1.ApplicationSourceTypeRaw:
+				case v1alpha1.SourceTypeRaw:
 					patchedResources, recentHash, err = CheckForRepoUpdates(ctx, r, specs, lastCommitHash, namespace)
 					if err != nil {
 						return hash.String(), err
@@ -237,10 +237,11 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 	return hash.String(), nil
 }
 
-func runInitialSetup(r *git.Repository, sourceType v1alpha1.ApplicationSourceType, kubeClient kubernetes.Client, specs *v1alpha1.GitSyncSpec, k kustomize.Kustomize, namespace string, hash *plumbing.Hash) error {
+// runInitialSetup will do the initial configuration of defined repository.
+func runInitialSetup(r *git.Repository, sourceType v1alpha1.SourceType, kubeClient kubernetes.Client, specs *v1alpha1.GitSyncSpec, k kustomize.Kustomize, namespace string, hash *plumbing.Hash) error {
 	switch sourceType {
-	case v1alpha1.ApplicationSourceTypeHelm:
-	case v1alpha1.ApplicationSourceTypeKustomize:
+	case v1alpha1.SourceTypeHelm:
+	case v1alpha1.SourceTypeKustomize:
 		manifests, err := k.Build(nil)
 		if err != nil {
 			return fmt.Errorf("cannot build kustomize yaml, err: %v", err)
@@ -252,7 +253,7 @@ func runInitialSetup(r *git.Repository, sourceType v1alpha1.ApplicationSourceTyp
 				return err
 			}
 		}
-	case v1alpha1.ApplicationSourceTypeRaw:
+	case v1alpha1.SourceTypeRaw:
 		// Retrieving the commit object matching the hash.
 		tree, err := getCommitTreeAtPath(r, specs.Path, *hash)
 		if err != nil {

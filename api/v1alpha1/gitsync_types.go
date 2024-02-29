@@ -34,7 +34,7 @@ type ConditionType string
 
 // +kubebuilder:validation:Enum=Helm;Kustomize;Raw
 // ApplicationSourceType specifies the type of the application source
-type ApplicationSourceType string
+type SourceType string
 
 const (
 	GitSyncPhasePending GitSyncPhase = "Pending"
@@ -46,9 +46,9 @@ const (
 	// has valid configuration.
 	GitSyncConditionConfigured ConditionType = "Configured"
 
-	ApplicationSourceTypeHelm      ApplicationSourceType = "Helm"
-	ApplicationSourceTypeKustomize ApplicationSourceType = "Kustomize"
-	ApplicationSourceTypeRaw       ApplicationSourceType = "Raw"
+	SourceTypeHelm      SourceType = "Helm"
+	SourceTypeKustomize SourceType = "Kustomize"
+	SourceTypeRaw       SourceType = "Raw"
 )
 
 // GitSyncSpec defines the desired state of GitSync
@@ -74,7 +74,7 @@ type GitSyncSpec struct {
 	// Kustomize holds kustomize specific options
 	Kustomize *KustomizeSource `json:"kustomize,omitempty"`
 
-	//// Helm holds helm specific options
+	// Helm holds helm specific options
 	Helm *HelmSource `json:"helm,omitempty"`
 
 	// Raw holds path or directory-specific options
@@ -191,26 +191,26 @@ func (gitSyncSpec *GitSyncSpec) GetDestinationNamespace(cluster string) string {
 }
 
 // ExplicitType returns the type (e.g., Helm, Kustomize, etc.) of the application. If either none or multiple types are defined, returns an error.
-func (gitSyncSpec *GitSyncSpec) ExplicitType() (ApplicationSourceType, error) {
-	var appTypes []ApplicationSourceType
+func (gitSyncSpec *GitSyncSpec) ExplicitType() (SourceType, error) {
+	var appTypes []SourceType
 	if gitSyncSpec.Kustomize != nil {
-		appTypes = append(appTypes, ApplicationSourceTypeKustomize)
+		appTypes = append(appTypes, SourceTypeKustomize)
 	}
 	if gitSyncSpec.Helm != nil {
-		appTypes = append(appTypes, ApplicationSourceTypeHelm)
+		appTypes = append(appTypes, SourceTypeHelm)
 	}
 	if gitSyncSpec.Raw != nil {
-		appTypes = append(appTypes, ApplicationSourceTypeRaw)
+		appTypes = append(appTypes, SourceTypeRaw)
 	}
 	if len(appTypes) == 0 {
-		return "", errors.New("failed to get application source type, either one should be present from kustomize/helm/raw")
+		return "", errors.New("failed to get source type, either one should be present from kustomize/helm/raw")
 	}
 	if len(appTypes) > 1 {
 		typeNames := make([]string, len(appTypes))
 		for i := range appTypes {
 			typeNames[i] = string(appTypes[i])
 		}
-		return "", fmt.Errorf("multiple application sources defined: %s", strings.Join(typeNames, ","))
+		return "", fmt.Errorf("multiple sources defined: %s", strings.Join(typeNames, ","))
 	}
 	appType := appTypes[0]
 	return appType, nil
@@ -233,7 +233,7 @@ func (status *GitSyncStatus) InitializeConditions(conditionTypes ...ConditionTyp
 	}
 }
 
-// setCondition sets a Condition, and sorts the list of Conditions
+// setCondition sets a Condition and sorts the list of Conditions
 func (status *GitSyncStatus) setCondition(condition metav1.Condition) {
 	var conditions []metav1.Condition
 	// copy the list of Conditions, and if we find one of this type, replace it and return

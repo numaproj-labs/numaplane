@@ -50,7 +50,7 @@ spec:
                 - cluster
                 type: object
               helm:
-                description: // Helm holds helm specific options
+                description: Helm holds helm specific options
                 properties:
                   parameters:
                     description: Parameters is a list of Helm parameters which are

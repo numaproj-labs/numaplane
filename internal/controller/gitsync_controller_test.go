@@ -82,7 +82,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 
 }
 
-// Test the changing of destinations in the GitSync
+// Test the changing of destinations in the
 // GitSync should be added to our GitSyncProcessor map if our cluster matches one of the clusters, but removed if it's not
 func Test_GitSyncDestinationChanges(t *testing.T) {
 	t.Run("GitSync destination test", func(t *testing.T) {
