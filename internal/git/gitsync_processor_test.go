@@ -85,13 +85,12 @@ func init() {
 func Test_cloneRepo(t *testing.T) {
 	testCases := []struct {
 		name   string
-		repo   v1alpha1.RepositoryPath
+		specs  v1alpha1.GitSyncSpec
 		hasErr bool
 	}{
 		{
 			name: "valid repo",
-			repo: v1alpha1.RepositoryPath{
-				Name:           "numaplane",
+			specs: v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				TargetRevision: "main",
 			},
@@ -103,7 +102,7 @@ func Test_cloneRepo(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			localRepoPath := getLocalRepoPath("gitsync-test-example")
-			r, err := cloneRepo(context.Background(), localRepoPath, &tc.repo)
+			r, err := cloneRepo(context.Background(), localRepoPath, &tc.specs)
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
@@ -316,14 +315,13 @@ func TestCheckForRepoUpdatesBranch(t *testing.T) {
 	assert.Nil(t, err)
 	absolutePath, err := filepath.Abs(remoteRepo)
 	assert.Nil(t, err)
-	path := &v1alpha1.RepositoryPath{
-		Name:           "test",
+	specs := &v1alpha1.GitSyncSpec{
 		RepoUrl:        fmt.Sprintf("file:///%s", absolutePath),
 		Path:           "config",
 		TargetRevision: "master",
 	}
 
-	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, path, lastCommitHash, defaultNameSpace)
+	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, specs, lastCommitHash, defaultNameSpace)
 	assert.Nil(t, err)
 	assert.Equal(t, hash.String(), recentHash)
 	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After[fmt.Sprintf("%s/my-nginx-svc", defaultNameSpace)], patchedContent.After[fmt.Sprintf("%s/my-nginx", defaultNameSpace)]))
@@ -353,13 +351,12 @@ func TestCheckForRepoUpdatesVersion(t *testing.T) {
 
 	assert.Nil(t, err)
 
-	path := &v1alpha1.RepositoryPath{
-		Name:           "test",
+	specs := &v1alpha1.GitSyncSpec{
 		RepoUrl:        fmt.Sprintf("file:///%s", absolutePath),
 		Path:           "config",
 		TargetRevision: tag,
 	}
-	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, path, lastCommitHash, defaultNameSpace)
+	patchedContent, recentHash, err := CheckForRepoUpdates(context.Background(), r, specs, lastCommitHash, defaultNameSpace)
 	assert.Nil(t, err)
 	assert.Equal(t, hash.String(), recentHash)
 	assert.Equal(t, kubernetesYamlString, fmt.Sprintf("%s---%s", patchedContent.After[fmt.Sprintf("%s/my-nginx-svc", defaultNameSpace)], patchedContent.After[fmt.Sprintf("%s/my-nginx", defaultNameSpace)]))
@@ -592,16 +589,14 @@ func getNamespacedName() types.NamespacedName {
 	}
 }
 
-func newGitSync(repo v1alpha1.RepositoryPath) *v1alpha1.GitSync {
+func newGitSync(specs v1alpha1.GitSyncSpec) *v1alpha1.GitSync {
 	return &v1alpha1.GitSync{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testGitSyncName,
 		},
-		Spec: v1alpha1.GitSyncSpec{
-			RepositoryPath: repo,
-		},
+		Spec:   specs,
 		Status: v1alpha1.GitSyncStatus{},
 	}
 }
@@ -614,91 +609,88 @@ func Test_watchRepo(t *testing.T) {
 	}{
 		{
 			name: "`main` as a TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "main",
-				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
 		{
 			name: "tag name as a TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "v0.0.1",
-				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
 		{
 			name: "commit hash as a TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "7b68200947f2d2624797e56edf02c6d848bc48d1",
-				Name:           "control-manifest",
 			}),
 			hasErr: false,
 		},
 		{
 			name: "remote branch name as a TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "refs/remotes/origin/pipeline",
-				Name:           "control-manifest",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
 		},
 		{
 			name: "local branch name as a TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "staging-usw2-k8s",
 				TargetRevision: "pipeline",
-				Name:           "control-manifest",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
 		},
 		{
 			name: "root path",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				Path:           "",
 				TargetRevision: "pipeline",
-				Name:           "control-manifest",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
 		},
 		{
 			name: "unresolvable TargetRevision",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				Path:           "config/samples",
 				TargetRevision: "unresolvable",
-				Name:           "control-manifest",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: true,
 		},
 		{
 			name: "invalid path",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
 				Path:           "invalid_path",
 				TargetRevision: "main",
-				Name:           "control-manifest",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: true,
 		},
 		{
 			name: "Apply manifest from kustomize enabled repo",
-			gitSync: newGitSync(v1alpha1.RepositoryPath{
+			gitSync: newGitSync(v1alpha1.GitSyncSpec{
 				RepoUrl:        "https://github.com/numaproj/numaflow.git",
 				Path:           "config/namespace-install",
 				TargetRevision: "main",
-				Name:           "numaflow",
+				Raw:            &v1alpha1.RawSource{},
 			}),
 			hasErr: false,
 		},
@@ -709,14 +701,13 @@ func Test_watchRepo(t *testing.T) {
 	defer ctrl.Finish()
 
 	for _, tc := range testCases {
-
 		t.Run(tc.name, func(t *testing.T) {
-			repo := &tc.gitSync.Spec.RepositoryPath
+			specs := &tc.gitSync.Spec
 
 			localRepoPath := getLocalRepoPath(tc.gitSync.Name)
 			err := os.RemoveAll(localRepoPath)
 			assert.Nil(t, err)
-			r, cloneErr := cloneRepo(context.Background(), localRepoPath, repo)
+			r, cloneErr := cloneRepo(context.Background(), localRepoPath, specs)
 			assert.Nil(t, cloneErr)
 			client := mocksClient.NewMockClient(ctrl)
 
@@ -729,12 +720,15 @@ func Test_watchRepo(t *testing.T) {
 			client.EXPECT().ApplyResource(gomock.Any(), testNamespace).AnyTimes()
 			client.EXPECT().StatusUpdate(ctx, gomock.Any()).AnyTimes()
 
-			_, watchErr := watchRepo(ctx, r, tc.gitSync, client, repo, testNamespace, localRepoPath)
+			_, watchErr := watchRepo(ctx, r, tc.gitSync, client, specs, testNamespace, localRepoPath)
 			if tc.hasErr {
 				assert.NotNil(t, watchErr)
 			} else {
 				assert.Nil(t, watchErr)
 			}
+			// cleanup test data after running each test
+			err = os.RemoveAll(localRepoPath)
+			assert.Nil(t, err)
 		})
 	}
 }

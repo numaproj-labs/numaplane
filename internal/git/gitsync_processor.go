@@ -95,8 +95,8 @@ func getSecret(ctx context.Context, kubeClient kubernetes.Client, namespace, sec
 	return secret, nil
 }
 
-func cloneRepo(ctx context.Context, path string, repo *v1alpha1.RepositoryPath) (*git.Repository, error) {
-	endpoint, err := transport.NewEndpoint(repo.RepoUrl)
+func cloneRepo(ctx context.Context, path string, specs *v1alpha1.GitSyncSpec) (*git.Repository, error) {
+	endpoint, err := transport.NewEndpoint(specs.RepoUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func cloneRepo(ctx context.Context, path string, repo *v1alpha1.RepositoryPath) 
 		URL: endpoint.String(),
 	})
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		// If repository is already present in local, then pull the latest changes and update it.
+		// If the repository is already present in local, then pull the latest changes and update it.
 		existingRepo, openErr := git.PlainOpen(path)
 		if openErr != nil {
 			return r, fmt.Errorf("failed to open existing repo, err: %v", openErr)
@@ -122,8 +122,8 @@ func cloneRepo(ctx context.Context, path string, repo *v1alpha1.RepositoryPath) 
 // watchRepo monitors a Git repository for changes. It fetches updates from the remote repository,
 // checks the latest commit hash against the stored hash in the GitSync object,
 // and applies any changes to the Kubernetes cluster. It also periodically checks for updates based on a ticker.
-func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, repo *v1alpha1.RepositoryPath, namespace, localRepoPath string) (string, error) {
-	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name, "RepositoryPath Name", repo.Name)
+func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync, kubeClient kubernetes.Client, specs *v1alpha1.GitSyncSpec, namespace, localRepoPath string) (string, error) {
+	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name)
 	var lastCommitHash string
 
 	// Fetch all remote branches
@@ -133,9 +133,9 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 	}
 
 	// The revision can be a branch, a tag, or a commit hash
-	hash, err := getLatestCommitHash(r, repo.TargetRevision)
+	hash, err := getLatestCommitHash(r, specs.TargetRevision)
 	if err != nil {
-		logger.Errorw("error resolving the revision", "revision", repo.TargetRevision, "err", err, "repo", repo.RepoUrl)
+		logger.Errorw("error resolving the revision", "revision", specs.TargetRevision, "err", err, "repo", specs.RepoUrl)
 		return "", err
 	}
 	namespacedName := types.NamespacedName{
@@ -154,49 +154,21 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 		}
 	}
 
+	// kustomizePath will be the path of clone repository + the path where kustomize file is present.
+	kustomizePath := localRepoPath + "/" + specs.Path
+	k := kustomize.NewKustomizeApp(kustomizePath, specs.RepoUrl, os.Getenv("KUSTOMIZE_BINARY_PATH"))
+
+	sourceType, err := specs.ExplicitType()
+	if err != nil {
+		return hash.String(), err
+	}
+
 	// Only create the resources for the first time if not created yet.
 	// Otherwise, monitoring with intervals.
-
-	// kustomizePath will be the path of clone repository + the path where kustomize file is present.
-	kustomizePath := localRepoPath + "/" + repo.Path
-	k := kustomize.NewKustomizeApp(kustomizePath, repo.RepoUrl, os.Getenv("KUSTOMIZE_BINARY_PATH"))
-
 	if gitSync.Status.CommitStatus == nil || gitSync.Status.CommitStatus.Hash == "" {
-		if kustomize.IsKustomizationRepository(kustomizePath) {
-			manifests, err := k.Build(nil)
-			if err != nil {
-				logger.Errorw("cannot build kustomize yaml", "err", err)
-				return hash.String(), err
-			}
-
-			for _, manifest := range manifests {
-				err = kubeClient.ApplyResource([]byte(manifest), namespace)
-				if err != nil {
-					return hash.String(), err
-				}
-			}
-		} else {
-			// Retrieving the commit object matching the hash.
-			tree, err := getCommitTreeAtPath(r, repo.Path, *hash)
-			if err != nil {
-				return hash.String(), err
-			}
-			// Read all the files under the path and apply each one respectively.
-			err = tree.Files().ForEach(func(f *object.File) error {
-				logger.Debugw("read file", "file_name", f.Name)
-				// TODO: this currently assumes that one file contains just one manifest - modify for multiple
-				manifest, err := f.Contents()
-				if err != nil {
-					logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
-					return err
-				}
-
-				// Apply manifest in cluster
-				return kubeClient.ApplyResource([]byte(manifest), namespace)
-			})
-			if err != nil {
-				return hash.String(), err
-			}
+		err = runInitialSetup(r, sourceType, kubeClient, specs, k, namespace, hash)
+		if err != nil {
+			return hash.String(), err
 		}
 
 		err = updateCommitStatus(ctx, kubeClient, logger, namespacedName, hash.String(), nil)
@@ -209,7 +181,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 		lastCommitHash = gitSync.Status.CommitStatus.Hash
 	}
 	// no monitoring if targetRevision is a specific commit hash
-	if isCommitSHA(repo.TargetRevision) {
+	if isCommitSHA(specs.TargetRevision) {
 		if lastCommitHash != hash.String() {
 			logger.Errorw(
 				"synced commit hash doesn't match desired one",
@@ -228,14 +200,15 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 					recentHash       string
 					patchedResources PatchedResource
 				)
-				// TODO: Add switch case based on type(Kustomize/Helm/Yaml) of repo, Once type field is available in GitSync CR.
-				if kustomize.IsKustomizationRepository(kustomizePath) {
-					patchedResources, recentHash, err = CheckRepoUpdatesForKustomize(ctx, r, repo, lastCommitHash, namespace, k)
+				switch sourceType {
+				case v1alpha1.SourceTypeHelm:
+				case v1alpha1.SourceTypeKustomize:
+					patchedResources, recentHash, err = CheckRepoUpdatesForKustomize(ctx, r, specs, lastCommitHash, namespace, k)
 					if err != nil {
 						return hash.String(), err
 					}
-				} else {
-					patchedResources, recentHash, err = CheckForRepoUpdates(ctx, r, repo, lastCommitHash, namespace)
+				case v1alpha1.SourceTypeRaw:
+					patchedResources, recentHash, err = CheckForRepoUpdates(ctx, r, specs, lastCommitHash, namespace)
 					if err != nil {
 						return hash.String(), err
 					}
@@ -262,6 +235,47 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 	}
 
 	return hash.String(), nil
+}
+
+// runInitialSetup will do the initial configuration of defined repository.
+func runInitialSetup(r *git.Repository, sourceType v1alpha1.SourceType, kubeClient kubernetes.Client, specs *v1alpha1.GitSyncSpec, k kustomize.Kustomize, namespace string, hash *plumbing.Hash) error {
+	switch sourceType {
+	case v1alpha1.SourceTypeHelm:
+	case v1alpha1.SourceTypeKustomize:
+		manifests, err := k.Build(nil)
+		if err != nil {
+			return fmt.Errorf("cannot build kustomize yaml, err: %v", err)
+		}
+
+		for _, manifest := range manifests {
+			err = kubeClient.ApplyResource([]byte(manifest), namespace)
+			if err != nil {
+				return err
+			}
+		}
+	case v1alpha1.SourceTypeRaw:
+		// Retrieving the commit object matching the hash.
+		tree, err := getCommitTreeAtPath(r, specs.Path, *hash)
+		if err != nil {
+			return err
+		}
+		// Read all the files under the path and apply each one respectively.
+		err = tree.Files().ForEach(func(f *object.File) error {
+			// TODO: this currently assumes that one file contains just one manifest - modify for multiple
+			manifest, err := f.Contents()
+			if err != nil {
+				return fmt.Errorf("cannot get file content for filename %s, err: %v", f.Name, err)
+			}
+
+			// Apply manifest in cluster
+			return kubeClient.ApplyResource([]byte(manifest), namespace)
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ApplyPatchToResources applies changes to Kubernetes resources based on the provided PatchedResource.
@@ -302,11 +316,11 @@ func ApplyPatchToResources(patchedResources PatchedResource, kubeClient kubernet
 }
 
 // CheckRepoUpdatesForKustomize will calculate for any update required based on commit history.
-func CheckRepoUpdatesForKustomize(ctx context.Context, r *git.Repository, repo *v1alpha1.RepositoryPath, lastCommitHash, defaultNameSpace string, k kustomize.Kustomize) (PatchedResource, string, error) {
+func CheckRepoUpdatesForKustomize(ctx context.Context, r *git.Repository, specs *v1alpha1.GitSyncSpec, lastCommitHash, defaultNameSpace string, k kustomize.Kustomize) (PatchedResource, string, error) {
 	var patchedResources PatchedResource
 	var recentHash string
 
-	logger := logging.FromContext(ctx).With("RepositoryPath Name", repo.Name, "Repository Url", repo.RepoUrl)
+	logger := logging.FromContext(ctx).With("Repository Url", specs.RepoUrl)
 	// Build the kustomize manifest with old changes.
 	oldManifest, err := k.Build(nil)
 	if err != nil {
@@ -319,7 +333,7 @@ func CheckRepoUpdatesForKustomize(ctx context.Context, r *git.Repository, repo *
 		return patchedResources, recentHash, err
 	}
 
-	remoteRef, err := getLatestCommitHash(r, repo.TargetRevision)
+	remoteRef, err := getLatestCommitHash(r, specs.TargetRevision)
 	if err != nil {
 		logger.Errorw("failed to get latest commits in the github repo", "err", err)
 		return patchedResources, recentHash, err
@@ -359,30 +373,31 @@ func CheckRepoUpdatesForKustomize(ctx context.Context, r *git.Repository, repo *
 	return patchedResources, recentHash, nil
 }
 
-// this check for file changes in the repo by comparing the old commit  hash with new commit hash and returns the recent hash with PatchedResources map
+// this check for file changes in the repo by comparing the old commit hash with new commit hash
+//and returns the recent hash with PatchedResources map
 
-func CheckForRepoUpdates(ctx context.Context, r *git.Repository, repo *v1alpha1.RepositoryPath, lastCommitHash string, defaultNameSpace string) (PatchedResource, string, error) {
+func CheckForRepoUpdates(ctx context.Context, r *git.Repository, specs *v1alpha1.GitSyncSpec, lastCommitHash string, defaultNameSpace string) (PatchedResource, string, error) {
 	var patchedResources PatchedResource
 	var recentHash string
-	logger := logging.FromContext(ctx).With("RepositoryPath Name", repo.Name, "Repository Url", repo.RepoUrl)
+	logger := logging.FromContext(ctx).With("Repository Url", specs.RepoUrl)
 	if err := fetchUpdates(r); err != nil {
 		logger.Errorw("error checking for updates in the github repo", "err", err)
 		return patchedResources, recentHash, err
 	}
-	remoteRef, err := getLatestCommitHash(r, repo.TargetRevision)
+	remoteRef, err := getLatestCommitHash(r, specs.TargetRevision)
 	if err != nil {
 		logger.Errorw("failed to get latest commits in the github repo", "err", err)
 		return patchedResources, recentHash, err
 	}
 	if remoteRef.String() != lastCommitHash {
 		recentHash = remoteRef.String()
-		lastTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, plumbing.NewHash(lastCommitHash))
+		lastTreeForThePath, err := getCommitTreeAtPath(r, specs.Path, plumbing.NewHash(lastCommitHash))
 		if err != nil {
 			logger.Errorw("failed to get last commit", "err", err)
 			return patchedResources, recentHash, err
 		}
 
-		recentTreeForThePath, err := getCommitTreeAtPath(r, repo.Path, *remoteRef)
+		recentTreeForThePath, err := getCommitTreeAtPath(r, specs.Path, *remoteRef)
 
 		if err != nil {
 			logger.Errorw("failed to get recent commit", "err", err)
@@ -591,7 +606,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 	logger := logging.FromContext(ctx)
 
 	namespace := gitSync.Spec.GetDestinationNamespace(clusterName)
-	repo := gitSync.Spec.RepositoryPath
+	specs := gitSync.Spec
 	channel := make(chan Message, messageChanLength)
 	processor := &GitSyncProcessor{
 		gitSync:     *gitSync,
@@ -600,13 +615,13 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 		clusterName: clusterName,
 	}
 	localRepoPath := getLocalRepoPath(gitSync.GetName())
-	go func(repo *v1alpha1.RepositoryPath) {
-		r, err := cloneRepo(ctx, localRepoPath, repo)
+	go func(specs *v1alpha1.GitSyncSpec) {
+		r, err := cloneRepo(ctx, localRepoPath, specs)
 		if err != nil {
 			logger.Errorw("error cloning the repo", "err", err)
 		} else {
 			for ok := true; ok; {
-				hash, err := watchRepo(ctx, r, gitSync, kubeClient, repo, namespace, localRepoPath)
+				hash, err := watchRepo(ctx, r, gitSync, kubeClient, specs, namespace, localRepoPath)
 				// TODO: terminate the goroutine on fatal errors from 'watchRepo'
 				if err != nil {
 					// update error reason in git sync CR if happened.
@@ -617,7 +632,7 @@ func NewGitSyncProcessor(ctx context.Context, gitSync *v1alpha1.GitSync, kubeCli
 				}
 			}
 		}
-	}(&repo)
+	}(&specs)
 
 	return processor, nil
 }

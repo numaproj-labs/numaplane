@@ -1,20 +1,14 @@
 apiVersion: numaplane.numaproj.io/v1alpha1
 kind: GitSync
 metadata:
-  labels:
-    app.kubernetes.io/name: gitsync
-    app.kubernetes.io/instance: gitsync-sample
-    app.kubernetes.io/part-of: numaplane
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: numaplane
-  name: gitsync-sample
+  name: gitsync-example
   namespace: numaplane-system
 spec:
-  repositoryPath:
-    name: control-manifest
-    path: staging-usw2-k8s
-    repoUrl: https://github.com/numaproj-labs/numaplane-control-manifests.git
-    targetRevision: main
+  name: user-repo
+  path: sample-pipeline
+  repoUrl: https://github.com/xdevxy/numaflow-example-pipelines.git
+  targetRevision: main
+  raw: {}
   destination:
     cluster: staging-usw2-k8s
-    namespace: namespace-1
+    namespace: numaflow-pipeline

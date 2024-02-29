@@ -78,7 +78,7 @@ func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {
 	return *config, nil
 }
 
-// LoadConfigFromBuffer is  Specifically for tests
+// LoadConfigFromBuffer is Specifically for tests
 func (cm *ConfigManager) LoadConfigFromBuffer(configString string) error {
 	v := viper.New()
 	buffer := bytes.NewBufferString(configString)
