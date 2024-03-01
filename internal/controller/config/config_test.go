@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -18,40 +17,38 @@ import (
 func TestLoadConfigMatchValues(t *testing.T) {
 	getwd, err := os.Getwd()
 	assert.Nil(t, err, "Failed to get working directory")
-	configPath := filepath.Join(getwd, "../../../", "config", "samples")
+	configPath := filepath.Join(getwd, "../../../", "tests", "config")
 	configManager := GetConfigManagerInstance()
-	err = configManager.LoadConfig(func(err error) {
-	}, configPath)
+	err = configManager.LoadConfig(func(err error) {}, configPath, "testconfig", "yaml")
 	assert.NoError(t, err)
 	config, err := configManager.GetConfig()
 	assert.NoError(t, err)
 
 	assert.Nil(t, err, "Failed to load configuration")
 
-	log.Printf("Loaded Config: %+v", config)
-
-	assert.Equal(t, "example-cluster", config.ClusterName, "ClusterName does not match")
+	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
 	assert.Equal(t, uint(60), config.TimeIntervalSec, "TimeIntervalSec does not match")
 
 	assert.NotNil(t, config.RepoCredentials, "RepoCredentials should not be nil")
 
-	assert.NotNil(t, config.RepoCredentials["key1"].HTTPCredential, "HTTPCredential is missing")
-	assert.Equal(t, "exampleUser", config.RepoCredentials["key1"].HTTPCredential.Username, "Username for HTTPCredential does not match")
-	assert.Equal(t, "http-creds", config.RepoCredentials["key1"].HTTPCredential.Password.Name, "Password Name for HTTPCredential does not match")
-	assert.Equal(t, "password", config.RepoCredentials["key1"].HTTPCredential.Password.Key, "Password Key for HTTPCredential does not match")
+	assert.NotNil(t, config.RepoCredentials[0].HTTPCredential, "HTTPCredential for numaproj-labs is missing")
+	assert.Equal(t, "exampleUser", config.RepoCredentials[0].HTTPCredential.Username, "Username for HTTPCredential of numaproj-labs does not match")
+	assert.Equal(t, "http-creds", config.RepoCredentials[0].HTTPCredential.Password.Name, "Password Name for HTTPCredential of numaproj-labs does not match")
+	assert.Equal(t, "password", config.RepoCredentials[0].HTTPCredential.Password.Key, "Password Key for HTTPCredential of numaproj-labs does not match")
 
-	assert.NotNil(t, config.RepoCredentials["key2"].SSHCredential, "SSHCredential is missing")
-	assert.Equal(t, "ssh-creds", config.RepoCredentials["key2"].SSHCredential.SSHKey.LocalObjectReference.Name, "SSHKey Name for SSHCredential does not match")
-	assert.Equal(t, "sshKey", config.RepoCredentials["key2"].SSHCredential.SSHKey.Key, "SSHKey Key for SSHCredential does not match")
+	assert.NotNil(t, config.RepoCredentials[0].TLS, "TLS for numaproj-labs is missing")
+	assert.NotNil(t, config.RepoCredentials[1].SSHCredential, "SSHCredential for numaproj is missing")
+	assert.Equal(t, "ssh-creds", config.RepoCredentials[1].SSHCredential.SSHKey.Name, "SSHKey Name for SSHCredential of numaproj does not match")
+	assert.Equal(t, "sshKey", config.RepoCredentials[1].SSHCredential.SSHKey.Key, "SSHKey Key for SSHCredential of numaproj does not match")
 
-	assert.NotNil(t, config.RepoCredentials["key3"].TLS, "TLS is missing")
-	assert.False(t, config.RepoCredentials["key3"].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS does not match")
-	assert.Equal(t, "ca-cert-secret", config.RepoCredentials["key3"].TLS.CACertSecret.Name, "CACertSecret Name for TLS does not match")
-	assert.Equal(t, "ca.crt", config.RepoCredentials["key3"].TLS.CACertSecret.Key, "CACertSecret Key for TLS does not match")
-	assert.Equal(t, "cert-secret", config.RepoCredentials["key3"].TLS.CertSecret.Name, "CertSecret Name for TLS does not match")
-	assert.Equal(t, "tls.crt", config.RepoCredentials["key3"].TLS.CertSecret.Key, "CertSecret Key for TLS does not match")
-	assert.Equal(t, "key-secret", config.RepoCredentials["key3"].TLS.KeySecret.Name, "KeySecret Name for TLS does not match")
-	assert.Equal(t, "tls.key", config.RepoCredentials["key3"].TLS.KeySecret.Key, "KeySecret Key for TLS does not match")
+	assert.True(t, config.RepoCredentials[1].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numaproj does not match")
+
+	assert.NotNil(t, config.RepoCredentials[2].HTTPCredential, "HTTPCredential for numalabs is missing")
+	assert.Equal(t, "exampleuser3", config.RepoCredentials[2].HTTPCredential.Username, "Username for HTTPCredential of numalabs does not match")
+	assert.Equal(t, "http-creds", config.RepoCredentials[2].HTTPCredential.Password.Name, "Password Name for HTTPCredential of numalabs does not match")
+	assert.Equal(t, "password", config.RepoCredentials[2].HTTPCredential.Password.Key, "Password Key for HTTPCredential of numalabs does not match")
+
+	assert.True(t, config.RepoCredentials[2].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numalabs does not match")
 }
 
 // to verify this test run with go test -race ./... it  won't give a race condition as we have used mutex.RwLock
@@ -84,7 +81,7 @@ func TestConfigManager_LoadConfigNoRace(t *testing.T) {
 		errors = append(errors, err)
 	}
 	// concurrent Access of files
-	err = cm.LoadConfig(onError, configDir)
+	err = cm.LoadConfig(onError, configDir, "config", "yaml")
 	assert.NoError(t, err)
 	goroutines := 10
 	wg.Add(goroutines)
@@ -138,15 +135,17 @@ func TestCloneWithSerialization(t *testing.T) {
 	original := &GlobalConfig{
 		ClusterName:     "testCluster",
 		TimeIntervalSec: 60,
-		RepoCredentials: map[string]*GitCredential{
-			"repo1": {
+		RepoCredentials: []RepoCredential{
+			{
+				URL: "repo1",
 				HTTPCredential: &HTTPCredential{
 					Username: "user1",
 					Password: SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "secretName1",
 						},
-						Key: "password",
+						Key:      "password",
+						Optional: nil,
 					},
 				},
 				SSHCredential: &SSHCredential{
@@ -154,17 +153,12 @@ func TestCloneWithSerialization(t *testing.T) {
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "secretNameSSH",
 						},
-						Key: "sshKey",
+						Key:      "sshKey",
+						Optional: nil,
 					},
 				},
 				TLS: &TLS{
 					InsecureSkipVerify: true,
-					CACertSecret: SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "caCertSecretName",
-						},
-						Key: "caCert",
-					},
 				},
 			},
 		},
@@ -192,15 +186,17 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 	return &GlobalConfig{
 		ClusterName:     "testCluster",
 		TimeIntervalSec: 60,
-		RepoCredentials: map[string]*GitCredential{
-			"repo1": {
+		RepoCredentials: []RepoCredential{
+			{
+				URL: "repo1",
 				HTTPCredential: &HTTPCredential{
 					Username: "user1",
 					Password: SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "secretName1",
 						},
-						Key: "password",
+						Key:      "password",
+						Optional: nil,
 					},
 				},
 				SSHCredential: &SSHCredential{
@@ -208,17 +204,12 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "secretNameSSH",
 						},
-						Key: "sshKey",
+						Key:      "sshKey",
+						Optional: nil,
 					},
 				},
 				TLS: &TLS{
 					InsecureSkipVerify: true,
-					CACertSecret: SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "caCertSecretName",
-						},
-						Key: "caCert",
-					},
 				},
 			},
 		},

@@ -1,3 +1,4 @@
+#Example config map
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,3 +8,26 @@ data:
   config.yaml: |
     clusterName: "CLUSTER_NAME_VALUE" # Replace with the cluster name where numaplane will get deployed.
     timeIntervalSec: 60
+    repoCredentials:
+    - url: "github.com/numaproj-labs"
+      httpCredential:
+        username: "exampleUser"
+        password:
+          name: "http-creds"
+          key: "password"
+    - url: "github.com:numaproj"
+      sshCredential:
+        SSHKey:
+          name: "ssh-creds"
+          key: "sshKey"
+      tls:
+        insecureSkipVerify: true
+    - url: "github.com/numalabs"
+      httpCredential:
+        username: "exampleuser3"
+        password:
+          name: "http-creds"
+          key: "password"
+      tls:
+        insecureSkipVerify: true
+

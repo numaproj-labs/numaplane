@@ -32,8 +32,9 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
+	gitshared "github.com/numaproj-labs/numaplane/internal/shared/git"
+	kubernetesshared "github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
-	"github.com/numaproj-labs/numaplane/internal/shared/validations"
 )
 
 // GitSyncReconciler reconciles a GitSync object
@@ -230,11 +231,7 @@ func (r *GitSyncReconciler) addGitSyncProcessor(ctx context.Context, gitSync *ap
 		controllerutil.AddFinalizer(gitSync, finalizerName)
 	}
 
-	getConfig, err := r.ConfigManager.GetConfig()
-	if err != nil {
-		return err
-	}
-	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.Client, r.clusterName, getConfig.RepoCredentials)
+	processor, err := git.NewGitSyncProcessor(ctx, gitSync, r.Client, r.clusterName)
 	if err != nil {
 		logger.Errorw("Error creating GitSyncProcessor", "err", err, "GitSync", gitSync)
 		return err
@@ -284,19 +281,18 @@ func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 	specs := gitSync.Spec
 	destination := gitSync.Spec.Destination
 
-	// Validate the specs
-	if ok := validations.CheckGitURL(specs.RepoUrl); !ok {
+	// Validate the repositoryPath
+	if ok := gitshared.CheckGitURL(specs.RepoUrl); !ok {
 		return fmt.Errorf("invalid remote repository url %s", specs.RepoUrl)
 	}
 	if len(specs.TargetRevision) == 0 {
 		return fmt.Errorf("targetRevision cannot be empty for repository Path %s", specs.RepoUrl)
 	}
-
 	// Validate destination
 	if len(destination.Cluster) == 0 {
 		return fmt.Errorf("cluster name cannot be empty")
 	}
-	if !validations.IsValidKubernetesNamespace(destination.Namespace) {
+	if !kubernetesshared.IsValidKubernetesNamespace(destination.Namespace) {
 		return fmt.Errorf("namespace is not a valid string for cluster %s", destination.Cluster)
 	}
 

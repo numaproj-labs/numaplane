@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -37,13 +36,14 @@ type GlobalConfig struct {
 	ClusterName     string `json:"clusterName"`
 	TimeIntervalSec uint   `json:"timeIntervalSec"`
 	// RepoCredentials maps each Git Repository Path prefix to the corresponding credentials that are needed for it
-	RepoCredentials map[string]*GitCredential `json:"repoCredentials"`
+	RepoCredentials []RepoCredential `json:"repoCredentials"`
 }
 
-type GitCredential struct {
-	HTTPCredential *HTTPCredential `json:"HTTPCredential"`
-	SSHCredential  *SSHCredential  `json:"SSHCredential"`
-	TLS            *TLS            `json:"TLS"`
+type RepoCredential struct {
+	URL            string          `json:"url"`
+	HTTPCredential *HTTPCredential `json:"httpCredential"`
+	SSHCredential  *SSHCredential  `json:"sshCredential"`
+	TLS            *TLS            `json:"tls"`
 }
 
 type HTTPCredential struct {
@@ -56,10 +56,7 @@ type SSHCredential struct {
 }
 
 type TLS struct {
-	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
-	CACertSecret       SecretKeySelector `json:"CACertSecret"`
-	CertSecret         SecretKeySelector `json:"certSecret"`
-	KeySecret          SecretKeySelector `json:"keySecret"`
+	InsecureSkipVerify bool `json:"insecureSkipVerify"`
 }
 
 type SecretKeySelector struct {
@@ -78,23 +75,10 @@ func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {
 	return *config, nil
 }
 
-// LoadConfigFromBuffer is Specifically for tests
-func (cm *ConfigManager) LoadConfigFromBuffer(configString string) error {
+func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, configFileName, configFileType string) error {
 	v := viper.New()
-	buffer := bytes.NewBufferString(configString)
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(buffer)
-	if err != nil {
-		return err
-	}
-	err = v.Unmarshal(cm.config)
-	return err
-}
-
-func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath string) error {
-	v := viper.New()
-	v.SetConfigName("config")
-	v.SetConfigType("yaml")
+	v.SetConfigName(configFileName)
+	v.SetConfigType(configFileType)
 	v.AddConfigPath(configPath)
 	err := v.ReadInConfig()
 	if err != nil {

@@ -1,0 +1,26 @@
+clusterName: "staging-usw2-k8s"
+timeIntervalSec: 60
+repoCredentials:
+  - url: "github.com/numaproj-labs"
+    httpCredential:
+      username: "exampleUser"
+      password:
+        name: "http-creds"
+        key: "password"
+    tls:
+      insecureSkipVerify: true
+  - url: "github.com:numaproj"
+    sshCredential:
+      SSHKey:
+        name: "ssh-creds"
+        key: "sshKey"
+    tls:
+      insecureSkipVerify: true
+  - url: "github.com/numalabs"
+    httpCredential:
+      username: "exampleuser3"
+      password:
+        name: "http-creds"
+        key: "password"
+    tls:
+      insecureSkipVerify: true
