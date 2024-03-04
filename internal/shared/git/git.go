@@ -5,15 +5,83 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-git/go-git/v5/config"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// GetAuthMethod returns an authMethod  for both cloning and fetching from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
+func GetAuthMethod(ctx context.Context, repoCred *controllerConfig.RepoCredential, kubeClient k8sClient.Client, namespace, repoUrl string) (transport.AuthMethod, bool, error) {
+	scheme, err := GetURLScheme(repoUrl)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to parse URL scheme: %w", err)
+	}
+
+	var auth transport.AuthMethod
+	var insecureSkipTLS bool
+	if repoCred != nil {
+		// Configure TLS if applicable
+		if repoCred.TLS != nil {
+			insecureSkipTLS = repoCred.TLS.InsecureSkipVerify
+		}
+
+		switch scheme {
+		case "http", "https":
+			if cred := repoCred.HTTPCredential; cred != nil {
+				if cred.Username == "" || cred.Password.Name == "" || cred.Password.Key == "" {
+					return nil, false, fmt.Errorf("incomplete HTTP credentials")
+				}
+				secret, err := kubernetes.GetSecret(ctx, kubeClient, namespace, cred.Password.Name)
+				if err != nil {
+					return nil, false, fmt.Errorf("failed to get HTTP credentials secret: %w", err)
+				}
+				password, ok := secret.Data[cred.Password.Key]
+				if !ok {
+					return nil, false, fmt.Errorf("password key %s not found in secret %s", cred.Password.Key, cred.Password.Name)
+				}
+				auth = &gitHttp.BasicAuth{
+					Username: cred.Username,
+					Password: string(password),
+				}
+			}
+
+		case "ssh":
+			if cred := repoCred.SSHCredential; cred != nil {
+				if cred.SSHKey.Name == "" || cred.SSHKey.Key == "" {
+					return nil, false, fmt.Errorf("incomplete SSH credentials")
+				}
+				secret, err := kubernetes.GetSecret(ctx, kubeClient, namespace, cred.SSHKey.Name)
+				if err != nil {
+					return nil, false, fmt.Errorf("failed to get SSH key secret: %w", err)
+				}
+				sshKey, ok := secret.Data[cred.SSHKey.Key]
+				if !ok {
+					return nil, false, fmt.Errorf("SSH key %s not found in secret %s", cred.SSHKey.Key, cred.SSHKey.Name)
+				}
+				parsedUrl, err := Parse(repoUrl)
+				if err != nil {
+					return nil, false, err
+				}
+				auth, err = ssh.NewPublicKeys(parsedUrl.User.Username(), sshKey, "")
+				if err != nil {
+					return nil, false, fmt.Errorf("failed to create SSH public keys: %w", err)
+				}
+			}
+		default:
+			return nil, false, fmt.Errorf("unsupported URL scheme: %s", scheme)
+		}
+	}
+
+	return auth, insecureSkipTLS, nil
+}
 
 // GetRepoCloneOptions creates git.CloneOptions for cloning a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
 func GetRepoCloneOptions(ctx context.Context, repoCred *controllerConfig.RepoCredential, kubeClient k8sClient.Client, namespace string, repoUrl string) (*git.CloneOptions, error) {
@@ -21,75 +89,37 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *controllerConfig.RepoCre
 	if err != nil {
 		return nil, fmt.Errorf("invalid repository URL: %w", err)
 	}
-	scheme, err := GetURLScheme(repoUrl)
+	method, skipTls, err := GetAuthMethod(ctx, repoCred, kubeClient, namespace, repoUrl)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse URL scheme: %w", err)
+		return nil, err
 	}
 
 	cloneOptions := &git.CloneOptions{
-		URL: endpoint.String(),
+		URL:             endpoint.String(),
+		Auth:            method,
+		InsecureSkipTLS: skipTls,
 	}
-
-	// Assuming the CRD git url is public url
-	if repoCred == nil {
-		return cloneOptions, nil
-	}
-
-	// Configure TLS if applicable
-	if repoCred.TLS != nil {
-		cloneOptions.InsecureSkipTLS = repoCred.TLS.InsecureSkipVerify
-	}
-
-	switch scheme {
-	case "http", "https":
-		if cred := repoCred.HTTPCredential; cred != nil {
-			if cred.Username == "" || cred.Password.Name == "" || cred.Password.Key == "" {
-				return nil, fmt.Errorf("incomplete HTTP credentials")
-			}
-			secret, err := kubernetes.GetSecret(ctx, kubeClient, namespace, cred.Password.Name)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get HTTP credentials secret: %w", err)
-			}
-			password, ok := secret.Data[cred.Password.Key]
-			if !ok {
-				return nil, fmt.Errorf("password key %s not found in secret %s", cred.Password.Key, cred.Password.Name)
-			}
-			cloneOptions.Auth = &gitHttp.BasicAuth{
-				Username: cred.Username,
-				Password: string(password),
-			}
-		}
-
-	case "ssh":
-		if cred := repoCred.SSHCredential; cred != nil {
-			if cred.SSHKey.Name == "" || cred.SSHKey.Key == "" {
-				return nil, fmt.Errorf("incomplete SSH credentials")
-			}
-			secret, err := kubernetes.GetSecret(ctx, kubeClient, namespace, cred.SSHKey.Name)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get SSH key secret: %w", err)
-			}
-			sshKey, ok := secret.Data[cred.SSHKey.Key]
-			if !ok {
-				return nil, fmt.Errorf("SSH key %s not found in secret %s", cred.SSHKey.Key, cred.SSHKey.Name)
-			}
-			// this is important as for only git urls [git@github] git will be the username for others we need to identify
-			parsedUrl, err := Parse(repoUrl)
-			if err != nil {
-				return nil, err
-			}
-			authMethod, err := ssh.NewPublicKeys(parsedUrl.User.Username(), sshKey, "")
-			if err != nil {
-				return nil, fmt.Errorf("failed to create SSH public keys: %w", err)
-			}
-			cloneOptions.Auth = authMethod
-		}
-		// TODO : should we support ftp ?
-	default:
-		return nil, fmt.Errorf("unsupported URL scheme: %s", scheme)
-	}
-
 	return cloneOptions, nil
+}
+
+// GetRepoFetchOptions creates git.FetchOptions for fetching updates from  a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
+func GetRepoFetchOptions(ctx context.Context, repoCred *controllerConfig.RepoCredential, kubeClient k8sClient.Client, namespace string, repoUrl string) (*git.FetchOptions, error) {
+	// check to ensure proper repository url is passed
+	_, err := transport.NewEndpoint(repoUrl)
+	if err != nil {
+		return nil, fmt.Errorf("invalid repository URL: %w", err)
+	}
+	method, skipTls, err := GetAuthMethod(ctx, repoCred, kubeClient, namespace, repoUrl)
+	if err != nil {
+		return nil, err
+	}
+	fetchOptions := &git.FetchOptions{
+		Auth:            method,
+		InsecureSkipTLS: skipTls,
+		RefSpecs:        []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
+		Force:           true,
+	}
+	return fetchOptions, nil
 }
 
 // FindCredByUrl searches for GitCredential by the specified URL within the provided GlobalConfig.

@@ -209,7 +209,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err != nil {
 		return fmt.Errorf("failed to clone the repo of key %q, %w", key, err)
 	}
-	manifests, err := git.GetLatestManifests(ctx, repo, gitSync)
+	manifests, err := git.GetLatestManifests(ctx, repo, s.client, gitSync, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
 	}

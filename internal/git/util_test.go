@@ -62,8 +62,8 @@ func Test_cloneRepo(t *testing.T) {
 			cloneOptions := &git.CloneOptions{
 				URL: tc.gitSync.Spec.RepoUrl,
 			}
-			r, err := cloneRepo(context.Background(), tc.gitSync, cloneOptions)
-
+			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, nil, cloneOptions, "testns")
+			assert.NoError(t, cloneErr)
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
@@ -185,14 +185,14 @@ func Test_GetLatestManifests(t *testing.T) {
 			cloneOptions := &git.CloneOptions{
 				URL: tc.gitSync.Spec.RepoUrl,
 			}
-			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, cloneOptions)
+			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, nil, cloneOptions, "testns")
 			assert.Nil(t, cloneErr)
 
 			// To break the continuous check of repo update, added the context timeout.
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 
-			_, err = GetLatestManifests(ctx, r, tc.gitSync)
+			_, err = GetLatestManifests(ctx, r, nil, tc.gitSync, "test-ns")
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
