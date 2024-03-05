@@ -33,8 +33,7 @@ func GetGitSyncInstanceAnnotation(un *unstructured.Unstructured, key string) (st
 	return "", nil
 }
 
-// SetGitSyncInstanceAnnotation the recommended app.kubernetes.io/instance annotation against an unstructured object
-// Uses the legacy labeling if environment variable is set
+// SetGitSyncInstanceAnnotation sets the recommended app.kubernetes.io/instance annotation against an unstructured object
 func SetGitSyncInstanceAnnotation(target *unstructured.Unstructured, key, val string) error {
 	annotations, err := nestedNullableStringMap(target.Object, "metadata", "annotations")
 	if err != nil {

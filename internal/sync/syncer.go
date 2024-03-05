@@ -134,7 +134,7 @@ func (s *Syncer) Start(ctx context.Context) error {
 	}
 
 	// Following for loop keeps calling assign() function to assign watching tasks to the workers.
-	// It makes sure each element in the list will be assigned every N milliseconds.
+	// It makes sure each element in the list will be assigned at most every N milliseconds.
 	for {
 		select {
 		case <-ctx.Done():
@@ -143,7 +143,7 @@ func (s *Syncer) Start(ctx context.Context) error {
 		default:
 			assign()
 		}
-		// Make sure each of the key will be assigned at most every N milliseconds.
+		// Make sure each of the keys will be assigned at most every N milliseconds.
 		time.Sleep(time.Millisecond * time.Duration(func() int {
 			l := s.Length()
 			if l == 0 {
@@ -158,7 +158,7 @@ func (s *Syncer) Start(ctx context.Context) error {
 	}
 }
 
-// Function run() defines each of the worker's job.
+// Function run() defines each worker's job.
 // It waits for keys in the channel, and starts a synchronization job
 func (s *Syncer) run(ctx context.Context, id int, keyCh <-chan string) {
 	log := logging.FromContext(ctx)

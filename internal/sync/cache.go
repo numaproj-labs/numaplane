@@ -70,7 +70,7 @@ type ResourceInfo struct {
 }
 
 // LiveStateCache is a cluster caching that stores resource references and ownership
-// references. It also stored custom metadata for resources managed by GitSyncs. It always
+// references. It also stores custom metadata for resources managed by GitSyncs. It always
 // ensures the cache is up-to-date before returning the resources.
 type LiveStateCache interface {
 	// GetClusterCache returns synced cluster cache
@@ -121,11 +121,13 @@ func NewLiveStateCache(
 
 func (c *liveStateCache) getCluster() clustercache.ClusterCache {
 	c.lock.RLock()
-	if c.cluster != nil {
-		return c.cluster
-	}
+	cluster := c.cluster
 	cacheSettings := c.cacheSettings
 	c.lock.RUnlock()
+
+	if cluster != nil {
+		return cluster
+	}
 
 	c.lock.Lock()
 	defer c.lock.Unlock()

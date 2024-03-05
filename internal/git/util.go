@@ -34,9 +34,10 @@ func CloneRepo(
 	return cloneRepo(ctx, gitSync, cloneOptions)
 }
 
-// GetLatestManifests monitors a Git repository for changes. It fetches updates from the remote repository,
-// checks the latest commit hash against the stored hash in the GitSync object,
-// and applies any changes to the Kubernetes cluster. It also periodically checks for updates based on a ticker.
+// GetLatestManifests gets the latest manifests from the Git repository.
+// TODO: fetches updates from the remote repository, checks the latest
+//
+//	commit hash against the stored hash in the GitSync object.
 func GetLatestManifests(
 	ctx context.Context,
 	r *git.Repository,
