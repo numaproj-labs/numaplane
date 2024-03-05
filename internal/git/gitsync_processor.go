@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
@@ -23,13 +25,15 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
+
+	"sigs.k8s.io/yaml"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	controllerconfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/kustomize"
 	gitshared "github.com/numaproj-labs/numaplane/internal/shared/git"
+	kubernetesshared "github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
 
@@ -210,7 +214,7 @@ func watchRepo(ctx context.Context, r *git.Repository, gitSync *v1alpha1.GitSync
 				// recentHash would be an empty string if there is no update in the  repository
 				if len(recentHash) > 0 {
 					lastCommitHash = recentHash
-					err = ApplyPatchToResources(patchedResources, kubeClient)
+					err = ApplyPatchToResources(patchedResources, kubeClient, gitSync)
 					if err != nil {
 						return recentHash, err
 					}
@@ -255,13 +259,17 @@ func runInitialSetup(r *git.Repository, sourceType v1alpha1.SourceType, kubeClie
 		// Read all the files under the path and apply each one respectively.
 		err = tree.Files().ForEach(func(f *object.File) error {
 			// TODO: this currently assumes that one file contains just one manifest - modify for multiple
-			manifest, err := f.Contents()
-			if err != nil {
-				return fmt.Errorf("cannot get file content for filename %s, err: %v", f.Name, err)
-			}
+			// only allowing valid yaml and json files
+			if kubernetesshared.IsValidKubernetesManifestFile(f.Name) {
+				manifest, err := f.Contents()
+				if err != nil {
+					return fmt.Errorf("cannot get file content for filename %s, err: %v", f.Name, err)
+				}
+				// Apply manifest in cluster
+				return kubeClient.ApplyResource([]byte(manifest), namespace)
 
-			// Apply manifest in cluster
-			return kubeClient.ApplyResource([]byte(manifest), namespace)
+			}
+			return nil
 		})
 		if err != nil {
 			return err
@@ -271,21 +279,59 @@ func runInitialSetup(r *git.Repository, sourceType v1alpha1.SourceType, kubeClie
 	return nil
 }
 
+// ApplyOwnershipReference adds  or updates ownerships to resources for GitSync
+func ApplyOwnershipReference(manifest string, gitSync *v1alpha1.GitSync) ([]byte, error) {
+	decode := scheme.Codecs.UniversalDeserializer().Decode
+	decoded, _, err := decode([]byte(manifest), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	obj, ok := decoded.(metav1.Object)
+	if !ok {
+		return nil, errors.New("decoded manifest is not a metaV1 object")
+	}
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         gitSync.APIVersion,
+		Kind:               gitSync.Kind,
+		Name:               gitSync.Name,
+		UID:                gitSync.UID,
+		Controller:         ptr.To(true),
+		BlockOwnerDeletion: ptr.To(true),
+	}
+	existingRef := obj.GetOwnerReferences()
+	existingRef = append(existingRef, ownerRef)
+	obj.SetOwnerReferences(existingRef)
+	modifiedManifest, err := yaml.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return modifiedManifest, nil
+}
+
 // ApplyPatchToResources applies changes to Kubernetes resources based on the provided PatchedResource.
 // It uses a Kubernetes client to apply changes to each resource and handles creation and deletion of resources as needed.
-func ApplyPatchToResources(patchedResources PatchedResource, kubeClient kubernetes.Client) error {
+func ApplyPatchToResources(patchedResources PatchedResource, kubeClient kubernetes.Client, gitSync *v1alpha1.GitSync) error {
 	for key, afterValue := range patchedResources.After {
 		namespace := strings.Split(key, "/")[0]
 		if beforeValue, ok := patchedResources.Before[key]; ok {
 			if beforeValue != afterValue {
-				err := kubeClient.ApplyResource([]byte(afterValue), namespace)
+				afterValueWithOwnership, err := ApplyOwnershipReference(afterValue, gitSync)
+				if err != nil {
+					return err
+				}
+				err = kubeClient.ApplyResource(afterValueWithOwnership, namespace)
 				if err != nil {
 					return errors.New("failed to apply resource: " + err.Error())
 				}
 			}
 		} else {
 			// Handle newly added resources
-			err := kubeClient.ApplyResource([]byte(afterValue), namespace)
+			afterValueWithOwnership, err := ApplyOwnershipReference(afterValue, gitSync)
+			if err != nil {
+				return err
+			}
+			err = kubeClient.ApplyResource(afterValueWithOwnership, namespace)
 			if err != nil {
 				return errors.New("failed to apply new resource: " + err.Error())
 			}
@@ -409,28 +455,32 @@ func CheckForRepoUpdates(ctx context.Context, r *git.Repository, specs *v1alpha1
 		for _, filePatch := range difference.FilePatches() {
 			from, to := filePatch.Files()
 			if from != nil {
-				initialContent, err := getBlobFileContents(r, from)
-				if err != nil {
-					logger.Errorw("failed to get  initial content", "err", err)
-					return patchedResources, recentHash, err
+				if kubernetesshared.IsValidKubernetesManifestFile(from.Path()) {
+					initialContent, err := getBlobFileContents(r, from)
+					if err != nil {
+						logger.Errorw("failed to get  initial content", "err", err)
+						return patchedResources, recentHash, err
+					}
+					err = populateResourceMap(string(initialContent), beforeMap, defaultNameSpace)
+					if err != nil {
+						logger.Errorw("failed to populate resource map", "err", err)
+						return PatchedResource{}, recentHash, err
+					}
 				}
-				err = populateResourceMap(string(initialContent), beforeMap, defaultNameSpace)
-				if err != nil {
-					logger.Errorw("failed to populate resource map", "err", err)
-					return PatchedResource{}, recentHash, err
-				}
+
 			}
 			if to != nil {
-				finalContent, err := getBlobFileContents(r, to)
-				if err != nil {
-					logger.Errorw("failed to get  final content", "err", err)
-
-					return patchedResources, recentHash, err
-				}
-				err = populateResourceMap(string(finalContent), afterMap, defaultNameSpace)
-				if err != nil {
-					logger.Errorw("failed to populate resource map", "err", err)
-					return PatchedResource{}, recentHash, err
+				if kubernetesshared.IsValidKubernetesManifestFile(to.Path()) {
+					finalContent, err := getBlobFileContents(r, to)
+					if err != nil {
+						logger.Errorw("failed to get  final content", "err", err)
+						return patchedResources, recentHash, err
+					}
+					err = populateResourceMap(string(finalContent), afterMap, defaultNameSpace)
+					if err != nil {
+						logger.Errorw("failed to populate resource map", "err", err)
+						return PatchedResource{}, recentHash, err
+					}
 				}
 			}
 		}
