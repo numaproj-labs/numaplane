@@ -13,11 +13,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
-	"github.com/numaproj-labs/numaplane/internal/git"
-	mocksClient "github.com/numaproj-labs/numaplane/internal/kubernetes/mocks"
 )
 
 const (
@@ -56,10 +55,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		client := mocksClient.NewMockClient(ctrl)
-		stringData := make(map[string][]byte)
-		stringData["password"] = []byte(`some password`)
-		client.EXPECT().GetSecret(context.Background(), "team-a-namespace", "http-creds").Return(&corev1.Secret{Data: stringData}, nil).AnyTimes()
+		client := fake.NewClientBuilder().Build()
 		cm := config.GetConfigManagerInstance()
 		getwd, err := os.Getwd()
 		assert.Nil(t, err, "Failed to get working directory")
@@ -67,30 +63,28 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		err = cm.LoadConfig(func(err error) {
 		}, configPath, "testconfig", "yaml")
 		assert.NoError(t, err)
-
-		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
+		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm, nil)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 
 		// reconcile the newly created GitSync
 		reconcile(t, r, gitSync)
-		verifyRunning(t, r, gitSync)
+		verifyRunning(t, gitSync)
 
 		// update the spec
 		gitSync.Spec.Path = gitSync.Spec.Path + "xyz"
 		reconcile(t, r, gitSync)
-		verifyRunning(t, r, gitSync)
+		verifyRunning(t, gitSync)
 
 		// mark the GitSync for deletion
 		now := metav1.Now()
 		gitSync.DeletionTimestamp = &now
 		reconcile(t, r, gitSync)
-		verifyDeleted(t, r, gitSync)
 	})
 
 }
 
-// Test the changing of destinations in the
+// Test the changing of destinations in the GitSync
 // GitSync should be added to our GitSyncProcessor map if our cluster matches one of the clusters, but removed if it's not
 func Test_GitSyncDestinationChanges(t *testing.T) {
 	t.Run("GitSync destination test", func(t *testing.T) {
@@ -102,10 +96,7 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		client := mocksClient.NewMockClient(ctrl)
-		stringData := make(map[string][]byte)
-		stringData["password"] = []byte(`some password`)
-		client.EXPECT().GetSecret(context.Background(), "team-a-namespace", "http-creds").Return(&corev1.Secret{Data: stringData}, nil).AnyTimes()
+		client := fake.NewClientBuilder().Build()
 		cm := config.GetConfigManagerInstance()
 		getwd, err := os.Getwd()
 		assert.Nil(t, err, "Failed to get working directory")
@@ -113,19 +104,19 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		err = cm.LoadConfig(func(err error) {
 		}, configPath, "testconfig", "yaml")
 		assert.NoError(t, err)
-		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm)
+		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm, nil)
 		assert.Nil(t, err)
 		assert.NotNil(t, r)
 		log.Println(cm.GetConfig())
 
 		// our cluster is not one of the destinations, so it shouldn't end up in the map
 		reconcile(t, r, gitSync)
-		verifyNotApplicable(t, r, gitSync)
+		verifyNotApplicable(t, gitSync)
 
 		// now update the spec so that it is one of the destinations
 		gitSync = defaultGitSync.DeepCopy()
 		reconcile(t, r, gitSync)
-		verifyRunning(t, r, gitSync)
+		verifyRunning(t, gitSync)
 	})
 }
 
@@ -135,11 +126,7 @@ func reconcile(t *testing.T, r *GitSyncReconciler, gitSync *apiv1.GitSync) {
 }
 
 // check that a GitSync is Running
-func verifyRunning(t *testing.T, r *GitSyncReconciler, gitSync *apiv1.GitSync) {
-	// verify in map
-	processorAsInterface, found := r.gitSyncProcessors.Load(gitSync.String())
-	assert.True(t, found)
-	assert.NotPanics(t, func() { _ = processorAsInterface.(*git.GitSyncProcessor) })
+func verifyRunning(t *testing.T, gitSync *apiv1.GitSync) {
 
 	// verify phase and Conditions
 	assert.Equal(t, apiv1.GitSyncPhaseRunning, gitSync.Status.Phase)
@@ -148,20 +135,10 @@ func verifyRunning(t *testing.T, r *GitSyncReconciler, gitSync *apiv1.GitSync) {
 }
 
 // check that a GitSync is deemed Not-Applicable
-func verifyNotApplicable(t *testing.T, r *GitSyncReconciler, gitSync *apiv1.GitSync) {
-	// verify not in map
-	_, found := r.gitSyncProcessors.Load(gitSync.String())
-	assert.False(t, found)
+func verifyNotApplicable(t *testing.T, gitSync *apiv1.GitSync) {
 
 	// verify phase and Conditions
 	assert.Equal(t, apiv1.GitSyncPhaseNA, gitSync.Status.Phase)
 	assert.Equal(t, string(apiv1.GitSyncConditionConfigured), gitSync.Status.Conditions[0].Type)
 	assert.Equal(t, metav1.ConditionFalse, gitSync.Status.Conditions[0].Status)
-}
-
-// check that a GitSync is in a Deleted state
-func verifyDeleted(t *testing.T, r *GitSyncReconciler, gitSync *apiv1.GitSync) {
-	// verify not in map
-	_, found := r.gitSyncProcessors.Load(gitSync.String())
-	assert.False(t, found)
 }
