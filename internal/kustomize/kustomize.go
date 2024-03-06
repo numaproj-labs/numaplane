@@ -22,7 +22,7 @@ import (
 // Kustomize provides wrapper functionality around the `kustomize` command.
 type Kustomize interface {
 	// Build returns a list of unstructured objects from a `kustomize build` command and extract supported parameters
-	Build(kustomizeOptions *KustomizeOptions) ([]string, error)
+	Build(kustomizeOptions *KustomizeOptions) (string, error)
 }
 
 type kustomize struct {
@@ -60,7 +60,7 @@ func (k *kustomize) getBinaryPath() string {
 	return "kustomize"
 }
 
-func (k *kustomize) Build(kustomizeOptions *KustomizeOptions) ([]string, error) {
+func (k *kustomize) Build(kustomizeOptions *KustomizeOptions) (string, error) {
 	var cmd *exec.Cmd
 	if kustomizeOptions != nil && kustomizeOptions.BuildOptions != "" {
 		params := parseKustomizeBuildOptions(k.path, kustomizeOptions.BuildOptions)
@@ -71,15 +71,10 @@ func (k *kustomize) Build(kustomizeOptions *KustomizeOptions) ([]string, error) 
 
 	out, err := numaExec.Run(cmd)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	manifests, err := splitYAMLToString([]byte(out))
-	if err != nil {
-		return nil, err
-	}
-
-	return manifests, nil
+	return out, nil
 }
 
 func parseKustomizeBuildOptions(path, buildOptions string) []string {
