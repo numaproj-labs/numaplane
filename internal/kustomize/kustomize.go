@@ -1,16 +1,10 @@
 package kustomize
 
 import (
-	"bytes"
-	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	numaExec "github.com/numaproj-labs/numaplane/internal/shared/exec"
 )
@@ -22,7 +16,7 @@ import (
 // Kustomize provides wrapper functionality around the `kustomize` command.
 type Kustomize interface {
 	// Build returns a list of unstructured objects from a `kustomize build` command and extract supported parameters
-	Build(kustomizeOptions *KustomizeOptions) ([]string, error)
+	Build(kustomizeOptions *KustomizeOptions) (string, error)
 }
 
 type kustomize struct {
@@ -60,7 +54,7 @@ func (k *kustomize) getBinaryPath() string {
 	return "kustomize"
 }
 
-func (k *kustomize) Build(kustomizeOptions *KustomizeOptions) ([]string, error) {
+func (k *kustomize) Build(kustomizeOptions *KustomizeOptions) (string, error) {
 	var cmd *exec.Cmd
 	if kustomizeOptions != nil && kustomizeOptions.BuildOptions != "" {
 		params := parseKustomizeBuildOptions(k.path, kustomizeOptions.BuildOptions)
@@ -71,15 +65,10 @@ func (k *kustomize) Build(kustomizeOptions *KustomizeOptions) ([]string, error) 
 
 	out, err := numaExec.Run(cmd)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	manifests, err := splitYAMLToString([]byte(out))
-	if err != nil {
-		return nil, err
-	}
-
-	return manifests, nil
+	return out, nil
 }
 
 func parseKustomizeBuildOptions(path, buildOptions string) []string {
@@ -97,26 +86,4 @@ func IsKustomizationRepository(path string) bool {
 	}
 
 	return false
-}
-
-// SplitYAMLToString splits a YAML file into strings. Returns list of yamls
-// found in the yaml. If an error occurs, returns objects that have been parsed so far too.
-func splitYAMLToString(yamlData []byte) ([]string, error) {
-	d := kubeyaml.NewYAMLOrJSONDecoder(bytes.NewReader(yamlData), 4096)
-	var objs []string
-	for {
-		ext := runtime.RawExtension{}
-		if err := d.Decode(&ext); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return objs, fmt.Errorf("failed to unmarshal manifest: %v", err)
-		}
-		ext.Raw = bytes.TrimSpace(ext.Raw)
-		if len(ext.Raw) == 0 || bytes.Equal(ext.Raw, []byte("null")) {
-			continue
-		}
-		objs = append(objs, string(ext.Raw))
-	}
-	return objs, nil
 }

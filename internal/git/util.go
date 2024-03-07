@@ -1,22 +1,27 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
-	"github.com/numaproj-labs/numaplane/internal/kustomize"
-	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	"k8s.io/apimachinery/pkg/runtime"
+	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
+	"github.com/numaproj-labs/numaplane/internal/helm"
+	"github.com/numaproj-labs/numaplane/internal/kustomize"
 	gitShared "github.com/numaproj-labs/numaplane/internal/shared/git"
+	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
 
 func CloneRepo(
@@ -60,22 +65,49 @@ func GetLatestManifests(
 		return manifests, err
 	}
 
-	// Only create the resources for the first time if not created yet.
-	// Otherwise, monitoring with intervals.
-
-	// kustomizePath will be the path of clone repository + the path where kustomize file is present.
 	localRepoPath := getLocalRepoPath(gitSync.GetName())
-	kustomizePath := localRepoPath + "/" + gitSync.Spec.Path
-	k := kustomize.NewKustomizeApp(kustomizePath, gitSync.Spec.RepoUrl, os.Getenv("KUSTOMIZE_BINARY_PATH"))
 
-	if kustomize.IsKustomizationRepository(kustomizePath) {
-		m, err := k.Build(nil)
+	// repoPath will be the path of clone repository + the path while needs to be deployed.
+	deployablePath := localRepoPath + "/" + gitSync.Spec.Path
+	// validate the deployablePath path for its existence.
+	if _, err := os.Stat(deployablePath); err != nil {
+		return manifests, fmt.Errorf("invalid deployable path, err: %v", err)
+	}
+
+	// initialize the kustomize with KUSTOMIZE_BINARY_PATH if defined.
+	k := kustomize.NewKustomizeApp(deployablePath, gitSync.Spec.RepoUrl, os.Getenv("KUSTOMIZE_BINARY_PATH"))
+
+	// initialize the helm with HELM_BINARY_PATH if defined.
+	h := helm.New(deployablePath, os.Getenv("HELM_BINARY_PATH"))
+
+	sourceType, err := gitSync.Spec.ExplicitType()
+	if err != nil {
+		return manifests, err
+	}
+
+	switch sourceType {
+	case v1alpha1.SourceTypeKustomize:
+		generatedManifest, err := k.Build(nil)
 		if err != nil {
-			logger.Errorw("cannot build kustomize yaml", "err", err)
+			logger.Errorw("can not build kustomize yaml", "err", err)
 			return manifests, err
 		}
-		manifests = append(manifests, m...)
-	} else {
+		manifestData, err := SplitYAMLToString([]byte(generatedManifest))
+		if err != nil {
+			return manifests, fmt.Errorf("can not parse kustomize manifest, err: %v", err)
+		}
+		manifests = append(manifests, manifestData...)
+	case v1alpha1.SourceTypeHelm:
+		generatedManifest, err := h.Build(gitSync.Name, gitSync.Spec.Destination.Namespace, gitSync.Spec.Helm.Parameters, gitSync.Spec.Helm.ValueFiles)
+		if err != nil {
+			return manifests, fmt.Errorf("cannot build helm manifest, err: %v", err)
+		}
+		manifestData, err := SplitYAMLToString([]byte(generatedManifest))
+		if err != nil {
+			return manifests, fmt.Errorf("can not parse helm manifest, err: %v", err)
+		}
+		manifests = append(manifests, manifestData...)
+	case v1alpha1.SourceTypeRaw:
 		// Retrieving the commit object matching the hash.
 		tree, err := getCommitTreeAtPath(r, gitSync.Spec.Path, *hash)
 		if err != nil {
@@ -84,13 +116,16 @@ func GetLatestManifests(
 		// Read all the files under the path and apply each one respectively.
 		err = tree.Files().ForEach(func(f *object.File) error {
 			logger.Debugw("read file", "file_name", f.Name)
-			// TODO: this currently assumes that one file contains just one manifest - modify for multiple
 			manifest, err := f.Contents()
 			if err != nil {
 				logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
 				return err
 			}
-			manifests = append(manifests, manifest)
+			manifestData, err := SplitYAMLToString([]byte(manifest))
+			if err != nil {
+				return fmt.Errorf("can not parse file data, err: %v", err)
+			}
+			manifests = append(manifests, manifestData...)
 			return nil
 		})
 		if err != nil {
@@ -199,4 +234,26 @@ func cloneRepo(
 	}
 
 	return r, err
+}
+
+// SplitYAMLToString splits a YAML file into strings. Returns list of yamls
+// found in the yaml. If an error occurs, returns objects that have been parsed so far too.
+func SplitYAMLToString(yamlData []byte) ([]string, error) {
+	d := kubeyaml.NewYAMLOrJSONDecoder(bytes.NewReader(yamlData), 4096)
+	var objs []string
+	for {
+		ext := runtime.RawExtension{}
+		if err := d.Decode(&ext); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return objs, fmt.Errorf("failed to unmarshal manifest: %v", err)
+		}
+		ext.Raw = bytes.TrimSpace(ext.Raw)
+		if len(ext.Raw) == 0 || bytes.Equal(ext.Raw, []byte("null")) {
+			continue
+		}
+		objs = append(objs, string(ext.Raw))
+	}
+	return objs, nil
 }
