@@ -162,12 +162,34 @@ func Test_GetLatestManifests(t *testing.T) {
 		},
 		{
 			name: "manifest from kustomize enabled repo",
-			gitSync: newGitSync(
-				"kustomizeManifest",
-				"https://github.com/numaproj/numaflow.git",
-				"config/namespace-install",
-				"main",
-			),
+			gitSync: &v1alpha1.GitSync{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: testNamespace,
+					Name:      "kustomize-manifest",
+				},
+				Spec: v1alpha1.GitSyncSpec{
+					RepoUrl:        "https://github.com/numaproj/numaflow.git",
+					TargetRevision: "main",
+					Path:           "config/namespace-install",
+					Kustomize:      &v1alpha1.KustomizeSource{},
+				},
+			},
+			hasErr: false,
+		},
+		{
+			name: "manifest from helm enabled repo",
+			gitSync: &v1alpha1.GitSync{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: testNamespace,
+					Name:      "helm-manifest",
+				},
+				Spec: v1alpha1.GitSyncSpec{
+					RepoUrl:        "https://github.com/numaproj/helm-charts.git",
+					TargetRevision: "main",
+					Path:           "charts/numaflow",
+					Helm:           &v1alpha1.HelmSource{},
+				},
+			},
 			hasErr: false,
 		},
 	}
