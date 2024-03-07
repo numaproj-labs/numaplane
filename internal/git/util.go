@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -65,7 +67,7 @@ func GetLatestManifests(
 		return manifests, err
 	}
 
-	localRepoPath := getLocalRepoPath(gitSync.GetName())
+	localRepoPath := getLocalRepoPath(gitSync)
 
 	// repoPath will be the path of clone repository + the path while needs to be deployed.
 	deployablePath := localRepoPath + "/" + gitSync.Spec.Path
@@ -170,18 +172,21 @@ func isRootDir(path string) bool {
 	return len(path) == 0
 }
 
-// getLocalRepoPath will return the local path where repo will be cloned, by default it will use /tmp as base directory
+// getLocalRepoPath will return the local path where repo will be cloned,
+// by default it will use /tmp as base directory
 // unless LOCAL_REPO_PATH env is set.
-func getLocalRepoPath(gitSyncName string) string {
+func getLocalRepoPath(gitSync *v1alpha1.GitSync) string {
 	baseDir := os.Getenv("LOCAL_REPO_PATH")
+	repoUrl := strconv.FormatUint(xxhash.Sum64([]byte(gitSync.Spec.RepoUrl)), 16)
 	if baseDir != "" {
-		return fmt.Sprintf("%s/%s", baseDir, gitSyncName)
+		return fmt.Sprintf("%s/%s/%s", baseDir, gitSync.Name, repoUrl)
 	} else {
-		return fmt.Sprintf("/tmp/%s", gitSyncName)
+		return fmt.Sprintf("/tmp/%s/%s", gitSync.Name, repoUrl)
 	}
 }
 
-// fetchUpdates fetches all the remote branches and updates the local changes, returning nil if already up-to-date or an error otherwise.
+// fetchUpdates fetches all the remote branches and updates the local changes,
+// returning nil if already up-to-date or an error otherwise.
 func fetchUpdates(repo *git.Repository) error {
 	remote, err := repo.Remote("origin")
 	if err != nil {
@@ -218,7 +223,7 @@ func cloneRepo(
 	gitSync *v1alpha1.GitSync,
 	options *git.CloneOptions,
 ) (*git.Repository, error) {
-	path := getLocalRepoPath(gitSync.GetName())
+	path := getLocalRepoPath(gitSync)
 
 	r, err := git.PlainCloneContext(ctx, path, false, options)
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
