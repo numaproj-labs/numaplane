@@ -59,6 +59,9 @@ func (h *helm) Build(name, namespace string, parameters []v1alpha1.HelmParameter
 		args = append(args, "--values", val)
 	}
 
+	// fetch and update helm dependencies if any.
+	args = append(args, "--dependency-update")
+
 	cmd := exec.Command(h.getBinaryPath(), args...)
 
 	out, err := numaExec.Run(cmd)

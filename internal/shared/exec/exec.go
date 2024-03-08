@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	defaultTimeout = 10 * time.Second
+	defaultTimeout = 90 * time.Second
 )
 
 func Run(cmd *exec.Cmd) (string, error) {
