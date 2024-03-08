@@ -38,13 +38,13 @@ RUN curl --retry 3 --silent --location --remote-name https://get.helm.sh/helm-${
     mkdir -p /tmp/helm && tar -C /tmp/helm -xf helm-${HELM_VERSION}-linux-amd64.tar.gz && \
     install -m 0755 /tmp/helm/linux-amd64/helm /usr/local/bin/helm
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+# Use alpine as minimal base image to package the manager binary
+FROM alpine
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /usr/local/bin/kustomize /usr/local/bin/kustomize
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
-USER 65532:65532
+
+RUN apk add --no-cache git
 
 ENTRYPOINT ["/manager"]
