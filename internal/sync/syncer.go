@@ -210,10 +210,18 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		return fmt.Errorf("failed to clone the repo of key %q, %w", key, err)
 	}
 	manifests, err := git.GetLatestManifests(ctx, repo, gitSync)
+
 	if err != nil {
 		return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
 	}
-	uns, err := toUnstructuredAndApplyAnnotation(manifests, gitSyncName)
+	// Applying ownership reference
+
+	manifestsWithOwnership, err := ApplyOwnershipToManifests(manifests, gitSync)
+	if err != nil {
+		return fmt.Errorf("failed to apply ownership reference of key   %q, %w", key, err)
+	}
+
+	uns, err := toUnstructuredAndApplyAnnotation(manifestsWithOwnership, gitSyncName)
 	if err != nil {
 		return fmt.Errorf("failed to parse the manifest of key %q, %w", key, err)
 	}
@@ -308,4 +316,15 @@ func toUnstructuredAndApplyAnnotation(manifests []string, gitSyncName string) ([
 		uns = append(uns, target)
 	}
 	return uns, nil
+}
+func ApplyOwnershipToManifests(manifests []string, gitSync *v1alpha1.GitSync) ([]string, error) {
+	manifestsWithOwnership := make([]string, 0, len(manifests))
+	for _, v := range manifests {
+		reference, err := kubernetes.ApplyOwnershipReference(v, gitSync)
+		if err != nil {
+			return nil, err
+		}
+		manifestsWithOwnership = append(manifestsWithOwnership, string(reference))
+	}
+	return manifestsWithOwnership, nil
 }

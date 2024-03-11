@@ -2,13 +2,21 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/yaml"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 )
 
 func IsValidKubernetesNamespace(name string) bool {
@@ -74,4 +82,34 @@ func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretNa
 		return nil, err
 	}
 	return secret, nil
+}
+
+// ApplyOwnershipReference adds  or updates ownerships to kubernetes resources in GitSync CRD
+func ApplyOwnershipReference(manifest string, gitSync *v1alpha1.GitSync) ([]byte, error) {
+	decode := scheme.Codecs.UniversalDeserializer().Decode
+	decoded, _, err := decode([]byte(manifest), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	obj, ok := decoded.(metav1.Object)
+	if !ok {
+		return nil, errors.New("decoded manifest is not a metaV1 object")
+	}
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         gitSync.APIVersion,
+		Kind:               gitSync.Kind,
+		Name:               gitSync.Name,
+		UID:                gitSync.UID,
+		Controller:         ptr.To(true),
+		BlockOwnerDeletion: ptr.To(true),
+	}
+	existingRef := obj.GetOwnerReferences()
+	existingRef = append(existingRef, ownerRef)
+	obj.SetOwnerReferences(existingRef)
+	modifiedManifest, err := yaml.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return modifiedManifest, nil
 }
