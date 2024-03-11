@@ -2,12 +2,13 @@ package kubernetes
 
 import (
 	"context"
+	"os"
+	"testing"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

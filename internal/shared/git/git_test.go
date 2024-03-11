@@ -2,12 +2,13 @@ package git
 
 import (
 	"context"
+	"log"
+	"testing"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"log"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 
