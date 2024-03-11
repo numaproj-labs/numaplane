@@ -1,7 +1,12 @@
 package kubernetes
 
 import (
+	"context"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,4 +68,29 @@ func TestGetGitSyncInstanceAnnotationWithInvalidData(t *testing.T) {
 	_, err = GetGitSyncInstanceAnnotation(&obj, "valid-annotation")
 	assert.Error(t, err)
 	assert.Equal(t, "failed to get annotations from target object /v1, Kind=Service /my-service: .metadata.annotations accessor error: contains non-string key in the map: <nil> is of the type <nil>, expected string", err.Error())
+}
+
+func TestGetSecret(t *testing.T) {
+	scheme := runtime.NewScheme()
+	err := corev1.AddToScheme(scheme)
+	assert.NoError(t, err)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-secret",
+				Namespace: "test-namespace",
+			},
+			Data: map[string][]byte{
+				"key": []byte("value"),
+			},
+		},
+	).Build()
+
+	ctx := context.TODO()
+
+	secret, err := GetSecret(ctx, fakeClient, "test-namespace", "test-secret")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, secret)
+	assert.Equal(t, "value", string(secret.Data["key"]))
 }

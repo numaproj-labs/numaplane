@@ -212,3 +212,5 @@ func TestGetLatestCommitHash(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 40, len(commit.String()))
 }
+
+// Testing cloning repo with authentication
