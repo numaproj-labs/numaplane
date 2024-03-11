@@ -494,7 +494,7 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 
 		},
 	}
-	repoUrL := "https://localhost:8080/git/test.git"
+	repoUrL := "https://localhost:8443/git/test.git"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, testNamespace, repoUrL)
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
