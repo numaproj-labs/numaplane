@@ -413,7 +413,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 	cloneOptions.Auth.(*ssh.PublicKeys).HostKeyCallback = cryptossh.InsecureIgnoreHostKey()
 	assert.NoError(t, err)
 
-	gitSync := newGitSync("test", repoUrL, "gitClone", "")
+	gitSync := newGitSync("test", repoUrL, "gitClone", "master")
 
 	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions, testNamespace)
 	assert.NoError(t, err)
@@ -454,7 +454,7 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, testNamespace, repoUrL)
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
-	gitSync := newGitSync("test", repoUrL, "gitCloned", "main")
+	gitSync := newGitSync("test", repoUrL, "gitCloned", "master")
 
 	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions, testNamespace)
 	assert.NoError(t, err)
@@ -498,7 +498,7 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, testNamespace, repoUrL)
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
-	gitSync := newGitSync("test", repoUrL, "gitCloned", "main")
+	gitSync := newGitSync("test", repoUrL, "gitCloned", "master")
 	log.Println(cloneOptions)
 
 	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions, testNamespace)
