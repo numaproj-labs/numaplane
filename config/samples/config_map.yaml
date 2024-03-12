@@ -15,11 +15,13 @@ data:
           password:
             name: "http-creds"
             key: "password"
+            namespace: "numaplane-system"  # namespace where the secrets live 
       - url: "github.com:numaproj"
         sshCredential:
           SSHKey:
             name: "ssh-creds"
             key: "sshKey"
+            namespace: "numaplane-system"
         tls:
           insecureSkipVerify: true
       - url: "git@github.com:numalabs"
@@ -30,4 +32,4 @@ data:
             key: "password"
         tls:
           insecureSkipVerify: true
-
+          

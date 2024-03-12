@@ -3,6 +3,8 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 
 	corev1 "k8s.io/api/core/v1"
@@ -63,8 +65,28 @@ func nestedNullableStringMap(obj map[string]interface{}, fields ...string) (map[
 	return m, err
 }
 
+// Source -https://stackoverflow.com/questions/53283347/how-to-get-current-namespace-of-an-in-cluster-go-kubernetes-client
+// GetNamespace returns the namespace in which the pod is running,
+// or an empty string if the namespace cannot be determined.
+
+func GetNamespace() (string, error) {
+	namespacePath := filepath.Join("/var/run/secrets/kubernetes.io/serviceaccount", "namespace")
+	namespace, err := os.ReadFile(namespacePath)
+	if err != nil {
+		return "", err
+	}
+	return string(namespace), nil
+}
+
 // GetSecret gets secret using the kubernetes client
 func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretName string) (*corev1.Secret, error) {
+	var err error
+	if namespace == "" {
+		namespace, err = GetNamespace()
+		if err != nil {
+			return nil, err
+		}
+	}
 	secret := &corev1.Secret{}
 	key := k8sClient.ObjectKey{
 		Namespace: namespace,

@@ -35,6 +35,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Equal(t, "exampleUser", config.RepoCredentials[0].HTTPCredential.Username, "Username for HTTPCredential of numaproj-labs does not match")
 	assert.Equal(t, "http-creds", config.RepoCredentials[0].HTTPCredential.Password.Name, "Password Name for HTTPCredential of numaproj-labs does not match")
 	assert.Equal(t, "password", config.RepoCredentials[0].HTTPCredential.Password.Key, "Password Key for HTTPCredential of numaproj-labs does not match")
+	assert.Equal(t, "numaplane-controller", config.RepoCredentials[0].HTTPCredential.Password.NameSpace, "Kubernetes namespace for password doesn't match")
 
 	assert.NotNil(t, config.RepoCredentials[0].TLS, "TLS for numaproj-labs is missing")
 	assert.NotNil(t, config.RepoCredentials[1].SSHCredential, "SSHCredential for numaproj is missing")

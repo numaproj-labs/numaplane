@@ -62,6 +62,7 @@ type TLS struct {
 type SecretKeySelector struct {
 	corev1.LocalObjectReference `mapstructure:",squash"` // for viper to correctly parse the config
 	Key                         string                   `json:"key" `
+	NameSpace                   string                   `json:"namespace"` // namespace  where the secrets are stored
 	Optional                    *bool                    `json:"optional,omitempty" `
 }
 

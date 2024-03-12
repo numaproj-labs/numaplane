@@ -166,7 +166,7 @@ func Test_cloneRepo(t *testing.T) {
 			cloneOptions := &git.CloneOptions{
 				URL: tc.gitSync.Spec.RepoUrl,
 			}
-			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, nil, cloneOptions, "testns")
+			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, nil, cloneOptions)
 			assert.NoError(t, cloneErr)
 			if tc.hasErr {
 				assert.NotNil(t, err)
@@ -311,14 +311,14 @@ func Test_GetLatestManifests(t *testing.T) {
 			cloneOptions := &git.CloneOptions{
 				URL: tc.gitSync.Spec.RepoUrl,
 			}
-			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, nil, cloneOptions, "testns")
+			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, nil, cloneOptions)
 			assert.Nil(t, cloneErr)
 
 			// To break the continuous check of repo update, added the context timeout.
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 
-			_, err = GetLatestManifests(ctx, r, nil, tc.gitSync, "test-ns")
+			_, err = GetLatestManifests(ctx, r, nil, tc.gitSync)
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
@@ -403,10 +403,11 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 			LocalObjectReference: corev1.LocalObjectReference{Name: "sshKey"},
 			Key:                  "sshKey",
 			Optional:             nil,
+			NameSpace:            testNamespace,
 		}},
 	}
 	repoUrL := "ssh://root@localhost:2222/var/www/git/test.git"
-	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, testNamespace, repoUrL)
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL)
 	assert.NoError(t, err)
 	assert.NotNil(t, cloneOptions)
 
@@ -415,7 +416,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 
 	gitSync := newGitSync("test", repoUrL, "gitClone", "master")
 
-	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions, testNamespace)
+	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
@@ -447,16 +448,17 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 				LocalObjectReference: corev1.LocalObjectReference{Name: "http-cred"},
 				Key:                  "password",
 				Optional:             nil,
+				NameSpace:            testNamespace,
 			},
 		},
 	}
 	repoUrL := "http://localhost:8080/git/test.git"
-	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, testNamespace, repoUrL)
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL)
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
 	gitSync := newGitSync("test", repoUrL, "gitCloned", "master")
 
-	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions, testNamespace)
+	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
@@ -487,6 +489,7 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 				LocalObjectReference: corev1.LocalObjectReference{Name: "http-cred"},
 				Key:                  "password",
 				Optional:             nil,
+				NameSpace:            testNamespace,
 			},
 		},
 		TLS: &config.TLS{
@@ -495,13 +498,13 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 		},
 	}
 	repoUrL := "https://localhost:8443/git/test.git"
-	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, testNamespace, repoUrL)
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL)
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
 	gitSync := newGitSync("test", repoUrL, "gitCloned", "master")
 	log.Println(cloneOptions)
 
-	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions, testNamespace)
+	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
