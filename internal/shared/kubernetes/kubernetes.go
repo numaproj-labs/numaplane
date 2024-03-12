@@ -81,5 +81,5 @@ func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretNa
 func IsValidKubernetesManifestFile(fileName string) bool {
 	fileExt := strings.Split(fileName, ".")
 	validExtName := []string{"yaml", "yml", "json"}
-	return slices.Contains(validExtName, fileExt[1])
+	return slices.Contains(validExtName, fileExt[len(fileExt)-1])
 }

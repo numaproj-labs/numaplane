@@ -96,6 +96,16 @@ func TestIsValidKubernetesManifestFile(t *testing.T) {
 			expected:     true,
 		},
 		{
+			name:         "Valid name yaml",
+			resourceName: "pipeline.xyz.yaml",
+			expected:     true,
+		},
+		{
+			name:         "Valid name yaml",
+			resourceName: "pipeline.xyz.hjk.json",
+			expected:     true,
+		},
+		{
 			name:         "Invalid File",
 			resourceName: "main.go",
 			expected:     false,
