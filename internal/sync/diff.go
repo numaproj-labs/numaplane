@@ -200,24 +200,9 @@ func StateDiffs(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create diff normalizer: %w", err)
 	}
-	//
-	//resourceOps, cleanup, err := s.getResourceOperations()
-	//if err != nil {
-	//	log.Errorf("CompareAppState error getting resource operations: %s", err)
-	//}
-	//defer cleanup()
 
 	diffOpts = append(diffOpts, diff.WithNormalizer(diffNormalizer))
-	//diffOpts := []diff.Option{
-	//	//diff.WithLogr(),
-	//	diff.WithNormalizer(diffNormalizer),
-	//	//diff.IgnoreAggregatedRoles(diffConfig.IgnoreAggregatedRoles()),
-	//	//diff.WithStructuredMergeDiff(diffConfig.StructuredMergeDiff()),
-	//	//diff.WithGVKParser(diffConfig.GVKParser()),
-	//	//diff.WithManager(diffConfig.Manager()),
-	//	diff.WithServerSideDiff(true),
-	//	diff.WithServerSideDryRunner(diff.NewK8sServerSideDryRunner(resourceOps)),
-	//}
+
 	array, err := diff.DiffArray(configs, lives, diffOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate diff: %w", err)
