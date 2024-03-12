@@ -15,8 +15,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
+<<<<<<< HEAD:internal/shared/kubernetes/kubernetes_test.go
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/shared"
+=======
+	"github.com/numaproj-labs/numaplane/internal/common"
+>>>>>>> b826a56 (chore: Rename `shared` to `util` (#146)):internal/util/kubernetes/kubernetes_test.go
 )
 
 func TestIsValidKubernetesNamespace(t *testing.T) {
@@ -53,10 +57,10 @@ func TestGetGitSyncInstanceAnnotation(t *testing.T) {
 	var obj unstructured.Unstructured
 	err = yaml.Unmarshal(yamlBytes, &obj)
 	assert.Nil(t, err)
-	err = SetGitSyncInstanceAnnotation(&obj, shared.AnnotationKeyGitSyncInstance, "my-gitsync")
+	err = SetGitSyncInstanceAnnotation(&obj, common.AnnotationKeyGitSyncInstance, "my-gitsync")
 	assert.Nil(t, err)
 
-	annotation, err := GetGitSyncInstanceAnnotation(&obj, shared.AnnotationKeyGitSyncInstance)
+	annotation, err := GetGitSyncInstanceAnnotation(&obj, common.AnnotationKeyGitSyncInstance)
 	assert.Nil(t, err)
 	assert.Equal(t, "my-gitsync", annotation)
 }

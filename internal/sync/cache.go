@@ -26,9 +26,9 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
-	"github.com/numaproj-labs/numaplane/internal/shared"
-	"github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	"github.com/numaproj-labs/numaplane/internal/common"
+	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/logging"
 )
 
 // GitOps engine cluster cache tuning options
@@ -204,7 +204,7 @@ func (c *liveStateCache) PopulateResourceInfo(un *unstructured.Unstructured, isR
 
 // getGitSyncName gets the GitSync that owns the resource from an annotation in the resource
 func getGitSyncName(un *unstructured.Unstructured) string {
-	value, err := kubernetes.GetGitSyncInstanceAnnotation(un, shared.AnnotationKeyGitSyncInstance)
+	value, err := kubernetes.GetGitSyncInstanceAnnotation(un, common.AnnotationKeyGitSyncInstance)
 	if err != nil {
 		return ""
 	}
