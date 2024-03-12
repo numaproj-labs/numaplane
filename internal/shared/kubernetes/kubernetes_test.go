@@ -1,11 +1,15 @@
 package kubernetes
 
 import (
+	"context"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"log"
 	"os"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -109,7 +113,6 @@ spec:
 	assert.Equal(t, `apiVersion: v1
 kind: Pod
 metadata:
-  creationTimestamp: null
   name: frontend
   namespace: numaflow
   ownerReferences:
@@ -139,7 +142,6 @@ spec:
       requests:
         cpu: 250m
         memory: 64Mi
-status: {}
 `, string(reference))
 	assert.NoError(t, err)
 
@@ -155,13 +157,13 @@ metadata:
     kind: Deployment
     name: my-deployment
     uid: <uid-of-my-deployment>
-    controller: false
+    controller: true
     blockOwnerDeletion: true
   - apiVersion: v1
     kind: ConfigMap
     name: my-configmap
     uid: <uid-of-my-configmap>
-    controller: false
+    controller: true
     blockOwnerDeletion: true
 `
 
@@ -179,18 +181,17 @@ metadata:
 	assert.Equal(t, `apiVersion: v1
 kind: Pod
 metadata:
-  creationTimestamp: null
   name: my-custom-resource
   ownerReferences:
   - apiVersion: apps/v1
     blockOwnerDeletion: true
-    controller: false
+    controller: true
     kind: Deployment
     name: my-deployment
     uid: <uid-of-my-deployment>
   - apiVersion: v1
     blockOwnerDeletion: true
-    controller: false
+    controller: true
     kind: ConfigMap
     name: my-configmap
     uid: <uid-of-my-configmap>
@@ -200,14 +201,35 @@ metadata:
     kind: GitSync
     name: gitsync-test
     uid: awew
-spec:
-  containers: null
-status: {}
 `, string(reference))
 	assert.NoError(t, err)
 
 }
 
+func TestGetSecret(t *testing.T) {
+	scheme := runtime.NewScheme()
+	err := corev1.AddToScheme(scheme)
+	assert.NoError(t, err)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-secret",
+				Namespace: "test-namespace",
+			},
+			Data: map[string][]byte{
+				"key": []byte("value"),
+			},
+		},
+	).Build()
+
+	ctx := context.TODO()
+
+	secret, err := GetSecret(ctx, fakeClient, "test-namespace", "test-secret")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, secret)
+	assert.Equal(t, "value", string(secret.Data["key"]))
+}
 func TestApplyOwnerShipReferenceJSON(t *testing.T) {
 	resource := `{
   "apiVersion": "apps/v1",
@@ -259,7 +281,6 @@ func TestApplyOwnerShipReferenceJSON(t *testing.T) {
 	assert.Equal(t, `apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: nginx-deployment
   ownerReferences:
   - apiVersion: "1"
@@ -273,10 +294,8 @@ spec:
   selector:
     matchLabels:
       app: nginx
-  strategy: {}
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: nginx
     spec:
@@ -285,14 +304,72 @@ spec:
         name: nginx
         ports:
         - containerPort: 80
-        resources: {}
-status: {}
 `, string(reference))
 	assert.NoError(t, err)
 
 }
 
-func TestApplyOwnerShipReferenceOnlyIfNotExisting(t *testing.T) {
+func TestIsValidKubernetesManifestFile(t *testing.T) {
+
+	testCases := []struct {
+		name         string
+		resourceName string
+		expected     bool
+	}{
+		{
+			name:         "Invalid Name",
+			resourceName: "data.md",
+			expected:     false,
+		},
+
+		{
+			name:         "valid name",
+			resourceName: "my.yml",
+			expected:     true,
+		},
+
+		{
+			name:         "Valid Json file",
+			resourceName: "pipeline.json",
+			expected:     true,
+		},
+
+		{
+			name:         "Valid name yaml",
+			resourceName: "pipeline.yaml",
+			expected:     true,
+		},
+		{
+			name:         "Valid name yaml",
+			resourceName: "pipeline.xyz.yaml",
+			expected:     true,
+		},
+		{
+			name:         "Valid name yaml",
+			resourceName: "pipeline.xyz.hjk.json",
+			expected:     true,
+		},
+		{
+			name:         "Invalid File",
+			resourceName: "main.go",
+			expected:     false,
+		},
+		{
+			name:         "Invalid File",
+			resourceName: "main..json.go",
+			expected:     false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok := IsValidKubernetesManifestFile(tc.resourceName)
+			assert.Equal(t, tc.expected, ok)
+		})
+	}
+
+}
+
+func TestApplyOwnerShipReferenceAlreadyExists(t *testing.T) {
 	resource := `apiVersion: v1
 kind: Pod
 metadata:
@@ -302,19 +379,19 @@ metadata:
     kind: Deployment
     name: my-deployment
     uid: <uid-of-my-deployment>
-    controller: false
+    controller: true
     blockOwnerDeletion: true
   - apiVersion: v1
     kind: ConfigMap
     name: my-configmap
     uid: <uid-of-my-configmap>
-    controller: false
+    controller: true
     blockOwnerDeletion: true
   - apiVersion: v1
     kind: ConfigMap
     name: my-configmap
     uid: awew
-    controller: false
+    controller: true
     blockOwnerDeletion: true`
 
 	gitsync := &v1alpha1.GitSync{
@@ -332,30 +409,25 @@ metadata:
 	assert.Equal(t, `apiVersion: v1
 kind: Pod
 metadata:
-  creationTimestamp: null
   name: my-custom-resource
   ownerReferences:
   - apiVersion: apps/v1
     blockOwnerDeletion: true
-    controller: false
+    controller: true
     kind: Deployment
     name: my-deployment
     uid: <uid-of-my-deployment>
   - apiVersion: v1
     blockOwnerDeletion: true
-    controller: false
+    controller: true
     kind: ConfigMap
     name: my-configmap
     uid: <uid-of-my-configmap>
   - apiVersion: v1
     blockOwnerDeletion: true
-    controller: false
+    controller: true
     kind: ConfigMap
     name: my-configmap
     uid: awew
-spec:
-  containers: null
-status: {}
 `, string(reference))
-
 }
