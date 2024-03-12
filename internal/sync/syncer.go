@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/argoproj/gitops-engine/pkg/diff"
 	gitopssync "github.com/argoproj/gitops-engine/pkg/sync"
 	kubeutil "github.com/argoproj/gitops-engine/pkg/utils/kube"
 	log "github.com/sirupsen/logrus"
@@ -225,7 +226,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse the manifest of key %q, %w", key, err)
 	}
-	synced := s.sync(gitSync, uns)
+	synced := s.sync(gitSync, uns, log)
 	if synced {
 		log.Info("GitSync object is successfully synced.")
 	}
@@ -241,14 +242,36 @@ func (r *resourceInfoProviderStub) IsNamespaced(_ schema.GroupKind) (bool, error
 	return false, nil
 }
 
-func (s *Syncer) sync(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) bool {
-	// TODO: if the states match, then skip the syncing.
+func (s *Syncer) sync(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured, logger *zap.SugaredLogger) bool {
+	logEntry := log.WithFields(log.Fields{"gitsync": gitSync})
+
 	reconciliationResult, err := s.compareState(gitSync, targetObjs)
 	if err != nil {
 		return false
 	}
 
-	logEntry := log.WithFields(log.Fields{"gitsync": gitSync})
+	// Ignore `status` field for all comparison.
+	// TODO: make it configurable
+	overrides := map[string]ResourceOverride{
+		"*/*": {
+			IgnoreDifferences: OverrideIgnoreDiff{JSONPointers: []string{"/status"}}},
+	}
+
+	// TODO: enable server side diff
+	diffOpts := []diff.Option{
+		diff.WithLogr(logging.NewLogrusLogger(logEntry)),
+	}
+
+	modified, err := StateDiffs(reconciliationResult.Target, reconciliationResult.Live, overrides, diffOpts)
+	if err != nil {
+		return false
+	}
+
+	// If the live state match the target state, then skip the syncing.
+	if !modified.Modified {
+		logger.Info("GitSync object is successfully already synced, skip the syncing.")
+		return true
+	}
 
 	opts := []gitopssync.SyncOpt{
 		gitopssync.WithLogr(logging.NewLogrusLogger(logEntry)),
