@@ -9,7 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
 
-	"github.com/numaproj-labs/numaplane/internal/shared"
+	"github.com/numaproj-labs/numaplane/internal/common"
 )
 
 const (
@@ -26,7 +26,7 @@ func NewLogrusLogger(fieldLogger logrus.FieldLogger) logr.Logger {
 // NewWithCurrentConfig create logrus logger by using current configuration
 func NewWithCurrentConfig() *logrus.Logger {
 	l := logrus.New()
-	l.SetFormatter(CreateFormatter(os.Getenv(shared.EnvLogFormat)))
+	l.SetFormatter(CreateFormatter(os.Getenv(common.EnvLogFormat)))
 	l.SetLevel(createLogLevel())
 	return l
 }
@@ -51,7 +51,7 @@ func CreateFormatter(logFormat string) logrus.Formatter {
 }
 
 func createLogLevel() logrus.Level {
-	level, err := logrus.ParseLevel(os.Getenv(shared.EnvLogLevel))
+	level, err := logrus.ParseLevel(os.Getenv(common.EnvLogLevel))
 	if err != nil {
 		level = logrus.InfoLevel
 	}

@@ -22,9 +22,9 @@ import (
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/helm"
 	"github.com/numaproj-labs/numaplane/internal/kustomize"
-	gitShared "github.com/numaproj-labs/numaplane/internal/shared/git"
-	kubernetesshared "github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	gitShared "github.com/numaproj-labs/numaplane/internal/util/git"
+	kubernetesshared "github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/logging"
 )
 
 func CloneRepo(
