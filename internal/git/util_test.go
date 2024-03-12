@@ -27,9 +27,13 @@ func newGitSync(name string, repoUrl string, path string, targetRevision string)
 			Name:      name,
 		},
 		Spec: v1alpha1.GitSyncSpec{
-			RepoUrl:        repoUrl,
-			TargetRevision: targetRevision,
-			Path:           path,
+			GitSource: v1alpha1.GitSource{
+				GitLocation: v1alpha1.GitLocation{
+					RepoUrl:        repoUrl,
+					TargetRevision: targetRevision,
+					Path:           path,
+				},
+			},
 		},
 		Status: v1alpha1.GitSyncStatus{},
 	}
@@ -168,10 +172,14 @@ func Test_GetLatestManifests(t *testing.T) {
 					Name:      "kustomize-manifest",
 				},
 				Spec: v1alpha1.GitSyncSpec{
-					RepoUrl:        "https://github.com/numaproj/numaflow.git",
-					TargetRevision: "main",
-					Path:           "config/namespace-install",
-					Kustomize:      &v1alpha1.KustomizeSource{},
+					GitSource: v1alpha1.GitSource{
+						GitLocation: v1alpha1.GitLocation{
+							RepoUrl:        "https://github.com/numaproj/numaflow.git",
+							TargetRevision: "main",
+							Path:           "config/namespace-install",
+						},
+						Kustomize: &v1alpha1.KustomizeSource{},
+					},
 				},
 			},
 			hasErr: false,
@@ -184,10 +192,14 @@ func Test_GetLatestManifests(t *testing.T) {
 					Name:      "helm-manifest",
 				},
 				Spec: v1alpha1.GitSyncSpec{
-					RepoUrl:        "https://github.com/numaproj/helm-charts.git",
-					TargetRevision: "main",
-					Path:           "charts/numaflow",
-					Helm:           &v1alpha1.HelmSource{},
+					GitSource: v1alpha1.GitSource{
+						GitLocation: v1alpha1.GitLocation{
+							RepoUrl:        "https://github.com/numaproj/helm-charts.git",
+							TargetRevision: "main",
+							Path:           "charts/numaflow",
+						},
+						Helm: &v1alpha1.HelmSource{},
+					},
 				},
 			},
 			hasErr: false,

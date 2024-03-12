@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -31,10 +32,10 @@ func TestLoadConfigMatchValues(t *testing.T) {
 
 	assert.NotNil(t, config.RepoCredentials, "RepoCredentials should not be nil")
 
-	assert.NotNil(t, config.RepoCredentials[0].HTTPCredential, "HTTPCredential for numaproj-labs is missing")
-	assert.Equal(t, "exampleUser", config.RepoCredentials[0].HTTPCredential.Username, "Username for HTTPCredential of numaproj-labs does not match")
-	assert.Equal(t, "http-creds", config.RepoCredentials[0].HTTPCredential.Password.Name, "Password Name for HTTPCredential of numaproj-labs does not match")
-	assert.Equal(t, "password", config.RepoCredentials[0].HTTPCredential.Password.Key, "Password Key for HTTPCredential of numaproj-labs does not match")
+	assert.NotNil(t, config.RepoCredentials[0].HTTPCredential, "apiv1.HTTPCredential for numaproj-labs is missing")
+	assert.Equal(t, "exampleUser", config.RepoCredentials[0].HTTPCredential.Username, "Username for apiv1.HTTPCredential of numaproj-labs does not match")
+	assert.Equal(t, "http-creds", config.RepoCredentials[0].HTTPCredential.Password.Name, "Password Name for apiv1.HTTPCredential of numaproj-labs does not match")
+	assert.Equal(t, "password", config.RepoCredentials[0].HTTPCredential.Password.Key, "Password Key for apiv1.HTTPCredential of numaproj-labs does not match")
 
 	assert.NotNil(t, config.RepoCredentials[0].TLS, "TLS for numaproj-labs is missing")
 	assert.NotNil(t, config.RepoCredentials[1].SSHCredential, "SSHCredential for numaproj is missing")
@@ -43,10 +44,10 @@ func TestLoadConfigMatchValues(t *testing.T) {
 
 	assert.True(t, config.RepoCredentials[1].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numaproj does not match")
 
-	assert.NotNil(t, config.RepoCredentials[2].HTTPCredential, "HTTPCredential for numalabs is missing")
-	assert.Equal(t, "exampleuser3", config.RepoCredentials[2].HTTPCredential.Username, "Username for HTTPCredential of numalabs does not match")
-	assert.Equal(t, "http-creds", config.RepoCredentials[2].HTTPCredential.Password.Name, "Password Name for HTTPCredential of numalabs does not match")
-	assert.Equal(t, "password", config.RepoCredentials[2].HTTPCredential.Password.Key, "Password Key for HTTPCredential of numalabs does not match")
+	assert.NotNil(t, config.RepoCredentials[2].HTTPCredential, "apiv1.HTTPCredential for numalabs is missing")
+	assert.Equal(t, "exampleuser3", config.RepoCredentials[2].HTTPCredential.Username, "Username for apiv1.HTTPCredential of numalabs does not match")
+	assert.Equal(t, "http-creds", config.RepoCredentials[2].HTTPCredential.Password.Name, "Password Name for apiv1.HTTPCredential of numalabs does not match")
+	assert.Equal(t, "password", config.RepoCredentials[2].HTTPCredential.Password.Key, "Password Key for apiv1.HTTPCredential of numalabs does not match")
 
 	assert.True(t, config.RepoCredentials[2].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numalabs does not match")
 }
@@ -135,12 +136,12 @@ func TestCloneWithSerialization(t *testing.T) {
 	original := &GlobalConfig{
 		ClusterName:     "testCluster",
 		TimeIntervalSec: 60,
-		RepoCredentials: []RepoCredential{
+		RepoCredentials: []apiv1.RepoCredential{
 			{
 				URL: "repo1",
-				HTTPCredential: &HTTPCredential{
+				HTTPCredential: &apiv1.HTTPCredential{
 					Username: "user1",
-					Password: SecretKeySelector{
+					Password: apiv1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "secretName1",
 						},
@@ -148,8 +149,8 @@ func TestCloneWithSerialization(t *testing.T) {
 						Optional: nil,
 					},
 				},
-				SSHCredential: &SSHCredential{
-					SSHKey: SecretKeySelector{
+				SSHCredential: &apiv1.SSHCredential{
+					SSHKey: apiv1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "secretNameSSH",
 						},
@@ -157,7 +158,7 @@ func TestCloneWithSerialization(t *testing.T) {
 						Optional: nil,
 					},
 				},
-				TLS: &TLS{
+				TLS: &apiv1.TLS{
 					InsecureSkipVerify: true,
 				},
 			},
@@ -186,12 +187,12 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 	return &GlobalConfig{
 		ClusterName:     "testCluster",
 		TimeIntervalSec: 60,
-		RepoCredentials: []RepoCredential{
+		RepoCredentials: []apiv1.RepoCredential{
 			{
 				URL: "repo1",
-				HTTPCredential: &HTTPCredential{
+				HTTPCredential: &apiv1.HTTPCredential{
 					Username: "user1",
-					Password: SecretKeySelector{
+					Password: apiv1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "secretName1",
 						},
@@ -199,8 +200,8 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 						Optional: nil,
 					},
 				},
-				SSHCredential: &SSHCredential{
-					SSHKey: SecretKeySelector{
+				SSHCredential: &apiv1.SSHCredential{
+					SSHKey: apiv1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "secretNameSSH",
 						},
@@ -208,7 +209,7 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 						Optional: nil,
 					},
 				},
-				TLS: &TLS{
+				TLS: &apiv1.TLS{
 					InsecureSkipVerify: true,
 				},
 			},
