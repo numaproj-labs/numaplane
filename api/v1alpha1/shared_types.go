@@ -48,6 +48,12 @@ type GitSource struct {
 	Raw *RawSource `json:"raw,omitempty"`
 }
 
+type CredentialedGitSource struct {
+	GitSource `json:",inline"`
+
+	RepoCredential *RepoCredential `json:"repoCredential,omitempty"`
+}
+
 type GitLocation struct {
 	// RepoUrl is the URL to the repository itself
 	RepoUrl string `json:"repoUrl"`

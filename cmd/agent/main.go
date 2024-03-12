@@ -17,36 +17,36 @@ limitations under the License.
 package agent
 
 import (
-	"flag"
+	"context"
 
+	"github.com/numaproj-labs/numaplane/internal/agent"
 	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 )
 
 var (
 	// logger is the global logger for the numaplane-agent
-	logger = logging.NewLogger().Named("numaplane-agent")
+	logger     = logging.NewLogger().Named("numaplane-agent")
+	configPath = "/etc/agent" // Path in the volume mounted in the pod where yaml is present
 )
 
 func main() {
-	var enableLeaderElection bool
-	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
-		"Enable leader election for numaplane agent. "+
-			"Enabling this will ensure there is only one active controller manager.")
+	var err error
+
+	ctx := context.Background()
 
 	// TODO: Add health check and readiness check
 
-	// Create a ConfigManager
-
-	// Create a Generator if one is defined
+	// Create a ConfigManager to manage our config file, watching for changes
+	configManager := agent.GetConfigManagerInstance()
+	err = configManager.LoadConfig(func(err error) {
+		logger.Errorw("Failed to reload global configuration file", err)
+	}, configPath, "config", "yaml")
+	if err != nil {
+		logger.Fatalw("Failed to load config file", err)
+	}
 
 	// create a new AgentSyncer
-
-	// start the AgentSyncer, which should cause it to loop repeatedly,
-	// each time:
-	// wait n seconds
-	// if Generator is defined, call generator.GetClusterKVPairs() and evaluate Source
-	// else get Source
-	// clone/fetch repo
-	// apply resource
+	syncer := &agent.AgentSyncer{}
+	syncer.Run(ctx)
 
 }

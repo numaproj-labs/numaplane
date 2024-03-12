@@ -17,7 +17,13 @@ limitations under the License.
 package agent
 
 import (
+	"encoding/json"
+	"fmt"
+	"sync"
+
+	"github.com/fsnotify/fsnotify"
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/spf13/viper"
 )
 
 type AgentConfig struct {
@@ -31,17 +37,90 @@ type Source struct {
 	// optional, apply to GitDefinition
 	KVGenerator *KVGenerator `json:"kvGenerator,omitempty"`
 
-	GitDefinition CredentialedGitSource `json:"gitDefinition"`
-}
-
-type CredentialedGitSource struct {
-	apiv1.GitSource `json:",inline"`
-
-	RepoCredential *apiv1.RepoCredential `json:"repoCredential,omitempty"`
+	GitDefinition apiv1.CredentialedGitSource `json:"gitDefinition"`
 }
 
 type KVGenerator struct {
 	Direct *apiv1.SingleClusterGenerator `json:"direct,omitempty"`
 
 	Reference *apiv1.MultiClusterFileGenerator `json:"reference,omitempty"`
+}
+
+type ConfigManager struct {
+	config *AgentConfig
+	lock   *sync.RWMutex
+	// revisionIndex increments each time the Config changes so the caller can keep track of when
+	// the file changed
+	revisionIndex int
+}
+
+var instance *ConfigManager
+var once sync.Once
+
+// GetConfigManagerInstance returns a singleton config manager throughout the Agent application
+func GetConfigManagerInstance() *ConfigManager {
+	once.Do(func() {
+		instance = &ConfigManager{
+			config:        &AgentConfig{},
+			lock:          new(sync.RWMutex),
+			revisionIndex: 0,
+		}
+	})
+	return instance
+}
+
+func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, configFileName, configFileType string) error {
+	v := viper.New()
+	v.SetConfigName(configFileName)
+	v.SetConfigType(configFileType)
+	v.AddConfigPath(configPath)
+	err := v.ReadInConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load configuration file. %w", err)
+	}
+	err = v.Unmarshal(cm.config)
+	if err != nil {
+		return fmt.Errorf("failed unmarshal configuration file. %w", err)
+	}
+	v.WatchConfig()
+	v.OnConfigChange(func(e fsnotify.Event) {
+		cm.lock.Lock()
+		defer cm.lock.Unlock()
+		cm.revisionIndex++
+		err = v.Unmarshal(cm.config)
+		if err != nil {
+			onErrorReloading(err)
+		}
+	})
+	return nil
+}
+
+func (cm *ConfigManager) GetRevisionIndex() int {
+	cm.lock.RLock()
+	defer cm.lock.RUnlock()
+	return cm.revisionIndex
+}
+
+func (cm *ConfigManager) GetConfig() (AgentConfig, int, error) {
+	cm.lock.RLock()
+	defer cm.lock.RUnlock()
+	config, err := CloneWithSerialization(cm.config)
+	if err != nil {
+		return AgentConfig{}, cm.revisionIndex, err
+	}
+	return *config, cm.revisionIndex, nil
+}
+
+// CloneWithSerialization uses encoding and decoding with json as a mechanism for performing a DeepCopy
+// of the AgentConfig
+func CloneWithSerialization(orig *AgentConfig) (*AgentConfig, error) {
+	origJSON, err := json.Marshal(orig)
+	if err != nil {
+		return nil, err
+	}
+	clone := AgentConfig{}
+	if err = json.Unmarshal(origJSON, &clone); err != nil {
+		return nil, err
+	}
+	return &clone, nil
 }
