@@ -214,8 +214,8 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
 	}
-	// Applying ownership reference
 
+	// Applying ownership reference
 	manifestsWithOwnership, err := ApplyOwnershipToManifests(manifests, gitSync)
 	if err != nil {
 		return fmt.Errorf("failed to apply ownership reference of key   %q, %w", key, err)
@@ -320,7 +320,7 @@ func toUnstructuredAndApplyAnnotation(manifests []string, gitSyncName string) ([
 func ApplyOwnershipToManifests(manifests []string, gitSync *v1alpha1.GitSync) ([]string, error) {
 	manifestsWithOwnership := make([]string, 0, len(manifests))
 	for _, v := range manifests {
-		reference, err := kubernetes.ApplyOwnershipReference(v, gitSync)
+		reference, err := kubernetes.ApplyGitSyncOwnership(v, gitSync)
 		if err != nil {
 			return nil, err
 		}

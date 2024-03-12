@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	serializeryaml "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
@@ -84,8 +85,18 @@ func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretNa
 	return secret, nil
 }
 
-// ApplyOwnershipReference adds  or updates ownerships to kubernetes resources in GitSync CRD
-func ApplyOwnershipReference(manifest string, gitSync *v1alpha1.GitSync) ([]byte, error) {
+// ownerExists checks if an owner reference already exists in the list of owner references.
+func ownerExists(existingRefs []metav1.OwnerReference, newRef metav1.OwnerReference) bool {
+	for _, ref := range existingRefs {
+		if ref.UID == newRef.UID {
+			return true
+		}
+	}
+	return false
+}
+
+// ApplyGitSyncOwnership2 sets the GitSync as the Owner (or one of the Owners if ones already exist) of the Resource through an OwnerReference
+func ApplyGitSyncOwnership2(manifest string, gitSync *v1alpha1.GitSync) ([]byte, error) {
 	decode := scheme.Codecs.UniversalDeserializer().Decode
 	decoded, _, err := decode([]byte(manifest), nil, nil)
 	if err != nil {
@@ -104,8 +115,57 @@ func ApplyOwnershipReference(manifest string, gitSync *v1alpha1.GitSync) ([]byte
 		BlockOwnerDeletion: ptr.To(true),
 	}
 	existingRef := obj.GetOwnerReferences()
-	existingRef = append(existingRef, ownerRef)
-	obj.SetOwnerReferences(existingRef)
+	if !ownerExists(existingRef, ownerRef) {
+		existingRef = append(existingRef, ownerRef)
+		obj.SetOwnerReferences(existingRef)
+	}
+	modifiedManifest, err := yaml.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return modifiedManifest, nil
+}
+
+func ApplyGitSyncOwnership(manifest string, gitSync *v1alpha1.GitSync) ([]byte, error) {
+	// Decode YAML into an Unstructured object
+	decUnstructured := serializeryaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	obj := &unstructured.Unstructured{}
+	_, _, err := decUnstructured.Decode([]byte(manifest), nil, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct the new owner reference
+	ownerRef := map[string]interface{}{
+		"apiVersion":         gitSync.APIVersion,
+		"kind":               gitSync.Kind,
+		"name":               gitSync.Name,
+		"uid":                string(gitSync.UID),
+		"controller":         true,
+		"blockOwnerDeletion": true,
+	}
+
+	// Get existing owner references and check if our reference is already there
+	existingRefs, found, err := unstructured.NestedSlice(obj.Object, "metadata", "ownerReferences")
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		existingRefs = []interface{}{}
+	}
+
+	// Check if the owner reference already exists to avoid duplication
+
+	// Add the new owner reference if it does not exist
+	if !alreadyExists {
+		existingRefs = append(existingRefs, ownerRef)
+		err = unstructured.SetNestedSlice(obj.Object, existingRefs, "metadata", "ownerReferences")
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	modifiedManifest, err := yaml.Marshal(obj)
 	if err != nil {
 		return nil, err
