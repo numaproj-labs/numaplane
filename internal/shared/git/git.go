@@ -36,7 +36,7 @@ func GetAuthMethod(ctx context.Context, repoCred *controllerConfig.RepoCredentia
 		switch scheme {
 		case "http", "https":
 			if cred := repoCred.HTTPCredential; cred != nil {
-				if cred.Username == "" || cred.Password.Name == "" || cred.Password.Key == "" {
+				if cred.Username == "" || cred.Password.Name == "" || cred.Password.Key == "" || cred.Password.NameSpace == "" {
 					return nil, false, fmt.Errorf("incomplete HTTP credentials")
 				}
 				secret, err := kubernetes.GetSecret(ctx, kubeClient, cred.Password.NameSpace, cred.Password.Name)
@@ -55,7 +55,7 @@ func GetAuthMethod(ctx context.Context, repoCred *controllerConfig.RepoCredentia
 
 		case "ssh":
 			if cred := repoCred.SSHCredential; cred != nil {
-				if cred.SSHKey.Name == "" || cred.SSHKey.Key == "" {
+				if cred.SSHKey.Name == "" || cred.SSHKey.Key == "" || cred.SSHKey.NameSpace == "" {
 					return nil, false, fmt.Errorf("incomplete SSH credentials")
 				}
 				secret, err := kubernetes.GetSecret(ctx, kubeClient, cred.SSHKey.NameSpace, cred.SSHKey.Name)
