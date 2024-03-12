@@ -21,11 +21,11 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/numaproj-labs/numaplane/internal/common"
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/git"
-	"github.com/numaproj-labs/numaplane/internal/shared"
-	"github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/logging"
 )
 
 type Syncer struct {
@@ -272,7 +272,7 @@ func (s *Syncer) sync(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unst
 		gitopssync.WithPruneLast(true),
 		gitopssync.WithReplace(false),
 		gitopssync.WithServerSideApply(true),
-		gitopssync.WithServerSideApplyManager(shared.SSAManager),
+		gitopssync.WithServerSideApplyManager(common.SSAManager),
 	}
 
 	cluster, err := s.stateCache.GetClusterCache()
@@ -324,7 +324,7 @@ func toUnstructuredAndApplyAnnotation(manifests []string, gitSyncName string) ([
 			return nil, err
 		}
 		target := &unstructured.Unstructured{Object: obj}
-		err = kubernetes.SetGitSyncInstanceAnnotation(target, shared.AnnotationKeyGitSyncInstance, gitSyncName)
+		err = kubernetes.SetGitSyncInstanceAnnotation(target, common.AnnotationKeyGitSyncInstance, gitSyncName)
 		if err != nil {
 			return nil, err
 		}

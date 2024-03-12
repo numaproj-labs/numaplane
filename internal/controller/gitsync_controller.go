@@ -30,10 +30,10 @@ import (
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
-	gitshared "github.com/numaproj-labs/numaplane/internal/shared/git"
-	kubernetesshared "github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 	"github.com/numaproj-labs/numaplane/internal/sync"
+	gitshared "github.com/numaproj-labs/numaplane/internal/util/git"
+	kubernetesshared "github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/logging"
 )
 
 // GitSyncReconciler reconciles a GitSync object

@@ -34,9 +34,9 @@ import (
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
-	"github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/shared/logging"
 	"github.com/numaproj-labs/numaplane/internal/sync"
+	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/logging"
 	//+kubebuilder:scaffold:imports
 )
 
