@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -74,4 +76,10 @@ func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretNa
 		return nil, err
 	}
 	return secret, nil
+}
+
+func IsValidKubernetesManifestFile(fileName string) bool {
+	fileExt := strings.Split(fileName, ".")
+	validExtName := []string{"yaml", "yml", "json"}
+	return slices.Contains(validExtName, fileExt[len(fileExt)-1])
 }

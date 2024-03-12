@@ -64,3 +64,63 @@ func TestGetGitSyncInstanceAnnotationWithInvalidData(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "failed to get annotations from target object /v1, Kind=Service /my-service: .metadata.annotations accessor error: contains non-string key in the map: <nil> is of the type <nil>, expected string", err.Error())
 }
+
+func TestIsValidKubernetesManifestFile(t *testing.T) {
+
+	testCases := []struct {
+		name         string
+		resourceName string
+		expected     bool
+	}{
+		{
+			name:         "Invalid Name",
+			resourceName: "data.md",
+			expected:     false,
+		},
+
+		{
+			name:         "valid name",
+			resourceName: "my.yml",
+			expected:     true,
+		},
+
+		{
+			name:         "Valid Json file",
+			resourceName: "pipeline.json",
+			expected:     true,
+		},
+
+		{
+			name:         "Valid name yaml",
+			resourceName: "pipeline.yaml",
+			expected:     true,
+		},
+		{
+			name:         "Valid name yaml",
+			resourceName: "pipeline.xyz.yaml",
+			expected:     true,
+		},
+		{
+			name:         "Valid name yaml",
+			resourceName: "pipeline.xyz.hjk.json",
+			expected:     true,
+		},
+		{
+			name:         "Invalid File",
+			resourceName: "main.go",
+			expected:     false,
+		},
+		{
+			name:         "Invalid File",
+			resourceName: "main..json.go",
+			expected:     false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok := IsValidKubernetesManifestFile(tc.resourceName)
+			assert.Equal(t, tc.expected, ok)
+		})
+	}
+
+}
