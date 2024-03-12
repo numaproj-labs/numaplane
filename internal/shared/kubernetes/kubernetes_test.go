@@ -110,6 +110,11 @@ func TestIsValidKubernetesManifestFile(t *testing.T) {
 			resourceName: "main.go",
 			expected:     false,
 		},
+		{
+			name:         "Invalid File",
+			resourceName: "main..json.go",
+			expected:     false,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
