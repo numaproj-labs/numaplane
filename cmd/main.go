@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -28,13 +29,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
-	"github.com/numaproj-labs/numaplane/internal/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	"github.com/numaproj-labs/numaplane/internal/sync"
+	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/logging"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -59,7 +61,7 @@ func main() {
 	var probeAddr string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	opts := zap.Options{
@@ -72,7 +74,6 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "c0d86395.github.com.numaproj-labs",
@@ -92,12 +93,6 @@ func main() {
 		logger.Fatalw("Unable to get a controller-runtime manager", err)
 	}
 
-	// create a kubernetes client
-	kubeClient, err := kubernetes.NewClient(mgr.GetConfig(), mgr.GetClient(), logger)
-	if err != nil {
-		logger.Fatalw("failed to create kubernetes client", err)
-	}
-
 	// Load Config For the pod
 	configManager := config.GetConfigManagerInstance()
 	err = configManager.LoadConfig(func(err error) {
@@ -106,10 +101,22 @@ func main() {
 	if err != nil {
 		logger.Fatalw("Failed to load config file", err)
 	}
+
+	kubectl := kubernetes.NewKubectl()
+	syncer := sync.NewSyncer(
+		mgr.GetClient(),
+		mgr.GetConfig(),
+		mgr.GetConfig(),
+		kubectl)
+	// Add syncer runner
+	if err = mgr.Add(LeaderElectionRunner(syncer.Start)); err != nil {
+		logger.Fatalw("Unable to add autoscaling runner", "err", err)
+	}
 	reconciler, err := controller.NewGitSyncReconciler(
-		kubeClient,
+		mgr.GetClient(),
 		mgr.GetScheme(),
 		configManager,
+		syncer,
 	)
 	if err != nil {
 		logger.Fatalw("Unable to create GitSync controller", err)
@@ -133,3 +140,17 @@ func main() {
 		logger.Fatalw("Unable to start manager", err)
 	}
 }
+
+// LeaderElectionRunner is used to convert a function to be able to run as a LeaderElectionRunnable.
+type LeaderElectionRunner func(ctx context.Context) error
+
+func (ler LeaderElectionRunner) Start(ctx context.Context) error {
+	return ler(ctx)
+}
+
+func (ler LeaderElectionRunner) NeedLeaderElection() bool {
+	return true
+}
+
+var _ manager.Runnable = (*LeaderElectionRunner)(nil)
+var _ manager.LeaderElectionRunnable = (*LeaderElectionRunner)(nil)
