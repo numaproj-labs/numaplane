@@ -11,7 +11,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
-	"github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 

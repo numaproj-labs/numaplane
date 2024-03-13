@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -112,4 +114,10 @@ func ApplyOwnershipReference(manifest string, gitSync *v1alpha1.GitSync) ([]byte
 	}
 
 	return modifiedManifest, nil
+}
+
+func IsValidKubernetesManifestFile(fileName string) bool {
+	fileExt := strings.Split(fileName, ".")
+	validExtName := []string{"yaml", "yml", "json"}
+	return slices.Contains(validExtName, fileExt[len(fileExt)-1])
 }

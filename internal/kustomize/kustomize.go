@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	numaExec "github.com/numaproj-labs/numaplane/internal/shared/exec"
+	numaExec "github.com/numaproj-labs/numaplane/internal/util/exec"
 )
 
 // TODO: This file is copied from argo-cd (https://github.com/argoproj/argo-cd/blob/master/util/kustomize/kustomize.go)
