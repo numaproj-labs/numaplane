@@ -69,6 +69,12 @@ func nestedNullableStringMap(obj map[string]interface{}, fields ...string) (map[
 
 // GetSecret gets secret using the kubernetes client
 func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretName string) (*corev1.Secret, error) {
+	if namespace == "" {
+		return nil, fmt.Errorf("namespace cannot be empty")
+	}
+	if secretName == "" {
+		return nil, fmt.Errorf("secretName cannot be empty")
+	}
 	secret := &corev1.Secret{}
 	key := k8sClient.ObjectKey{
 		Namespace: namespace,

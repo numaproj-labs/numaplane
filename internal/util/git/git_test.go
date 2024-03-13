@@ -1,11 +1,18 @@
 package git
 
 import (
+	"context"
 	"log"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
 	"github.com/stretchr/testify/assert"
 
+	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 )
 
@@ -174,147 +181,148 @@ func TestGetURLScheme(t *testing.T) {
 
 }
 
-//// Testing the case when GitSync CRD has repository path but the RepoCredential Doesn't have the entry for it
-//func TestGetRepoCloneOptionsPrefixNotFound(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
-//	client := mocksClient.NewMockClient(ctrl)
-//
-//	secret := &v1.Secret{}
-//	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-//	// repoCred will be nil in this case
-//	options, err := GetRepoCloneOptions(context.Background(), nil, client, "testnamespace", "https://github.com/numaproj-labs/numaplane.git")
-//	assert.NoError(t, err)
-//	assert.Nil(t, options.Auth) // if repocredentials are nil then its public url
-//}
+func GetFakeKubernetesClient() (k8sClient.Client, error) {
+	scheme := runtime.NewScheme()
+	err := corev1.AddToScheme(scheme)
+	if err != nil {
+		return nil, err
 
-//func TestGetRepoCloneOptionsPrefixFoundCredNilHttp(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
-//	client := mocksClient.NewMockClient(ctrl)
-//	cred := &config.RepoCredential{}
-//	secret := &v1.Secret{}
-//	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-//	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "https://github.com/numaproj-labs/numaplane.git")
-//	assert.NoError(t, err)
-//	assert.Equal(t, options.URL, "https://github.com/numaproj-labs/numaplane.git")
-//	// In this case only auth method would be nil as it is asssumed that its public repository and doesn't require auth
-//	assert.Nil(t, options.Auth)
-//}
-//
-//func TestGetRepoCloneOptionsPrefixFoundCredNilSSh(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
-//	client := mocksClient.NewMockClient(ctrl)
-//	cred := &config.RepoCredential{}
-//	secret := &v1.Secret{}
-//	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-//	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "git@github.com:numaproj-labs/numaplane.git")
-//	assert.NoError(t, err)
-//	assert.Equal(t, options.URL, "ssh://git@github.com/numaproj-labs/numaplane.git") // go git transport.endPoint appends the protocol ssh
-//	// In this case only auth method would be nil as it is asssumed that its public repository and doesn't require auth
-//	assert.Nil(t, options.Auth)
-//}
-//
-//// Testing case when the  SSH credentials are provided but both are empty
-//func TestGetRepoCloneOptionsPrefixFoundCredEmptySSH(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
-//	client := mocksClient.NewMockClient(ctrl)
-//	cred := &config.RepoCredential{
-//		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
-//			LocalObjectReference: v1.LocalObjectReference{Name: ""},
-//			Key:                  "",
-//			Optional:             nil,
-//		}},
-//	}
-//	secret := &v1.Secret{}
-//	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-//	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "git@github.com:numaproj-labs/numaplane.git")
-//	assert.Error(t, err)
-//	assert.Nil(t, options)
-//}
-//
-//// Testing case when the  SSH credentials are provided but  Name is empty
-//func TestGetRepoCloneOptionsPrefixFoundCredNameEmptySSH(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
-//	client := mocksClient.NewMockClient(ctrl)
-//	cred := &config.RepoCredential{
-//		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
-//			LocalObjectReference: v1.LocalObjectReference{Name: ""},
-//			Key:                  "somekey",
-//			Optional:             nil,
-//		}},
-//	}
-//	secret := &v1.Secret{}
-//	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-//	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "git@github.com:numaproj-labs/numaplane.git")
-//	assert.Error(t, err)
-//	assert.Nil(t, options)
-//}
-//
-//// Testing case when the  SSH credentials are provided but  Key  is empty
-//func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptySSH(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
-//	client := mocksClient.NewMockClient(ctrl)
-//	cred := &config.RepoCredential{
-//		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
-//			LocalObjectReference: v1.LocalObjectReference{Name: "somename"},
-//			Key:                  "",
-//			Optional:             nil,
-//		}},
-//	}
-//	secret := &v1.Secret{}
-//	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-//
-//	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "git@github.com:numaproj-labs/numaplane.git")
-//	assert.Error(t, err)
-//	assert.Nil(t, options)
-//}
-//
-//// Testing case when the  HTTP credentials are provided but  Name is empty
-//func TestGetRepoCloneOptionsPrefixFoundCredNameEmptyHTTP(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
-//	client := mocksClient.NewMockClient(ctrl)
-//	cred := &config.RepoCredential{
-//		HTTPCredential: &config.HTTPCredential{
-//			Username: "",
-//			Password: config.SecretKeySelector{
-//				LocalObjectReference: v1.LocalObjectReference{Name: ""},
-//				Key:                  "somekey",
-//				Optional:             nil,
-//			},
-//		},
-//	}
-//	secret := &v1.Secret{}
-//	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-//	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "https://github.com/numaproj-labs/numaplane.git")
-//	assert.Error(t, err)
-//	assert.Nil(t, options)
-//}
-//
-//// Testing case when the  HTTP credentials are provided but  Key  is empty
-//func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptyHTTP(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
-//	client := mocksClient.NewMockClient(ctrl)
-//	cred := &config.RepoCredential{
-//		HTTPCredential: &config.HTTPCredential{
-//			Username: "",
-//			Password: config.SecretKeySelector{
-//				LocalObjectReference: v1.LocalObjectReference{Name: "somename"},
-//				Key:                  "",
-//				Optional:             nil,
-//			},
-//		},
-//	}
-//	secret := &v1.Secret{}
-//	client.EXPECT().GetSecret(context.Background(), gomock.Any(), gomock.Any()).Return(secret, nil).AnyTimes()
-//
-//	options, err := GetRepoCloneOptions(context.Background(), cred, client, "testnamespace", "https://github.com/numaproj-labs/numaplane.git")
-//	assert.Error(t, err)
-//	assert.Nil(t, options)
-//}
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
+	return fakeClient, nil
+}
+
+// Testing the case when GitSync CRD has repository path but the RepoCredential Doesn't have the entry for it
+func TestGetRepoCloneOptionsPrefixNotFound(t *testing.T) {
+	client, err := GetFakeKubernetesClient()
+	assert.Nil(t, err)
+	// repoCred will be nil in this case
+	cloneOptions, err := GetRepoCloneOptions(context.Background(), nil, client, "https://github.com/numaproj-labs/numaplane.git")
+	assert.NoError(t, err)
+	assert.NotNil(t, cloneOptions)
+}
+
+func TestGetRepoCloneOptionsPrefixFoundCredNilHttp(t *testing.T) {
+	client, err := GetFakeKubernetesClient()
+	assert.Nil(t, err)
+	cred := &config.RepoCredential{}
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git")
+	assert.NoError(t, err)
+	assert.Equal(t, options.URL, "https://github.com/numaproj-labs/numaplane.git")
+	// In this case only auth method would be nil as it is asssumed that its public repository and doesn't require auth
+	assert.Nil(t, options.Auth)
+}
+
+func TestGetRepoCloneOptionsPrefixFoundCredNilSSh(t *testing.T) {
+	client, err := GetFakeKubernetesClient()
+	assert.Nil(t, err)
+	cred := &config.RepoCredential{}
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	assert.NoError(t, err)
+	assert.Equal(t, options.URL, "ssh://git@github.com/numaproj-labs/numaplane.git") // go git transport.endPoint appends the protocol ssh
+	// In this case only auth method would be nil as it is asssumed that its public repository and doesn't require auth
+	assert.Nil(t, options.Auth)
+}
+
+// Testing case when the  SSH credentials are provided but both are empty
+func TestGetRepoCloneOptionsPrefixFoundCredEmptySSH(t *testing.T) {
+	client, err := GetFakeKubernetesClient()
+	assert.Nil(t, err)
+	cred := &config.RepoCredential{
+		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
+			ObjectReference: corev1.ObjectReference{Name: ""},
+			Key:             "",
+			Optional:        nil,
+		}},
+	}
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	assert.Error(t, err)
+	assert.Nil(t, options)
+}
+
+// Testing case when the  SSH credentials are provided but  Name is empty
+func TestGetRepoCloneOptionsPrefixFoundCredNameEmptySSH(t *testing.T) {
+	client, err := GetFakeKubernetesClient()
+	assert.Nil(t, err)
+	cred := &config.RepoCredential{
+		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
+			ObjectReference: corev1.ObjectReference{Name: "", Namespace: "testnamespace"},
+			Key:             "somekey",
+			Optional:        nil,
+		}},
+	}
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	assert.Error(t, err)
+	assert.Nil(t, options)
+}
+
+// Testing case when the  SSH credentials are provided but  Namespace is empty
+func TestGetRepoCloneOptionsPrefixFoundCredNameSpaceEmptySSH(t *testing.T) {
+	client, err := GetFakeKubernetesClient()
+	assert.Nil(t, err)
+	cred := &config.RepoCredential{
+		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
+			ObjectReference: corev1.ObjectReference{Name: "somename"},
+			Key:             "somekey",
+			Optional:        nil,
+		}},
+	}
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	assert.Error(t, err)
+	assert.Nil(t, options)
+}
+
+// Testing case when the  SSH credentials are provided but  Key  is empty
+func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptySSH(t *testing.T) {
+	client, err := GetFakeKubernetesClient()
+	assert.Nil(t, err)
+	cred := &config.RepoCredential{
+		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
+			ObjectReference: corev1.ObjectReference{Name: "somename", Namespace: "testnamespace"},
+			Key:             "",
+			Optional:        nil,
+		}},
+	}
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	assert.Error(t, err)
+	assert.Nil(t, options)
+}
+
+// Testing case when the  HTTP credentials are provided but  Name is empty
+func TestGetRepoCloneOptionsPrefixFoundCredNameEmptyHTTP(t *testing.T) {
+	client, err := GetFakeKubernetesClient()
+	assert.Nil(t, err)
+	cred := &config.RepoCredential{
+		HTTPCredential: &config.HTTPCredential{
+			Username: "",
+			Password: config.SecretKeySelector{
+				ObjectReference: corev1.ObjectReference{Name: "", Namespace: "testnamespace"},
+				Key:             "somekey",
+				Optional:        nil,
+			},
+		},
+	}
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git")
+	assert.Error(t, err)
+	assert.Nil(t, options)
+}
+
+// Testing case when the  HTTP credentials are provided but  Key  is empty
+func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptyHTTP(t *testing.T) {
+
+	client, err := GetFakeKubernetesClient()
+	assert.Nil(t, err)
+	cred := &config.RepoCredential{
+		HTTPCredential: &config.HTTPCredential{
+			Username: "",
+			Password: config.SecretKeySelector{
+				ObjectReference: corev1.ObjectReference{Name: "somename", Namespace: "testnamespace"},
+				Key:             "",
+				Optional:        nil,
+			},
+		},
+	}
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git")
+	assert.Error(t, err)
+	assert.Nil(t, options)
+}
