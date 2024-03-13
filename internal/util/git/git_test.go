@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
-	"github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 )
 
 func TestCheckGitURL(t *testing.T) {

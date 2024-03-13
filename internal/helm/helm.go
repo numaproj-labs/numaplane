@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
-	numaExec "github.com/numaproj-labs/numaplane/internal/shared/exec"
+	numaExec "github.com/numaproj-labs/numaplane/internal/util/exec"
 )
 
 var (

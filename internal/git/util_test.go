@@ -28,7 +28,7 @@ import (
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
-	gitshared "github.com/numaproj-labs/numaplane/internal/shared/git"
+	gitshared "github.com/numaproj-labs/numaplane/internal/util/git"
 )
 
 const (

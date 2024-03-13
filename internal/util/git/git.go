@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 
-	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
@@ -15,7 +15,7 @@ import (
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
-	"github.com/numaproj-labs/numaplane/internal/shared/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 )
 
 // GetAuthMethod returns an authMethod  for both cloning and fetching from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
