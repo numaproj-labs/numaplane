@@ -257,6 +257,22 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptySSH(t *testing.T) {
 	assert.Nil(t, options)
 }
 
+// Testing case when the  SSH credentials are provided but  Namespace is empty
+func TestGetRepoCloneOptionsPrefixFoundCredNameSpaceEmptySSH(t *testing.T) {
+	client, err := GetFakeKubernetesClient()
+	assert.Nil(t, err)
+	cred := &config.RepoCredential{
+		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{Name: "somename"},
+			Key:                  "somekey",
+			Optional:             nil,
+		}},
+	}
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	assert.Error(t, err)
+	assert.Nil(t, options)
+}
+
 // Testing case when the  SSH credentials are provided but  Key  is empty
 func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
