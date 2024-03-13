@@ -230,9 +230,9 @@ func TestGetRepoCloneOptionsPrefixFoundCredEmptySSH(t *testing.T) {
 	assert.Nil(t, err)
 	cred := &config.RepoCredential{
 		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: ""},
-			Key:                  "",
-			Optional:             nil,
+			ObjectReference: corev1.ObjectReference{Name: ""},
+			Key:             "",
+			Optional:        nil,
 		}},
 	}
 	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
@@ -246,10 +246,9 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptySSH(t *testing.T) {
 	assert.Nil(t, err)
 	cred := &config.RepoCredential{
 		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: ""},
-			Key:                  "somekey",
-			Optional:             nil,
-			NameSpace:            "testnamespace",
+			ObjectReference: corev1.ObjectReference{Name: "", Namespace: "testnamespace"},
+			Key:             "somekey",
+			Optional:        nil,
 		}},
 	}
 	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
@@ -263,9 +262,9 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameSpaceEmptySSH(t *testing.T) {
 	assert.Nil(t, err)
 	cred := &config.RepoCredential{
 		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: "somename"},
-			Key:                  "somekey",
-			Optional:             nil,
+			ObjectReference: corev1.ObjectReference{Name: "somename"},
+			Key:             "somekey",
+			Optional:        nil,
 		}},
 	}
 	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
@@ -279,10 +278,9 @@ func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptySSH(t *testing.T) {
 	assert.Nil(t, err)
 	cred := &config.RepoCredential{
 		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: "somename"},
-			Key:                  "",
-			Optional:             nil,
-			NameSpace:            "testnamespace",
+			ObjectReference: corev1.ObjectReference{Name: "somename", Namespace: "testnamespace"},
+			Key:             "",
+			Optional:        nil,
 		}},
 	}
 	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
@@ -298,10 +296,9 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptyHTTP(t *testing.T) {
 		HTTPCredential: &config.HTTPCredential{
 			Username: "",
 			Password: config.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: ""},
-				Key:                  "somekey",
-				Optional:             nil,
-				NameSpace:            "testnamespace",
+				ObjectReference: corev1.ObjectReference{Name: "", Namespace: "testnamespace"},
+				Key:             "somekey",
+				Optional:        nil,
 			},
 		},
 	}
@@ -319,10 +316,9 @@ func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptyHTTP(t *testing.T) {
 		HTTPCredential: &config.HTTPCredential{
 			Username: "",
 			Password: config.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: "somename"},
-				Key:                  "",
-				Optional:             nil,
-				NameSpace:            "testnamespace",
+				ObjectReference: corev1.ObjectReference{Name: "somename", Namespace: "testnamespace"},
+				Key:             "",
+				Optional:        nil,
 			},
 		},
 	}

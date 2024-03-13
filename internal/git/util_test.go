@@ -400,10 +400,9 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 
 	credential := &config.RepoCredential{
 		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: "sshKey"},
-			Key:                  "sshKey",
-			Optional:             nil,
-			NameSpace:            testNamespace,
+			ObjectReference: corev1.ObjectReference{Name: "sshKey", Namespace: testNamespace},
+			Key:             "sshKey",
+			Optional:        nil,
 		}},
 	}
 	repoUrL := "ssh://root@localhost:2222/var/www/git/test.git"
@@ -445,10 +444,9 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 		HTTPCredential: &config.HTTPCredential{
 			Username: "root",
 			Password: config.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: "http-cred"},
-				Key:                  "password",
-				Optional:             nil,
-				NameSpace:            testNamespace,
+				ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
+				Key:             "password",
+				Optional:        nil,
 			},
 		},
 	}
@@ -486,10 +484,9 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 		HTTPCredential: &config.HTTPCredential{
 			Username: "root",
 			Password: config.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{Name: "http-cred"},
-				Key:                  "password",
-				Optional:             nil,
-				NameSpace:            testNamespace,
+				ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
+				Key:             "password",
+				Optional:        nil,
 			},
 		},
 		TLS: &config.TLS{
