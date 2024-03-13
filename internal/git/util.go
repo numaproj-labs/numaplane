@@ -11,12 +11,12 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
@@ -31,15 +31,14 @@ func CloneRepo(
 	ctx context.Context,
 	client k8sClient.Client,
 	gitSync *v1alpha1.GitSync,
-	namespace string,
 	globalConfig controllerConfig.GlobalConfig,
 ) (*git.Repository, error) {
 	gitCredentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
-	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, namespace, gitSync.Spec.RepoUrl)
+	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)
 	if err != nil {
 		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
 	}
-	return cloneRepo(ctx, gitSync, cloneOptions)
+	return cloneRepo(ctx, gitSync, client, cloneOptions)
 }
 
 // GetLatestManifests gets the latest manifests from the Git repository.
@@ -49,14 +48,14 @@ func CloneRepo(
 func GetLatestManifests(
 	ctx context.Context,
 	r *git.Repository,
+	client k8sClient.Client,
 	gitSync *v1alpha1.GitSync,
-
 ) ([]string, error) {
 	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
 	manifests := make([]string, 0)
 
 	// Fetch all remote branches
-	err := fetchUpdates(r)
+	err := fetchUpdates(ctx, client, gitSync, r)
 	if err != nil {
 		return manifests, err
 	}
@@ -189,18 +188,29 @@ func getLocalRepoPath(gitSync *v1alpha1.GitSync) string {
 	}
 }
 
-// fetchUpdates fetches all the remote branches and updates the local changes,
-// returning nil if already up-to-date or an error otherwise.
-func fetchUpdates(repo *git.Repository) error {
+// fetchUpdates fetches all the remote branches and updates the local changes, returning nil if already up-to-date or an error otherwise.
+func fetchUpdates(ctx context.Context,
+	client k8sClient.Client,
+	gitSync *v1alpha1.GitSync, repo *git.Repository) error {
+
 	remote, err := repo.Remote("origin")
 	if err != nil {
 		return err
 	}
 
-	err = remote.Fetch(&git.FetchOptions{
-		RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
-		Force:    true,
-	})
+	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
+	if err != nil {
+		return err
+	}
+
+	credentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
+
+	fetchOptions, err := gitShared.GetRepoFetchOptions(ctx, credentials, client, gitSync.Spec.RepoUrl)
+	if err != nil {
+		return err
+	}
+
+	err = remote.Fetch(fetchOptions)
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return err
 	}
@@ -225,6 +235,7 @@ func fetchUpdates(repo *git.Repository) error {
 func cloneRepo(
 	ctx context.Context,
 	gitSync *v1alpha1.GitSync,
+	client k8sClient.Client,
 	options *git.CloneOptions,
 ) (*git.Repository, error) {
 	path := getLocalRepoPath(gitSync)
@@ -236,7 +247,7 @@ func cloneRepo(
 		if openErr != nil {
 			return r, fmt.Errorf("failed to open existing repo, err: %v", openErr)
 		}
-		if fetchErr := fetchUpdates(existingRepo); fetchErr != nil {
+		if fetchErr := fetchUpdates(ctx, client, gitSync, existingRepo); fetchErr != nil {
 			return existingRepo, fetchErr
 		}
 		return existingRepo, nil
