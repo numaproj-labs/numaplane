@@ -70,6 +70,9 @@ func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretNa
 	if namespace == "" {
 		return nil, fmt.Errorf("namespace cannot be empty")
 	}
+	if secretName == "" {
+		return nil, fmt.Errorf("secretName cannot be empty")
+	}
 	secret := &corev1.Secret{}
 	key := k8sClient.ObjectKey{
 		Namespace: namespace,
