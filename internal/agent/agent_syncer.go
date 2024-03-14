@@ -96,7 +96,7 @@ func (syncer *AgentSyncer) checkConfigMapUpdated() bool {
 }
 
 func (syncer *AgentSyncer) getGitSource() apiv1.CredentialedGitSource {
-	var err error
+
 	// this is the source of our key/value pairs
 	var kvSource kvsource.KVSource
 
@@ -116,7 +116,7 @@ func (syncer *AgentSyncer) getGitSource() apiv1.CredentialedGitSource {
 		keysValues, keysValuesModified = kvSource.GetKeysValues()
 		// if the key/value pairs changed, then reevaluate the gitSource
 		if keysValuesModified {
-			return evaluateGitDefinition(syncer.configMap.Source.GitDefinition, keysValues)
+			return evaluateGitDefinition(&syncer.configMap.Source.GitDefinition, keysValues)
 		} else {
 			return syncer.configMap.Source.GitDefinition
 		}

@@ -24,7 +24,7 @@ import (
 type KVSource interface {
 	// return the keys/values as well as whether there was a modification to them as part
 	// of this call
-	getKeysValues() (map[string]string, bool)
+	GetKeysValues() (map[string]string, bool)
 }
 
 func NewBasicKVSource(kv map[string]string) *BasicKVSource {
@@ -35,20 +35,20 @@ type BasicKVSource struct {
 	values map[string]string
 }
 
-func (source *BasicKVSource) getKeysValues() (map[string]string, bool) {
+func (source *BasicKVSource) GetKeysValues() (map[string]string, bool) {
 	return source.values, false
 }
 
-func NewMultiClusterFileKVSource(sourceDefinition apiv1.MultiClusterFileGenerator) *MultiClusterFileKVSource {
+func NewMultiClusterFileKVSource(sourceDefinition *apiv1.MultiClusterFileGenerator) *MultiClusterFileKVSource {
 	return &MultiClusterFileKVSource{sourceDefinition: sourceDefinition}
 }
 
 type MultiClusterFileKVSource struct {
-	sourceDefinition apiv1.MultiClusterFileGenerator
+	sourceDefinition *apiv1.MultiClusterFileGenerator
 	values           map[string]string
 }
 
-func (source *MultiClusterFileKVSource) getKeysValues() (map[string]string, bool) {
+func (source *MultiClusterFileKVSource) GetKeysValues() (map[string]string, bool) {
 	// for each defined file:
 	//   clone/fetch repo with credentials to get latest file
 	//   if file changed, get keys/values for our cluster if present

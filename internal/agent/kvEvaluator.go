@@ -22,19 +22,20 @@ import (
 )
 
 func createKVSource(kvGenerator *KVGenerator) keyvaluegenerator.KVSource {
-	if kvGenerator != nil {
+	if kvGenerator == nil {
 		return nil
 	}
+
 	if kvGenerator.Embedded != nil {
 		kv := *kvGenerator.Embedded
 		return keyvaluegenerator.NewBasicKVSource(map[string]string(kv))
 	} else if kvGenerator.Reference != nil {
-		return keyvaluegenerator.NewMultiClusterFileKVSource(*kvGenerator.Reference)
+		return keyvaluegenerator.NewMultiClusterFileKVSource(kvGenerator.Reference)
 	} else {
 		return nil
 	}
 }
 
-func evaluateGitDefinition(gitSource apiv1.CredentialedGitSource, keysValues map[string]string) apiv1.CredentialedGitSource {
+func evaluateGitDefinition(gitSource *apiv1.CredentialedGitSource, keysValues map[string]string) apiv1.CredentialedGitSource {
 	return apiv1.CredentialedGitSource{}
 }
