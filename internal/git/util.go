@@ -22,8 +22,9 @@ import (
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/helm"
 	"github.com/numaproj-labs/numaplane/internal/kustomize"
-	gitShared "github.com/numaproj-labs/numaplane/internal/shared/git"
-	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	gitShared "github.com/numaproj-labs/numaplane/internal/util/git"
+	kubernetesshared "github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/logging"
 )
 
 func CloneRepo(
@@ -118,16 +119,19 @@ func GetLatestManifests(
 		// Read all the files under the path and apply each one respectively.
 		err = tree.Files().ForEach(func(f *object.File) error {
 			logger.Debugw("read file", "file_name", f.Name)
-			manifest, err := f.Contents()
-			if err != nil {
-				logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
-				return err
+			if kubernetesshared.IsValidKubernetesManifestFile(f.Name) {
+				manifest, err := f.Contents()
+				if err != nil {
+					logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
+					return err
+				}
+				manifestData, err := SplitYAMLToString([]byte(manifest))
+				if err != nil {
+					return fmt.Errorf("can not parse file data, err: %v", err)
+				}
+				manifests = append(manifests, manifestData...)
 			}
-			manifestData, err := SplitYAMLToString([]byte(manifest))
-			if err != nil {
-				return fmt.Errorf("can not parse file data, err: %v", err)
-			}
-			manifests = append(manifests, manifestData...)
+
 			return nil
 		})
 		if err != nil {

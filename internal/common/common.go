@@ -1,4 +1,4 @@
-package shared
+package common
 
 const (
 	// AnnotationKeyGitSyncInstance Resource metadata annotations (keys and values) used for tracking

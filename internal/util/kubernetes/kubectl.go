@@ -5,7 +5,7 @@ import (
 
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/argoproj/gitops-engine/pkg/utils/tracing"
-	log "github.com/numaproj-labs/numaplane/internal/shared/logging"
+	log "github.com/numaproj-labs/numaplane/internal/util/logging"
 )
 
 var tracer tracing.Tracer = &tracing.NopTracer{}
