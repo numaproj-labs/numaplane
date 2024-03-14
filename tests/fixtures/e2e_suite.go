@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -57,10 +58,10 @@ func (s *E2ESuite) SetupSuite() {
 
 	// resource cleanup
 	s.deleteResources([]schema.GroupVersionResource{
-		metav1.SchemeGroupVersion.WithResource("gitsync"),
+		v1alpha1.GitSyncGroupVersionResource,
 	})
 
-	/* portfwd git server pod */
+	/* port forward git server pod */
 	// err = PodPortForward(s.restConfig, Namespace, "git-server-pod", 8443, 8443,s.stopch)
 	// s.CheckError(err)
 
@@ -68,7 +69,7 @@ func (s *E2ESuite) SetupSuite() {
 
 func (s *E2ESuite) TearDownSuite() {
 	s.deleteResources([]schema.GroupVersionResource{
-		metav1.SchemeGroupVersion.WithResource("gitsync"),
+		v1alpha1.GitSyncGroupVersionResource,
 	})
 	close(s.stopch)
 }
