@@ -90,6 +90,8 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 
 .PHONY: codegen
 codegen: generate manifests
+	rm -rf ./vendor
+	go mod tidy
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.

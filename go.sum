@@ -22,8 +22,6 @@ github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdko
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be/go.mod h1:ySMOLuWl6zY27l47sB3qLNK6tF2fkHG55UZxx8oIVo4=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
-github.com/argoproj/argo-cd/v2 v2.10.2 h1:rEoW5Aq9EN55674OuPt8YMtpnpen9fvJSVnlA/HUhbo=
-github.com/argoproj/argo-cd/v2 v2.10.2/go.mod h1:nujAuswdQvB6yWI8HubQjfUiLdiIlKlG0ihx2Ht1D28=
 github.com/argoproj/argo-cd/v2 v2.10.3 h1:ig4haO1PTE6uoA2n7kOpa5pZ/UPFAMgoXd/bJMxPSfE=
 github.com/argoproj/argo-cd/v2 v2.10.3/go.mod h1:nujAuswdQvB6yWI8HubQjfUiLdiIlKlG0ihx2Ht1D28=
 github.com/argoproj/gitops-engine v0.7.1-0.20240124052710-5fd9f449e757 h1:5fKAhTQcTBom0vin56cz/UTPx2GMuvdb+lJRAUOPbHA=
