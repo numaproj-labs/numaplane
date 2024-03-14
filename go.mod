@@ -23,10 +23,10 @@ require (
 	golang.org/x/crypto v0.19.0
 	golang.org/x/sync v0.6.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.26.14
-	k8s.io/apimachinery v0.26.14
-	k8s.io/client-go v0.26.11
-	sigs.k8s.io/controller-runtime v0.14.7
+	k8s.io/api v0.29.2
+	k8s.io/apimachinery v0.29.2
+	k8s.io/client-go v0.29.0
+	sigs.k8s.io/controller-runtime v0.17.2
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -70,6 +70,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
+	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20230907193218-d3ddc7976beb // indirect
@@ -149,7 +150,7 @@ require (
 	k8s.io/component-helpers v0.26.11 // indirect
 	k8s.io/klog/v2 v2.110.1 // indirect
 	k8s.io/kube-aggregator v0.26.4 // indirect
-	k8s.io/kube-openapi v0.0.0-20230525220651-2546d827e515 // indirect
+	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/kubectl v0.26.4 // indirect
 	k8s.io/kubernetes v1.26.11 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
