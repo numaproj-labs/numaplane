@@ -81,13 +81,17 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) crd paths="./..." output:crd:artifacts:config=config/crd/bases
 	$(KUBECTL) kustomize config/default > config/install.yaml
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
-	go generate ./...
+
+.PHONY: codegen
+codegen: generate manifests
+	rm -rf ./vendor
+	go mod tidy
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -130,8 +134,8 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-.PHONY: docker-build
-docker-build: ## Build docker image with the manager.
+.PHONY: image
+image: ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build -t ${IMAGE_FULL_PATH} .
 ifdef IMAGE_IMPORT_CMD
 	$(IMAGE_IMPORT_CMD) ${IMAGE_FULL_PATH}
@@ -165,7 +169,8 @@ ifndef ignore-not-found
 endif
 
 .PHONY: start
-start: docker-build manifests
+start: image
+	$(KUBECTL) apply -f tests/manifests/numaplane-ns.yaml
 	$(KUBECTL) kustomize tests/manifests | sed 's/CLUSTER_NAME_VALUE/$(CLUSTER_NAME)/g' | sed 's@quay.io/numaproj/@$(IMAGE_NAMESPACE)/@' | sed 's/$(IMG):$(BASE_VERSION)/$(IMG):$(VERSION)/' | $(KUBECTL) apply -f -
 
 ##@ Build Dependencies

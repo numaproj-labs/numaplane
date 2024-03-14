@@ -166,7 +166,7 @@ func Test_cloneRepo(t *testing.T) {
 			cloneOptions := &git.CloneOptions{
 				URL: tc.gitSync.Spec.RepoUrl,
 			}
-			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, nil, cloneOptions)
+			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, cloneOptions)
 			assert.NoError(t, cloneErr)
 			if tc.hasErr {
 				assert.NotNil(t, err)
@@ -311,7 +311,7 @@ func Test_GetLatestManifests(t *testing.T) {
 			cloneOptions := &git.CloneOptions{
 				URL: tc.gitSync.Spec.RepoUrl,
 			}
-			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, nil, cloneOptions)
+			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, cloneOptions)
 			assert.Nil(t, cloneErr)
 
 			// To break the continuous check of repo update, added the context timeout.
@@ -415,7 +415,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 
 	gitSync := newGitSync("test", repoUrL, "gitClone", "master")
 
-	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions)
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
@@ -456,7 +456,7 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
 	gitSync := newGitSync("test", repoUrL, "gitCloned", "master")
 
-	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions)
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
@@ -501,7 +501,7 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 	gitSync := newGitSync("test", repoUrL, "gitCloned", "master")
 	log.Println(cloneOptions)
 
-	repo, err := cloneRepo(context.Background(), gitSync, client, cloneOptions)
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git

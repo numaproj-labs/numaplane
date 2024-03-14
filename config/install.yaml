@@ -1,16 +1,3 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    app.kubernetes.io/component: manager
-    app.kubernetes.io/created-by: numaplane
-    app.kubernetes.io/instance: system
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: namespace
-    app.kubernetes.io/part-of: numaplane
-    control-plane: controller-manager
-  name: numaplane-system
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -234,12 +221,9 @@ kind: ServiceAccount
 metadata:
   labels:
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: numaplane
-    app.kubernetes.io/instance: controller-manager-sa
-    app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: serviceaccount
     app.kubernetes.io/part-of: numaplane
-  name: numaplane-controller-manager
+  name: numaplane-sa
   namespace: numaplane-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -247,9 +231,6 @@ kind: Role
 metadata:
   labels:
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: numaplane
-    app.kubernetes.io/instance: leader-election-role
-    app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: role
     app.kubernetes.io/part-of: numaplane
   name: numaplane-leader-election-role
@@ -290,7 +271,79 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: numaplane-manager-role
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/part-of: numaplane
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: numaplane-aggregate-to-admin
+rules:
+- apiGroups:
+  - numaplane.numaproj.io
+  resources:
+  - gitsyncs
+  - gitsyncs/finalizer
+  - gitsyncs/status
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/part-of: numaplane
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+  name: numaplane-aggregate-to-edit
+rules:
+- apiGroups:
+  - numaplane.numaproj.io
+  resources:
+  - gitsyncs
+  - gitsyncs/finalizer
+  - gitsyncs/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/part-of: numaplane
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+  name: numaplane-aggregate-to-view
+rules:
+- apiGroups:
+  - numaplane.numaproj.io
+  resources:
+  - gitsyncs
+  - gitsyncs/finalizer
+  - gitsyncs/status
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: numaplane-role
 rules:
 - apiGroups:
   - '*'
@@ -304,9 +357,6 @@ kind: RoleBinding
 metadata:
   labels:
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: numaplane
-    app.kubernetes.io/instance: leader-election-rolebinding
-    app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: rolebinding
     app.kubernetes.io/part-of: numaplane
   name: numaplane-leader-election-rolebinding
@@ -317,7 +367,7 @@ roleRef:
   name: numaplane-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: numaplane-controller-manager
+  name: numaplane-sa
   namespace: numaplane-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -325,24 +375,22 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: numaplane
-    app.kubernetes.io/instance: manager-rolebinding
-    app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: clusterrolebinding
     app.kubernetes.io/part-of: numaplane
-  name: numaplane-manager-rolebinding
+  name: numaplane-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: numaplane-manager-role
+  name: numaplane-role
 subjects:
 - kind: ServiceAccount
-  name: numaplane-controller-manager
+  name: numaplane-sa
   namespace: numaplane-system
 ---
 apiVersion: v1
 data:
-  config.yaml: 'timeIntervalSec: 60'
+  config.yaml: |
+    timeIntervalSec: 60
 kind: ConfigMap
 metadata:
   name: numaplane-controller-config
@@ -352,26 +400,26 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app.kubernetes.io/component: manager
-    app.kubernetes.io/created-by: numaplane
-    app.kubernetes.io/instance: controller-manager
-    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/component: controller-manager
     app.kubernetes.io/name: deployment
     app.kubernetes.io/part-of: numaplane
-    control-plane: controller-manager
   name: numaplane-controller-manager
   namespace: numaplane-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      control-plane: controller-manager
+      app.kubernetes.io/component: controller-manager
+      app.kubernetes.io/name: controller-manager
+      app.kubernetes.io/part-of: numaplane
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
-        control-plane: controller-manager
+        app.kubernetes.io/component: controller-manager
+        app.kubernetes.io/name: controller-manager
+        app.kubernetes.io/part-of: numaplane
     spec:
       containers:
       - args:
@@ -406,7 +454,7 @@ spec:
         volumeMounts:
         - mountPath: /etc/numaplane
           name: config-volume
-      serviceAccountName: numaplane-controller-manager
+      serviceAccountName: numaplane-sa
       terminationGracePeriodSeconds: 10
       volumes:
       - configMap:

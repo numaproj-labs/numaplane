@@ -38,7 +38,7 @@ func CloneRepo(
 	if err != nil {
 		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
 	}
-	return cloneRepo(ctx, gitSync, client, cloneOptions)
+	return cloneRepo(ctx, gitSync, cloneOptions)
 }
 
 // GetLatestManifests gets the latest manifests from the Git repository.
@@ -215,40 +215,18 @@ func fetchUpdates(ctx context.Context,
 		return err
 	}
 
-	// update the local repo with remote changes.
-	worktree, err := repo.Worktree()
-	if err != nil {
-		return err
-	}
-
-	err = worktree.Pull(&git.PullOptions{
-		Force:      true,
-		RemoteName: "origin",
-	})
-	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-		return err
-	}
-
 	return nil
 }
 
-func cloneRepo(
-	ctx context.Context,
-	gitSync *v1alpha1.GitSync,
-	client k8sClient.Client,
-	options *git.CloneOptions,
-) (*git.Repository, error) {
+func cloneRepo(ctx context.Context, gitSync *v1alpha1.GitSync, options *git.CloneOptions) (*git.Repository, error) {
 	path := getLocalRepoPath(gitSync)
 
 	r, err := git.PlainCloneContext(ctx, path, false, options)
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		// If the repository is already present in local, then pull the latest changes and update it.
+		// open the existing repo and return it.
 		existingRepo, openErr := git.PlainOpen(path)
 		if openErr != nil {
 			return r, fmt.Errorf("failed to open existing repo, err: %v", openErr)
-		}
-		if fetchErr := fetchUpdates(ctx, client, gitSync, existingRepo); fetchErr != nil {
-			return existingRepo, fetchErr
 		}
 		return existingRepo, nil
 	}

@@ -3,7 +3,7 @@ module github.com/numaproj-labs/numaplane
 go 1.21
 
 require (
-	github.com/argoproj/argo-cd/v2 v2.10.2
+	github.com/argoproj/argo-cd/v2 v2.10.3
 	github.com/argoproj/gitops-engine v0.7.1-0.20240124052710-5fd9f449e757
 	github.com/argoproj/pkg v0.13.7-0.20230626144333-d56162821bd1
 	github.com/bombsimon/logrusr/v2 v2.0.1
