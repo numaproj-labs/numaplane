@@ -41,7 +41,7 @@ type Source struct {
 }
 
 type KVGenerator struct {
-	Direct *apiv1.SingleClusterGenerator `json:"direct,omitempty"`
+	Embedded *apiv1.SingleClusterGenerator `json:"embedded,omitempty"`
 
 	Reference *apiv1.MultiClusterFileGenerator `json:"reference,omitempty"`
 }
