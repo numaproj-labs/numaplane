@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/argoproj/gitops-engine/pkg/diff"
-	gitopssync "github.com/argoproj/gitops-engine/pkg/sync"
-	kubeutil "github.com/argoproj/gitops-engine/pkg/utils/kube"
+	gitopsSync "github.com/argoproj/gitops-engine/pkg/sync"
+	kubeUtil "github.com/argoproj/gitops-engine/pkg/utils/kube"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,7 +32,7 @@ type Syncer struct {
 	client     client.Client
 	config     *rest.Config
 	rawConfig  *rest.Config
-	kubectl    kubeutil.Kubectl
+	kubectl    kubeUtil.Kubectl
 	gitSyncMap map[string]*list.Element
 	// List of the GitSync namespaced name, format is "namespace/name"
 	gitSyncList *list.List
@@ -47,7 +47,7 @@ func KeyOfGitSync(gitSync *v1alpha1.GitSync) string {
 }
 
 // NewSyncer returns a Synchronizer instance.
-func NewSyncer(client client.Client, config *rest.Config, rawConfig *rest.Config, kubectl kubeutil.Kubectl, opts ...Option) *Syncer {
+func NewSyncer(client client.Client, config *rest.Config, rawConfig *rest.Config, kubectl kubeUtil.Kubectl, opts ...Option) *Syncer {
 	watcherOpts := defaultOptions()
 	for _, opt := range opts {
 		if opt != nil {
@@ -206,12 +206,12 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err != nil {
 		log.Errorw("error getting  the  global config", "err", err)
 	}
-	repo, err := git.CloneRepo(ctx, s.client, gitSync, namespace, globalConfig)
+	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to clone the repo of key %q, %w", key, err)
 	}
-	manifests, err := git.GetLatestManifests(ctx, repo, gitSync)
 
+	manifests, err := git.GetLatestManifests(ctx, repo, s.client, gitSync)
 	if err != nil {
 		return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
 	}
@@ -245,42 +245,25 @@ func (r *resourceInfoProviderStub) IsNamespaced(_ schema.GroupKind) (bool, error
 func (s *Syncer) sync(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured, logger *zap.SugaredLogger) bool {
 	logEntry := log.WithFields(log.Fields{"gitsync": gitSync})
 
-	reconciliationResult, err := s.compareState(gitSync, targetObjs)
-	if err != nil {
-		return false
-	}
-
-	// Ignore `status` field for all comparison.
-	// TODO: make it configurable
-	overrides := map[string]ResourceOverride{
-		"*/*": {
-			IgnoreDifferences: OverrideIgnoreDiff{JSONPointers: []string{"/status"}}},
-	}
-
-	// TODO: enable server side diff
-	diffOpts := []diff.Option{
-		diff.WithLogr(logging.NewLogrusLogger(logEntry)),
-	}
-
-	modified, err := StateDiffs(reconciliationResult.Target, reconciliationResult.Live, overrides, diffOpts)
+	reconciliationResult, modified, err := s.compareState(gitSync, targetObjs)
 	if err != nil {
 		return false
 	}
 
 	// If the live state match the target state, then skip the syncing.
-	if !modified.Modified {
+	if !modified {
 		logger.Info("GitSync object is successfully already synced, skip the syncing.")
 		return true
 	}
 
-	opts := []gitopssync.SyncOpt{
-		gitopssync.WithLogr(logging.NewLogrusLogger(logEntry)),
-		gitopssync.WithOperationSettings(false, true, false, false),
-		gitopssync.WithManifestValidation(true),
-		gitopssync.WithPruneLast(true),
-		gitopssync.WithReplace(false),
-		gitopssync.WithServerSideApply(true),
-		gitopssync.WithServerSideApplyManager(common.SSAManager),
+	opts := []gitopsSync.SyncOpt{
+		gitopsSync.WithLogr(logging.NewLogrusLogger(logEntry)),
+		gitopsSync.WithOperationSettings(false, true, false, false),
+		gitopsSync.WithManifestValidation(true),
+		gitopsSync.WithPruneLast(true),
+		gitopsSync.WithReplace(false),
+		gitopsSync.WithServerSideApply(true),
+		gitopsSync.WithServerSideApplyManager(common.SSAManager),
 	}
 
 	cluster, err := s.stateCache.GetClusterCache()
@@ -289,7 +272,7 @@ func (s *Syncer) sync(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unst
 	}
 	openAPISchema := cluster.GetOpenAPISchema()
 
-	syncCtx, cleanup, err := gitopssync.NewSyncContext(
+	syncCtx, cleanup, err := gitopsSync.NewSyncContext(
 		gitSync.Spec.TargetRevision,
 		reconciliationResult,
 		s.config,
@@ -310,17 +293,37 @@ func (s *Syncer) sync(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unst
 	return phase.Successful()
 }
 
-func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (gitopssync.ReconciliationResult, error) {
-	var infoProvider kubeutil.ResourceInfoProvider
+func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (gitopsSync.ReconciliationResult, bool, error) {
+	var infoProvider kubeUtil.ResourceInfoProvider
 	infoProvider, err := s.stateCache.GetClusterCache()
 	if err != nil {
 		infoProvider = &resourceInfoProviderStub{}
 	}
 	liveObjByKey, err := s.stateCache.GetManagedLiveObjs(gitSync, targetObjs)
 	if err != nil {
-		return gitopssync.ReconciliationResult{}, err
+		return gitopsSync.ReconciliationResult{}, false, err
 	}
-	return gitopssync.Reconcile(targetObjs, liveObjByKey, gitSync.Spec.Destination.Namespace, infoProvider), nil
+	reconciliationResult := gitopsSync.Reconcile(targetObjs, liveObjByKey, gitSync.Spec.Destination.Namespace, infoProvider)
+
+	// Ignore `status` field for all comparison.
+	// TODO: make it configurable
+	overrides := map[string]ResourceOverride{
+		"*/*": {
+			IgnoreDifferences: OverrideIgnoreDiff{JSONPointers: []string{"/status"}}},
+	}
+
+	logEntry := log.WithFields(log.Fields{"gitsync": gitSync})
+
+	diffOpts := []diff.Option{
+		diff.WithLogr(logging.NewLogrusLogger(logEntry)),
+	}
+
+	modified, err := StateDiffs(reconciliationResult.Target, reconciliationResult.Live, overrides, diffOpts)
+	if err != nil {
+		return reconciliationResult, false, err
+	}
+
+	return reconciliationResult, modified.Modified, nil
 }
 
 func toUnstructuredAndApplyAnnotation(manifests []string, gitSyncName string) ([]*unstructured.Unstructured, error) {

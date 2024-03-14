@@ -5,7 +5,12 @@ import (
 	"os"
 	"testing"
 
+	"context"
+
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -109,7 +114,6 @@ spec:
 	assert.Equal(t, `apiVersion: v1
 kind: Pod
 metadata:
-  creationTimestamp: null
   name: frontend
   namespace: numaflow
   ownerReferences:
@@ -139,7 +143,6 @@ spec:
       requests:
         cpu: 250m
         memory: 64Mi
-status: {}
 `, string(reference))
 	assert.NoError(t, err)
 
@@ -179,7 +182,6 @@ metadata:
 	assert.Equal(t, `apiVersion: v1
 kind: Pod
 metadata:
-  creationTimestamp: null
   name: my-custom-resource
   ownerReferences:
   - apiVersion: apps/v1
@@ -200,9 +202,6 @@ metadata:
     kind: GitSync
     name: gitsync-test
     uid: awew
-spec:
-  containers: null
-status: {}
 `, string(reference))
 	assert.NoError(t, err)
 
@@ -259,7 +258,6 @@ func TestApplyOwnerShipReferenceJSON(t *testing.T) {
 	assert.Equal(t, `apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: nginx-deployment
   ownerReferences:
   - apiVersion: "1"
@@ -273,10 +271,8 @@ spec:
   selector:
     matchLabels:
       app: nginx
-  strategy: {}
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: nginx
     spec:
@@ -285,10 +281,33 @@ spec:
         name: nginx
         ports:
         - containerPort: 80
-        resources: {}
-status: {}
 `, string(reference))
 	assert.NoError(t, err)
+
+}
+func TestGetSecret(t *testing.T) {
+	scheme := runtime.NewScheme()
+	err := corev1.AddToScheme(scheme)
+	assert.NoError(t, err)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-secret",
+				Namespace: "test-namespace",
+			},
+			Data: map[string][]byte{
+				"key": []byte("value"),
+			},
+		},
+	).Build()
+
+	ctx := context.TODO()
+
+	secret, err := GetSecret(ctx, fakeClient, "test-namespace", "test-secret")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, secret)
+	assert.Equal(t, "value", string(secret.Data["key"]))
 }
 func TestIsValidKubernetesManifestFile(t *testing.T) {
 
@@ -390,7 +409,6 @@ metadata:
 	assert.Equal(t, `apiVersion: v1
 kind: Pod
 metadata:
-  creationTimestamp: null
   name: my-custom-resource
   ownerReferences:
   - apiVersion: apps/v1
@@ -411,9 +429,6 @@ metadata:
     kind: ConfigMap
     name: my-configmap
     uid: awew
-spec:
-  containers: null
-status: {}
 `, string(reference))
 
 }

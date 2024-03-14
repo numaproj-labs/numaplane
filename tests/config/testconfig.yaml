@@ -7,6 +7,7 @@ repoCredentials:
       password:
         name: "http-creds"
         key: "password"
+        namespace: "numaplane-controller"
     tls:
       insecureSkipVerify: true
   - url: "github.com:numaproj"
@@ -14,6 +15,7 @@ repoCredentials:
       SSHKey:
         name: "ssh-creds"
         key: "sshKey"
+        namespace: "numaplane-controller"
     tls:
       insecureSkipVerify: true
   - url: "github.com/numalabs"
@@ -22,5 +24,6 @@ repoCredentials:
       password:
         name: "http-creds"
         key: "password"
+        namespace: "numaplane-controller"
     tls:
       insecureSkipVerify: true

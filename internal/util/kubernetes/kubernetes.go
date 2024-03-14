@@ -2,16 +2,12 @@ package kubernetes
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
-	"slices"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	serializeryaml "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/utils/ptr"
+	yamlserializer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+
 	"sigs.k8s.io/yaml"
 
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +17,9 @@ import (
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 )
+
+// validManifestExtensions contains the supported extension for raw file.
+var validManifestExtensions = map[string]struct{}{"yaml": {}, "yml": {}, "json": {}}
 
 func IsValidKubernetesNamespace(name string) bool {
 	// All namespace names must be valid RFC 1123 DNS labels.
@@ -76,6 +75,12 @@ func nestedNullableStringMap(obj map[string]interface{}, fields ...string) (map[
 
 // GetSecret gets secret using the kubernetes client
 func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretName string) (*corev1.Secret, error) {
+	if namespace == "" {
+		return nil, fmt.Errorf("namespace cannot be empty")
+	}
+	if secretName == "" {
+		return nil, fmt.Errorf("secretName cannot be empty")
+	}
 	secret := &corev1.Secret{}
 	key := k8sClient.ObjectKey{
 		Namespace: namespace,
@@ -88,50 +93,22 @@ func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretNa
 }
 
 // ownerExists checks if an owner reference already exists in the list of owner references.
-func ownerExists(existingRefs []metav1.OwnerReference, newRef metav1.OwnerReference) bool {
+func ownerExists(existingRefs []interface{}, ownerRef map[string]interface{}) bool {
+	var alreadyExists bool
 	for _, ref := range existingRefs {
-		if ref.UID == newRef.UID {
-			return true
+		if refMap, ok := ref.(map[string]interface{}); ok {
+			if refMap["uid"] == ownerRef["uid"] {
+				alreadyExists = true
+				break
+			}
 		}
 	}
-	return false
-}
-
-// ApplyGitSyncOwnership2 sets the GitSync as the Owner (or one of the Owners if ones already exist) of the Resource through an OwnerReference
-func ApplyGitSyncOwnership2(manifest string, gitSync *v1alpha1.GitSync) ([]byte, error) {
-	decode := scheme.Codecs.UniversalDeserializer().Decode
-	decoded, _, err := decode([]byte(manifest), nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	obj, ok := decoded.(metav1.Object)
-	if !ok {
-		return nil, errors.New("decoded manifest is not a metaV1 object")
-	}
-	ownerRef := metav1.OwnerReference{
-		APIVersion:         gitSync.APIVersion,
-		Kind:               gitSync.Kind,
-		Name:               gitSync.Name,
-		UID:                gitSync.UID,
-		Controller:         ptr.To(true),
-		BlockOwnerDeletion: ptr.To(true),
-	}
-	existingRef := obj.GetOwnerReferences()
-	if !ownerExists(existingRef, ownerRef) {
-		existingRef = append(existingRef, ownerRef)
-		obj.SetOwnerReferences(existingRef)
-	}
-	modifiedManifest, err := yaml.Marshal(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	return modifiedManifest, nil
+	return alreadyExists
 }
 
 func ApplyGitSyncOwnership(manifest string, gitSync *v1alpha1.GitSync) ([]byte, error) {
 	// Decode YAML into an Unstructured object
-	decUnstructured := serializeryaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	decUnstructured := yamlserializer.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 	obj := &unstructured.Unstructured{}
 	_, _, err := decUnstructured.Decode([]byte(manifest), nil, obj)
 	if err != nil {
@@ -158,6 +135,7 @@ func ApplyGitSyncOwnership(manifest string, gitSync *v1alpha1.GitSync) ([]byte, 
 	}
 
 	// Check if the owner reference already exists to avoid duplication
+	alreadyExists := ownerExists(existingRefs, ownerRef)
 
 	// Add the new owner reference if it does not exist
 	if !alreadyExists {
@@ -168,16 +146,18 @@ func ApplyGitSyncOwnership(manifest string, gitSync *v1alpha1.GitSync) ([]byte, 
 		}
 	}
 
+	// Marshal the updated object into YAML
 	modifiedManifest, err := yaml.Marshal(obj)
 	if err != nil {
 		return nil, err
 	}
-
 	return modifiedManifest, nil
 }
 
 func IsValidKubernetesManifestFile(fileName string) bool {
 	fileExt := strings.Split(fileName, ".")
-	validExtName := []string{"yaml", "yml", "json"}
-	return slices.Contains(validExtName, fileExt[len(fileExt)-1])
+	if _, ok := validManifestExtensions[fileExt[len(fileExt)-1]]; ok {
+		return true
+	}
+	return false
 }
