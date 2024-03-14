@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"github.com/numaproj-labs/numaplane/internal/agent"
-	"github.com/numaproj-labs/numaplane/internal/shared/logging"
+	"github.com/numaproj-labs/numaplane/internal/util/logging"
 )
 
 var (
@@ -46,7 +46,7 @@ func main() {
 	}
 
 	// create a new AgentSyncer
-	syncer := &agent.AgentSyncer{}
+	syncer := agent.NewAgentSyncer(logger)
 	syncer.Run(ctx)
 
 }

@@ -18,86 +18,114 @@ package agent
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	kvsource "github.com/numaproj-labs/numaplane/internal/keyvaluegenerator"
-
-	kubeutil "github.com/argoproj/gitops-engine/pkg/utils/kube"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	//kubeutil "github.com/argoproj/gitops-engine/pkg/utils/kube"
+	//"k8s.io/client-go/rest"
+	//"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type AgentSyncer struct {
-	logger    *zap.SugaredLogger
-	client    client.Client
-	config    *rest.Config
-	rawConfig *rest.Config
-	kubectl   kubeutil.Kubectl
+	logger *zap.SugaredLogger
 
-	//stateCache  LiveStateCache
+	configMap         AgentConfig
+	configMapRevision int // setting this < 0 enables us to check it initially
+	// todo: add all of these in
+	/*
+		client    client.Client
+		config    *rest.Config
+		rawConfig *rest.Config
+		kubectl   kubeutil.Kubectl
+
+		stateCache  LiveStateCache
+	*/
+}
+
+func NewAgentSyncer(logger *zap.SugaredLogger) *AgentSyncer {
+	return &AgentSyncer{
+		logger:            logger,
+		configMapRevision: -1,
+	}
 }
 
 // Run function runs in a loop, syncing the manifest if it's changed, checking every x seconds
 // It responds to all of the following events:
 // 1. ConfigMap change;
 // 2. Source Manifest change;
-// 3. If file generator is used, that file changed
+// 3. If file generator is used, then a change from that file
 func (syncer *AgentSyncer) Run(ctx context.Context) error {
-
-	var err error
-	// this is where we watch the manifest for our Controller
-	var gitSource apiv1.CredentialedGitSource
-	// this is the source of our key/value pairs
-	var kvSource kvsource.KVSource
-	configMapRevision := -1
-	configManager := GetConfigManagerInstance()
-	var configMap AgentConfig
 
 	for {
 		select {
 		default:
 
 			// Determine the latest value of our GitSource definition
+			gitSource := syncer.getGitSource()
 
-			keysValuesModified := false // do we need to reevaluate the gitSource because the key/value pairs changed?
+			syncer.syncLatest(gitSource)
 
-			// Reload our copy of the ConfigMap if it changed (or load it the first time upon starting)
-			if configManager.GetRevisionIndex() > configMapRevision {
-				configMap, configMapRevision, err = configManager.GetConfig()
-				if err != nil {
-					syncer.logger.Error(err)
-					continue
-				}
-
-				// create a KVSource which will return a new set of key/value pairs
-				kvSource = createKVSource(configMap.Source.KVGenerator)
-				keysValuesModified = true
-
-			}
-
-			if kvSource == nil {
-				gitSource = configMap.Source.GitDefinition
-			} else {
-				var keysValues map[string]string
-				keysValues, keysValuesModified = kvSource.GetKeysValues()
-				// if the key/value pairs changed, then reevaluate the gitSource
-				if keysValuesModified {
-					gitSource = evaluateGitDefinition(configMap.Source.GitDefinition, keysValues)
-				} else {
-					gitSource = configMap.Source.GitDefinition
-				}
-			}
-
-			// clone/fetch repo
-			// apply resource
-
-			//time.Sleep(???)
+			time.Sleep(time.Duration(syncer.configMap.TimeIntervalSec) * time.Second)
 		case <-ctx.Done():
 			syncer.logger.Info("context ended, terminating AgentSyncer watch")
 			return nil
 		}
 	}
+
+}
+
+// determine if ConfigMap was updated and if so, get latest
+func (syncer *AgentSyncer) checkConfigMapUpdated() bool {
+	configManager := GetConfigManagerInstance()
+	var err error
+	var newRevision int
+	// Reload our copy of the ConfigMap if it changed (or load it the first time upon starting)
+	if configManager.GetRevisionIndex() > syncer.configMapRevision {
+		syncer.configMap, newRevision, err = configManager.GetConfig()
+		if err != nil {
+			syncer.logger.Error(err)
+			return false
+		}
+		syncer.configMapRevision = newRevision
+		return true
+	}
+	return false
+}
+
+func (syncer *AgentSyncer) getGitSource() apiv1.CredentialedGitSource {
+	var err error
+	// this is the source of our key/value pairs
+	var kvSource kvsource.KVSource
+
+	keysValuesModified := false // do we need to reevaluate the gitSource because the key/value pairs changed?
+
+	if syncer.checkConfigMapUpdated() {
+		// create a KVSource which will return a new set of key/value pairs
+		kvSource = createKVSource(syncer.configMap.Source.KVGenerator)
+		keysValuesModified = true
+
+	}
+
+	if kvSource == nil {
+		return syncer.configMap.Source.GitDefinition
+	} else {
+		var keysValues map[string]string
+		keysValues, keysValuesModified = kvSource.GetKeysValues()
+		// if the key/value pairs changed, then reevaluate the gitSource
+		if keysValuesModified {
+			return evaluateGitDefinition(syncer.configMap.Source.GitDefinition, keysValues)
+		} else {
+			return syncer.configMap.Source.GitDefinition
+		}
+	}
+
+}
+
+// clone/fetch repo
+// apply resource if it changed
+func (syncer *AgentSyncer) syncLatest(gitSource apiv1.CredentialedGitSource) {
 
 }
