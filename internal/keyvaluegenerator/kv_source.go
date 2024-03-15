@@ -17,6 +17,8 @@ limitations under the License.
 package keyvaluegenerator
 
 import (
+	"maps"
+
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 )
 
@@ -28,7 +30,7 @@ type KVSource interface {
 }
 
 func NewBasicKVSource(kv map[string]string) *BasicKVSource {
-	return &BasicKVSource{values: kv}
+	return &BasicKVSource{values: maps.Clone(kv)}
 }
 
 type BasicKVSource struct {
@@ -40,11 +42,11 @@ func (source *BasicKVSource) GetKeysValues() (map[string]string, bool) {
 }
 
 func NewMultiClusterFileKVSource(sourceDefinition *apiv1.MultiClusterFileGenerator) *MultiClusterFileKVSource {
-	return &MultiClusterFileKVSource{sourceDefinition: sourceDefinition}
+	return &MultiClusterFileKVSource{sourceDefinition: *sourceDefinition.DeepCopy()}
 }
 
 type MultiClusterFileKVSource struct {
-	sourceDefinition *apiv1.MultiClusterFileGenerator
+	sourceDefinition apiv1.MultiClusterFileGenerator
 	values           map[string]string
 }
 

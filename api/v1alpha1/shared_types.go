@@ -151,9 +151,6 @@ type SingleClusterGenerator struct {
 // multiple files containing key/value pairs: subsequent entries can override earlier entries
 type MultiClusterFileGenerator struct {
 	Files []*MultiClusterFile `json:"files" mapstructure:"files"`
-
-	ClusterKey   string `json:"clusterKey" mapstructure:"clusterKey"`
-	ClusterValue string `json:"clusterValue" mapstructure:"clusterValue"`
 }
 
 type MultiClusterFile struct {
