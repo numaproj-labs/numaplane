@@ -135,6 +135,10 @@ build-agent: generate fmt vet ## Build agent binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run -gcflags=${GCFLAGS} ./cmd/main.go
 
+.PHONY: run-agent
+run-agent: generate fmt vet ## Build agent binary.
+	go run -gcflags=${GCFLAGS} cmd/agent/main.go
+
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/

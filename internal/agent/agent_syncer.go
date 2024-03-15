@@ -118,17 +118,16 @@ func (syncer *AgentSyncer) evaluateGitSource() {
 		// create a KVSource which will return a new set of key/value pairs
 		syncer.kvSource = createKVSource(syncer.config.Source.KeyValueGenerator)
 		generateNewSource = true
-		keysValues, _ = syncer.kvSource.GetKeysValues()
-		syncer.logger.Infof("Config update: syncer.kvSource=%+v, keysValues=%+v", syncer.kvSource, keysValues)
-
+		syncer.logger.Infof("config update: syncer.kvSource=%+v", syncer.kvSource)
+	}
+	if syncer.kvSource == nil {
+		// no KVSource defined, so just use the GitDefinition as is
+		syncer.gitSource = &syncer.config.Source.GitDefinition
+		return
 	} else {
-		if syncer.kvSource == nil {
-			// no KVSource defined, so just use the GitDefinition as is
-			syncer.gitSource = &syncer.config.Source.GitDefinition
-			return
-		} else {
-			keysValues, generateNewSource = syncer.kvSource.GetKeysValues()
-		}
+		newKeysValues := false
+		keysValues, newKeysValues = syncer.kvSource.GetKeysValues()
+		generateNewSource = generateNewSource || newKeysValues
 	}
 
 	// if the key/value pairs changed, then reevaluate the gitSource (which is presumably templated)
