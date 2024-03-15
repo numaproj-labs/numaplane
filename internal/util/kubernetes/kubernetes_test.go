@@ -2,34 +2,22 @@ package kubernetes
 
 import (
 	"context"
-<<<<<<< HEAD
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"log"
 	"os"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-=======
-	"os"
-	"testing"
-
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
->>>>>>> 006b51c (Authentication for fetching from git repo (#125))
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
-<<<<<<< HEAD:internal/shared/kubernetes/kubernetes_test.go
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
-	"github.com/numaproj-labs/numaplane/internal/shared"
-=======
 	"github.com/numaproj-labs/numaplane/internal/common"
->>>>>>> b826a56 (chore: Rename `shared` to `util` (#146)):internal/util/kubernetes/kubernetes_test.go
 )
 
 func TestIsValidKubernetesNamespace(t *testing.T) {
@@ -219,30 +207,6 @@ metadata:
 
 }
 
-func TestGetSecret(t *testing.T) {
-	scheme := runtime.NewScheme()
-	err := corev1.AddToScheme(scheme)
-	assert.NoError(t, err)
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
-		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-secret",
-				Namespace: "test-namespace",
-			},
-			Data: map[string][]byte{
-				"key": []byte("value"),
-			},
-		},
-	).Build()
-
-	ctx := context.TODO()
-
-	secret, err := GetSecret(ctx, fakeClient, "test-namespace", "test-secret")
-
-	assert.NoError(t, err)
-	assert.NotNil(t, secret)
-	assert.Equal(t, "value", string(secret.Data["key"]))
-}
 func TestApplyOwnerShipReferenceJSON(t *testing.T) {
 	resource := `{
   "apiVersion": "apps/v1",
