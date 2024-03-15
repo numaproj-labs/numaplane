@@ -119,6 +119,7 @@ func (syncer *AgentSyncer) evaluateGitSource() {
 		syncer.kvSource = createKVSource(syncer.config.Source.KeyValueGenerator)
 		keysValuesModified = true
 		keysValues, _ = syncer.kvSource.GetKeysValues()
+		syncer.logger.Infof("Config update: syncer.kvSource=%+v, keysValues=%+v", syncer.kvSource, keysValues)
 
 	} else {
 		if syncer.kvSource == nil {
@@ -139,6 +140,7 @@ func (syncer *AgentSyncer) evaluateGitSource() {
 			return
 		} else {
 			syncer.gitSource = gitSource
+			syncer.logger.Infof("keysValues modified: %+v; new gitSource value: %v", keysValues, syncer.gitSource)
 			return
 		}
 	}

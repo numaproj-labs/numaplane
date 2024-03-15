@@ -45,6 +45,7 @@ func main() {
 		logger.Fatalw("Failed to load configuration file", err)
 	}
 
+	// Get initial Config so we can log it
 	config, _, err := configManager.GetConfig()
 	if err != nil {
 		logger.Fatalw("Failed to get configuration file", err)
