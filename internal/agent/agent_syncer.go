@@ -116,7 +116,7 @@ func (syncer *AgentSyncer) evaluateGitSource() {
 	// was Config updated?
 	if syncer.checkConfigUpdate() {
 		// create a KVSource which will return a new set of key/value pairs
-		syncer.kvSource = createKVSource(syncer.config.Source.KVGenerator)
+		syncer.kvSource = createKVSource(syncer.config.Source.KeyValueGenerator)
 		keysValuesModified = true
 		keysValues, _ = syncer.kvSource.GetKeysValues()
 

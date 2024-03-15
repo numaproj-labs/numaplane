@@ -27,23 +27,23 @@ import (
 )
 
 type AgentConfig struct {
-	ClusterName     string `json:"clusterName"`
-	TimeIntervalSec uint   `json:"timeIntervalSec"`
+	ClusterName     string `mapstructure:"clusterName"`
+	TimeIntervalSec uint   `mapstructure:"timeIntervalSec"`
 
-	Source Source `json:"source"`
+	Source Source `mapstructure:"source"`
 }
 
 type Source struct {
 	// optional, apply to GitDefinition
-	KVGenerator *KVGenerator `json:"kvGenerator,omitempty"`
+	KeyValueGenerator *KVGenerator `mapstructure:"keyValueGenerator,omitempty"`
 
-	GitDefinition apiv1.CredentialedGitSource `json:"gitDefinition"`
+	GitDefinition apiv1.CredentialedGitSource `mapstructure:"gitDefinition"`
 }
 
 type KVGenerator struct {
-	Embedded *apiv1.SingleClusterGenerator `json:"embedded,omitempty"`
+	Embedded *apiv1.SingleClusterGenerator `mapstructure:"embedded,omitempty"`
 
-	Reference *apiv1.MultiClusterFileGenerator `json:"reference,omitempty"`
+	Reference *apiv1.MultiClusterFileGenerator `mapstructure:"reference,omitempty"`
 }
 
 type ConfigManager struct {

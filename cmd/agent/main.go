@@ -39,11 +39,20 @@ func main() {
 	// Create a ConfigManager to manage our config file, watching for changes
 	configManager := agent.GetConfigManagerInstance()
 	err = configManager.LoadConfig(func(err error) {
-		logger.Errorw("Failed to reload global configuration file", err)
+		logger.Errorw("Failed to reload configuration file", err)
 	}, configPath, "config", "yaml")
 	if err != nil {
-		logger.Fatalw("Failed to load config file", err)
+		logger.Fatalw("Failed to load configuration file", err)
 	}
+
+	config, _, err := configManager.GetConfig()
+	if err != nil {
+		logger.Fatalw("Failed to get configuration file", err)
+	}
+	logger.Infof("config: %+v", config)
+	//todo: delete:
+	logger.Infof("embedded: %+v", config.Source.KeyValueGenerator.Embedded)
+	//logger.Infof("helm: %+v", *config.Source.GitDefinition.Helm)
 
 	// create a new AgentSyncer
 	syncer := agent.NewAgentSyncer(logger)

@@ -30,8 +30,7 @@ func createKVSource(kvGenerator *KVGenerator) keyvaluegenerator.KVSource {
 	}
 
 	if kvGenerator.Embedded != nil {
-		kv := *kvGenerator.Embedded
-		return keyvaluegenerator.NewBasicKVSource(map[string]string(kv))
+		return keyvaluegenerator.NewBasicKVSource(kvGenerator.Embedded.Values)
 	} else if kvGenerator.Reference != nil {
 		return keyvaluegenerator.NewMultiClusterFileKVSource(kvGenerator.Reference)
 	} else {

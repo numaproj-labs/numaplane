@@ -36,37 +36,37 @@ const (
 )
 
 type GitSource struct {
-	GitLocation `json:",inline"`
+	GitLocation `json:",inline" mapstructure:",squash"`
 
 	// Kustomize holds kustomize specific options
-	Kustomize *KustomizeSource `json:"kustomize,omitempty"`
+	Kustomize *KustomizeSource `json:"kustomize,omitempty" mapstructure:"kustomize,omitempty"`
 
 	// Helm holds helm specific options
-	Helm *HelmSource `json:"helm,omitempty"`
+	Helm *HelmSource `json:"helm,omitempty" mapstructure:"helm,omitempty"`
 
 	// Raw holds path or directory-specific options
-	Raw *RawSource `json:"raw,omitempty"`
+	Raw *RawSource `json:"raw,omitempty" mapstructure:"raw,omitempty"`
 }
 
 type CredentialedGitSource struct {
-	GitSource `json:",inline"`
+	GitSource `json:",inline" mapstructure:",squash"`
 
-	RepoCredential *RepoCredential `json:"repoCredential,omitempty"`
+	RepoCredential *RepoCredential `json:"repoCredential,omitempty" mapstructure:"repoCredential,omitempty"`
 }
 
 type GitLocation struct {
 	// RepoUrl is the URL to the repository itself
-	RepoUrl string `json:"repoUrl"`
+	RepoUrl string `json:"repoUrl" mapstructure:"repoUrl"`
 
 	// Path is the full path from the root of the repository to where the resources are held
 	//  If the Path is empty, then the root directory will be used.
 	// Can be a file or a directory
 	// Note that all resources within this path (described by .yaml files) will be synced
-	Path string `json:"path"`
+	Path string `json:"path" mapstructure:"path"`
 
 	// TargetRevision specifies the target revision to sync to, it can be a branch, a tag,
 	// or a commit hash.
-	TargetRevision string `json:"targetRevision"`
+	TargetRevision string `json:"targetRevision" mapstructure:"targetRevision"`
 }
 
 // KustomizeSource holds kustomize specific options
@@ -75,17 +75,17 @@ type KustomizeSource struct{}
 // HelmSource holds helm-specific options
 type HelmSource struct {
 	// ValuesFiles is a list of Helm value files to use when generating a template
-	ValueFiles []string `json:"valueFiles,omitempty"`
+	ValueFiles []string `json:"valueFiles,omitempty" mapstructure:"valueFiles,omitempty"`
 	// Parameters is a list of Helm parameters which are passed to the helm template command upon manifest generation
-	Parameters []HelmParameter `json:"parameters,omitempty"`
+	Parameters []HelmParameter `json:"parameters,omitempty" mapstructure:"parameters,omitempty"`
 }
 
 // HelmParameter is a parameter passed to helm template during manifest generation
 type HelmParameter struct {
 	// Name is the name of the Helm parameter
-	Name string `json:"name,omitempty"`
+	Name string `json:"name,omitempty" mapstructure:"name,omitempty"`
 	// Value is the value for the Helm parameter
-	Value string `json:"value,omitempty"`
+	Value string `json:"value,omitempty" mapstructure:"value,omitempty"`
 }
 
 // RawSource holds raw specific options
@@ -119,42 +119,44 @@ func (gitSource *GitSource) ExplicitType() (SourceType, error) {
 }
 
 type RepoCredential struct {
-	URL            string          `json:"url"`
-	HTTPCredential *HTTPCredential `json:"httpCredential"`
-	SSHCredential  *SSHCredential  `json:"sshCredential"`
-	TLS            *TLS            `json:"tls"`
+	URL            string          `json:"url" mapstructure:"url"`
+	HTTPCredential *HTTPCredential `json:"httpCredential,omitempty" mapstructure:"httpCredential,omitempty"`
+	SSHCredential  *SSHCredential  `json:"sshCredential,omitempty" mapstructure:"sshCredential,omitempty"`
+	TLS            *TLS            `json:"tls,omitempty" mapstructure:"tls,omitempty"`
 }
 
 type HTTPCredential struct {
-	Username string            `json:"username"`
-	Password SecretKeySelector `json:"password"`
+	Username string            `json:"username" mapstructure:"username"`
+	Password SecretKeySelector `json:"password" mapstructure:"password"`
 }
 
 type SSHCredential struct {
-	SSHKey SecretKeySelector `json:"SSHKey" yaml:"SSHKey" `
+	SSHKey SecretKeySelector `json:"SSHKey" yaml:"SSHKey" mapstructure:"SSHKey" yaml:"SSHKey"`
 }
 
 type TLS struct {
-	InsecureSkipVerify bool `json:"insecureSkipVerify"`
+	InsecureSkipVerify bool `json:"insecureSkipVerify" mapstructure:"insecureSkipVerify"`
 }
 
 type SecretKeySelector struct {
-	corev1.LocalObjectReference `mapstructure:",squash"` // for viper to correctly parse the config
-	Key                         string                   `json:"key" `
-	Optional                    *bool                    `json:"optional,omitempty" `
+	corev1.LocalObjectReference `json:",inline" mapstructure:",squash"` // for viper to correctly parse the config
+	Key                         string                                  `json:"key" mapstructure:"key"`
+	Optional                    *bool                                   `json:"optional,omitempty" mapstructure:"optional,omitempty"`
 }
 
-type SingleClusterGenerator map[string]string
+type SingleClusterGenerator struct {
+	Values map[string]string `json:"values" mapstructure:"values"`
+}
 
 // multiple files containing key/value pairs: subsequent entries can override earlier entries
 type MultiClusterFileGenerator struct {
-	Files []*MultiClusterFile `json:"files"`
+	Files []*MultiClusterFile `json:"files" mapstructure:"files"`
 
-	ClusterKey   string `json:"clusterKey"`
-	ClusterValue string `json:"clusterValue"`
+	ClusterKey   string `json:"clusterKey" mapstructure:"clusterKey"`
+	ClusterValue string `json:"clusterValue" mapstructure:"clusterValue"`
 }
 
 type MultiClusterFile struct {
-	GitLocation    `json:",inline"`
-	RepoCredential *RepoCredential `json:"repoCredential,omitempty"`
+	GitLocation    `json:",inline" mapstructure:",squash"`
+	RepoCredential *RepoCredential `json:"repoCredential,omitempty" mapstructure:"repoCredential,omitempty"`
 }

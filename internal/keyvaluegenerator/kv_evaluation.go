@@ -17,6 +17,6 @@ limitations under the License.
 package keyvaluegenerator
 
 func EvaluateTemplate(template []byte, keysValues map[string]string) ([]byte, error) {
-
-	return make([]byte, 0), nil
+	//TODO: implement
+	return template, nil
 }

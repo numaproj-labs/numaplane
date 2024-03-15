@@ -1,0 +1,24 @@
+#Example config map
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-config
+  namespace: numaplane-system
+data:
+  config.yaml: |
+    clusterName: staging-usw2-k8s
+    timeIntervalSec: 60
+    source:
+      kvGenerator:
+        embedded:
+          clusterName: staging-usw2-k8s
+          controllerHostName: numaplane.stagingusw2k8s.mydomain.com
+      gitDefinition:
+        path: sample-pipeline
+        repoUrl: https://github.com/mynumaplaneinstall.git
+        targetRevision: main
+        helm:
+          - name: clusterName
+            value: '{{clusterName}}'
+          - name: controllerHostName
+            value: '{{controllerHostName}}'

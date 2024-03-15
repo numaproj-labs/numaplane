@@ -124,7 +124,7 @@ build: manifests generate fmt vet ## Build manager binary.
 	go build -gcflags=${GCFLAGS} -o bin/manager cmd/main.go
 
 .PHONY: build-agent
-build-agent: fmt vet ## Build agent binary.
+build-agent: generate fmt vet ## Build agent binary.
 	go build -gcflags=${GCFLAGS} -o bin/agent cmd/agent/main.go
 
 .PHONY: run
