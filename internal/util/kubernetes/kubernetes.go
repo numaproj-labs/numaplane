@@ -8,8 +8,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	yamlserializer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
+
+	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 )
 
 // validManifestExtensions contains the supported extension for raw file.
@@ -84,6 +88,68 @@ func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretNa
 		return nil, err
 	}
 	return secret, nil
+}
+
+// ownerExists checks if an owner reference already exists in the list of owner references.
+func ownerExists(existingRefs []interface{}, ownerRef map[string]interface{}) bool {
+	var alreadyExists bool
+	for _, ref := range existingRefs {
+		if refMap, ok := ref.(map[string]interface{}); ok {
+			if refMap["uid"] == ownerRef["uid"] {
+				alreadyExists = true
+				break
+			}
+		}
+	}
+	return alreadyExists
+}
+
+func ApplyGitSyncOwnership(manifest string, gitSync *v1alpha1.GitSync) ([]byte, error) {
+	// Decode YAML into an Unstructured object
+	decUnstructured := yamlserializer.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	obj := &unstructured.Unstructured{}
+	_, _, err := decUnstructured.Decode([]byte(manifest), nil, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct the new owner reference
+	ownerRef := map[string]interface{}{
+		"apiVersion":         gitSync.APIVersion,
+		"kind":               gitSync.Kind,
+		"name":               gitSync.Name,
+		"uid":                string(gitSync.UID),
+		"controller":         true,
+		"blockOwnerDeletion": true,
+	}
+
+	// Get existing owner references and check if our reference is already there
+	existingRefs, found, err := unstructured.NestedSlice(obj.Object, "metadata", "ownerReferences")
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		existingRefs = []interface{}{}
+	}
+
+	// Check if the owner reference already exists to avoid duplication
+	alreadyExists := ownerExists(existingRefs, ownerRef)
+
+	// Add the new owner reference if it does not exist
+	if !alreadyExists {
+		existingRefs = append(existingRefs, ownerRef)
+		err = unstructured.SetNestedSlice(obj.Object, existingRefs, "metadata", "ownerReferences")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Marshal the updated object into YAML
+	modifiedManifest, err := yaml.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	return modifiedManifest, nil
 }
 
 func IsValidKubernetesManifestFile(fileName string) bool {
