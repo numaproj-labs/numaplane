@@ -32,10 +32,11 @@ func TestLoadConfigMatchValues(t *testing.T) {
 
 	assert.NotNil(t, config.RepoCredentials, "RepoCredentials should not be nil")
 
-	assert.NotNil(t, config.RepoCredentials[0].HTTPCredential, "apiv1.HTTPCredential for numaproj-labs is missing")
-	assert.Equal(t, "exampleUser", config.RepoCredentials[0].HTTPCredential.Username, "Username for apiv1.HTTPCredential of numaproj-labs does not match")
-	assert.Equal(t, "http-creds", config.RepoCredentials[0].HTTPCredential.Password.Name, "Password Name for apiv1.HTTPCredential of numaproj-labs does not match")
-	assert.Equal(t, "password", config.RepoCredentials[0].HTTPCredential.Password.Key, "Password Key for apiv1.HTTPCredential of numaproj-labs does not match")
+	assert.NotNil(t, config.RepoCredentials[0].HTTPCredential, "HTTPCredential for numaproj-labs is missing")
+	assert.Equal(t, "exampleUser", config.RepoCredentials[0].HTTPCredential.Username, "Username for HTTPCredential of numaproj-labs does not match")
+	assert.Equal(t, "http-creds", config.RepoCredentials[0].HTTPCredential.Password.Name, "Password Name for HTTPCredential of numaproj-labs does not match")
+	assert.Equal(t, "password", config.RepoCredentials[0].HTTPCredential.Password.Key, "Password Key for HTTPCredential of numaproj-labs does not match")
+	assert.Equal(t, "numaplane-controller", config.RepoCredentials[0].HTTPCredential.Password.Namespace, "Kubernetes namespace for password doesn't match")
 
 	assert.NotNil(t, config.RepoCredentials[0].TLS, "TLS for numaproj-labs is missing")
 	assert.NotNil(t, config.RepoCredentials[1].SSHCredential, "SSHCredential for numaproj is missing")
@@ -142,7 +143,7 @@ func TestCloneWithSerialization(t *testing.T) {
 				HTTPCredential: &apiv1.HTTPCredential{
 					Username: "user1",
 					Password: apiv1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
+						ObjectReference: corev1.ObjectReference{
 							Name: "secretName1",
 						},
 						Key:      "password",
@@ -151,7 +152,7 @@ func TestCloneWithSerialization(t *testing.T) {
 				},
 				SSHCredential: &apiv1.SSHCredential{
 					SSHKey: apiv1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
+						ObjectReference: corev1.ObjectReference{
 							Name: "secretNameSSH",
 						},
 						Key:      "sshKey",
@@ -193,7 +194,7 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 				HTTPCredential: &apiv1.HTTPCredential{
 					Username: "user1",
 					Password: apiv1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
+						ObjectReference: corev1.ObjectReference{
 							Name: "secretName1",
 						},
 						Key:      "password",
@@ -202,7 +203,7 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 				},
 				SSHCredential: &apiv1.SSHCredential{
 					SSHKey: apiv1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
+						ObjectReference: corev1.ObjectReference{
 							Name: "secretNameSSH",
 						},
 						Key:      "sshKey",

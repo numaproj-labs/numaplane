@@ -4,24 +4,18 @@ kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/instance: gitsync-viewer-role
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: numaplane
     app.kubernetes.io/part-of: numaplane
-    app.kubernetes.io/managed-by: kustomize
-  name: gitsync-viewer-role
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+  name: numaplane-aggregate-to-view
 rules:
 - apiGroups:
   - numaplane.numaproj.io
   resources:
   - gitsyncs
+  - gitsyncs/finalizer
+  - gitsyncs/status
   verbs:
   - get
   - list
   - watch
-- apiGroups:
-  - numaplane.numaproj.io
-  resources:
-  - gitsyncs/status
-  verbs:
-  - get

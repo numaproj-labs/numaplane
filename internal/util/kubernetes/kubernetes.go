@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -12,6 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// validManifestExtensions contains the supported extension for raw file.
+var validManifestExtensions = map[string]struct{}{"yaml": {}, "yml": {}, "json": {}}
 
 func IsValidKubernetesNamespace(name string) bool {
 	// All namespace names must be valid RFC 1123 DNS labels.
@@ -67,6 +69,12 @@ func nestedNullableStringMap(obj map[string]interface{}, fields ...string) (map[
 
 // GetSecret gets secret using the kubernetes client
 func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretName string) (*corev1.Secret, error) {
+	if namespace == "" {
+		return nil, fmt.Errorf("namespace cannot be empty")
+	}
+	if secretName == "" {
+		return nil, fmt.Errorf("secretName cannot be empty")
+	}
 	secret := &corev1.Secret{}
 	key := k8sClient.ObjectKey{
 		Namespace: namespace,
@@ -80,6 +88,8 @@ func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretNa
 
 func IsValidKubernetesManifestFile(fileName string) bool {
 	fileExt := strings.Split(fileName, ".")
-	validExtName := []string{"yaml", "yml", "json"}
-	return slices.Contains(validExtName, fileExt[len(fileExt)-1])
+	if _, ok := validManifestExtensions[fileExt[len(fileExt)-1]]; ok {
+		return true
+	}
+	return false
 }

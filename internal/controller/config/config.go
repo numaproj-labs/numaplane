@@ -36,6 +36,7 @@ type GlobalConfig struct {
 	ClusterName     string `json:"clusterName"`
 	TimeIntervalSec uint   `json:"timeIntervalSec"`
 	// RepoCredentials maps each Git Repository Path prefix to the corresponding credentials that are needed for it
+
 	RepoCredentials []apiv1.RepoCredential `json:"repoCredentials"`
 }
 

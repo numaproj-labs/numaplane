@@ -71,9 +71,6 @@ func NewGitSyncReconciler(
 	}, nil
 }
 
-// Grant super-user access to perform any action on any resource to be able to deploy any resources.
-// +kubebuilder:rbac:groups=*,resources=*,verbs=*
-
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // Note this method is called concurrently by multiple goroutines, whenever there is a change to the GitSync CRD

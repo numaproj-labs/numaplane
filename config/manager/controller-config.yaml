@@ -2,8 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: controller-config
-  namespace: numaplane-system
+  name: numaplane-controller-config
 data:
   config.yaml: |
     timeIntervalSec: 60
