@@ -50,9 +50,6 @@ func main() {
 		logger.Fatalw("Failed to get configuration file", err)
 	}
 	logger.Infof("config: %+v", config)
-	//todo: delete:
-	logger.Infof("embedded: %+v", config.Source.KeyValueGenerator.Embedded)
-	//logger.Infof("helm: %+v", *config.Source.GitDefinition.Helm)
 
 	// create a new AgentSyncer
 	syncer := agent.NewAgentSyncer(logger)

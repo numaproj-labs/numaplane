@@ -1,4 +1,4 @@
-#Example config map
+#Example config map for Agent which includes an embedded generator
 apiVersion: v1
 kind: ConfigMap
 metadata:
