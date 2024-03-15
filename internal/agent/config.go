@@ -78,6 +78,7 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, co
 	if err != nil {
 		return fmt.Errorf("failed to load configuration file. %w", err)
 	}
+
 	err = v.Unmarshal(cm.config)
 	if err != nil {
 		return fmt.Errorf("failed unmarshal configuration file. %w", err)
@@ -88,11 +89,12 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, co
 		cm.lock.Lock()
 		defer cm.lock.Unlock()
 		cm.revisionIndex++
-		fmt.Printf("deletethis: cm.revisionIndex=%d\n", cm.revisionIndex)
-		err = v.Unmarshal(cm.config)
+		newConfig := AgentConfig{}
+		err = v.Unmarshal(&newConfig)
 		if err != nil {
 			onErrorReloading(err)
 		}
+		cm.config = &newConfig
 	})
 	return nil
 }

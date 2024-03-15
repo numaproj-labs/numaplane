@@ -66,10 +66,12 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, co
 	v.OnConfigChange(func(e fsnotify.Event) {
 		cm.lock.Lock()
 		defer cm.lock.Unlock()
-		err = v.Unmarshal(cm.config)
+		newConfig := GlobalConfig{}
+		err = v.Unmarshal(&newConfig)
 		if err != nil {
 			onErrorReloading(err)
 		}
+		cm.config = &newConfig
 	})
 	return nil
 }
