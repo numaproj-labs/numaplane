@@ -139,9 +139,9 @@ type TLS struct {
 }
 
 type SecretKeySelector struct {
-	corev1.LocalObjectReference `json:",inline" mapstructure:",squash"` // for viper to correctly parse the config
-	Key                         string                                  `json:"key" mapstructure:"key"`
-	Optional                    *bool                                   `json:"optional,omitempty" mapstructure:"optional,omitempty"`
+	corev1.ObjectReference `json:",inline" mapstructure:",squash"` // for viper to correctly parse the config
+	Key                    string                                  `json:"key" mapstructure:"key"`
+	Optional               *bool                                   `json:"optional,omitempty" mapstructure:"optional,omitempty"`
 }
 
 type SingleClusterGenerator struct {

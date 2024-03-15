@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
-	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	gitshared "github.com/numaproj-labs/numaplane/internal/util/git"
 )
 
@@ -410,8 +409,8 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 	client, err := GetFakeKubernetesClient(secret)
 	assert.Nil(t, err)
 
-	credential := &config.RepoCredential{
-		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
+	credential := &v1alpha1.RepoCredential{
+		SSHCredential: &v1alpha1.SSHCredential{SSHKey: v1alpha1.SecretKeySelector{
 			ObjectReference: corev1.ObjectReference{Name: "sshKey", Namespace: testNamespace},
 			Key:             "sshKey",
 			Optional:        nil,
@@ -452,10 +451,10 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 	client, err := GetFakeKubernetesClient(secret)
 	assert.Nil(t, err)
 
-	credential := &config.RepoCredential{
-		HTTPCredential: &config.HTTPCredential{
+	credential := &v1alpha1.RepoCredential{
+		HTTPCredential: &v1alpha1.HTTPCredential{
 			Username: "root",
-			Password: config.SecretKeySelector{
+			Password: v1alpha1.SecretKeySelector{
 				ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
 				Key:             "password",
 				Optional:        nil,
@@ -492,16 +491,16 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 	client, err := GetFakeKubernetesClient(secret)
 	assert.Nil(t, err)
 
-	credential := &config.RepoCredential{
-		HTTPCredential: &config.HTTPCredential{
+	credential := &v1alpha1.RepoCredential{
+		HTTPCredential: &v1alpha1.HTTPCredential{
 			Username: "root",
-			Password: config.SecretKeySelector{
+			Password: v1alpha1.SecretKeySelector{
 				ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
 				Key:             "password",
 				Optional:        nil,
 			},
 		},
-		TLS: &config.TLS{
+		TLS: &v1alpha1.TLS{
 			InsecureSkipVerify: true, // As we are using local ca certificates in docker container so skipping strict checking
 
 		},

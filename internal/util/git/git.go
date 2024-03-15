@@ -19,7 +19,7 @@ import (
 )
 
 // GetAuthMethod returns an authMethod  for both cloning and fetching from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
-func GetAuthMethod(ctx context.Context, repoCred *controllerConfig.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (transport.AuthMethod, bool, error) {
+func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (transport.AuthMethod, bool, error) {
 	scheme, err := GetURLScheme(repoUrl)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to parse URL scheme: %w", err)
