@@ -26,7 +26,7 @@ import (
 )
 
 // +kubebuilder:validation:Enum=Helm;Kustomize;Raw
-// ApplicationSourceType specifies the type of the application source
+// SourceType specifies the type of the application source
 type SourceType string
 
 const (
