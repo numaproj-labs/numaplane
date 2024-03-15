@@ -47,10 +47,10 @@ func evaluateGitDefinition(gitSource *apiv1.CredentialedGitSource, keysValues ma
 
 	resultJson, err := keyvaluegenerator.EvaluateTemplate(asJson, keysValues)
 
-	var resultGitSource *apiv1.CredentialedGitSource
-	err = json.Unmarshal(resultJson, resultGitSource)
+	var resultGitSource apiv1.CredentialedGitSource
+	err = json.Unmarshal(resultJson, &resultGitSource)
 	if err != nil {
 		return gitSource, err
 	}
-	return resultGitSource, nil
+	return &resultGitSource, nil
 }

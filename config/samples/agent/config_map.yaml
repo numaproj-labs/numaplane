@@ -9,16 +9,18 @@ data:
     clusterName: staging-usw2-k8s
     timeIntervalSec: 60
     source:
-      kvGenerator:
+      keyValueGenerator:
         embedded:
-          clusterName: staging-usw2-k8s
-          controllerHostName: numaplane.stagingusw2k8s.mydomain.com
+          values:
+            clusterName: staging-usw2-k8s
+            controllerHostName: numaplane.stagingusw2k8s.mydomain.com
       gitDefinition:
         path: sample-pipeline
-        repoUrl: https://github.com/mynumaplaneinstall.git
+        repoUrl: "https://github.com/mynumaplaneinstall.git"
         targetRevision: main
         helm:
-          - name: clusterName
-            value: '{{clusterName}}'
-          - name: controllerHostName
-            value: '{{controllerHostName}}'
+          parameters:
+            - name: clusterName
+              value: '{{clusterName}}'
+            - name: controllerHostName
+              value: '{{controllerHostName}}'

@@ -84,9 +84,11 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, co
 	}
 	v.WatchConfig()
 	v.OnConfigChange(func(e fsnotify.Event) {
+		fmt.Println("OnConfigChange")
 		cm.lock.Lock()
 		defer cm.lock.Unlock()
 		cm.revisionIndex++
+		fmt.Printf("deletethis: cm.revisionIndex=%d\n", cm.revisionIndex)
 		err = v.Unmarshal(cm.config)
 		if err != nil {
 			onErrorReloading(err)
