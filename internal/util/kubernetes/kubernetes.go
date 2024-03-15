@@ -3,17 +3,14 @@ package kubernetes
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
-
-	yamlserializer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-
-	"sigs.k8s.io/yaml"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	yamlserializer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"regexp"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
+	"strings"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 )

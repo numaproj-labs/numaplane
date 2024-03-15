@@ -369,7 +369,7 @@ func TestIsValidKubernetesManifestFile(t *testing.T) {
 
 }
 
-func TestApplyOwnerShipReferenceOnlyIfNotExisting(t *testing.T) {
+func TestApplyOwnerShipReferenceAlreadyExists(t *testing.T) {
 	resource := `apiVersion: v1
 kind: Pod
 metadata:
@@ -425,7 +425,7 @@ metadata:
     uid: <uid-of-my-configmap>
   - apiVersion: v1
     blockOwnerDeletion: true
-    controller: false
+    controller: true
     kind: ConfigMap
     name: my-configmap
     uid: awew
