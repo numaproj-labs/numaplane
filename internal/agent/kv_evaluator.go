@@ -17,10 +17,13 @@ limitations under the License.
 package agent
 
 import (
+	"encoding/json"
+
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/keyvaluegenerator"
 )
 
+// create the KVSource, which will be used to generate key/value pairs
 func createKVSource(kvGenerator *KVGenerator) keyvaluegenerator.KVSource {
 	if kvGenerator == nil {
 		return nil
@@ -36,6 +39,19 @@ func createKVSource(kvGenerator *KVGenerator) keyvaluegenerator.KVSource {
 	}
 }
 
-func evaluateGitDefinition(gitSource *apiv1.CredentialedGitSource, keysValues map[string]string) apiv1.CredentialedGitSource {
-	return apiv1.CredentialedGitSource{}
+// evaluate a templated Git Source definition using key/value pairs
+func evaluateGitDefinition(gitSource *apiv1.CredentialedGitSource, keysValues map[string]string) (*apiv1.CredentialedGitSource, error) {
+	asJson, err := json.Marshal(gitSource)
+	if err != nil {
+		return gitSource, err
+	}
+
+	resultJson, err := keyvaluegenerator.EvaluateTemplate(asJson, keysValues)
+
+	var resultGitSource *apiv1.CredentialedGitSource
+	err = json.Unmarshal(resultJson, resultGitSource)
+	if err != nil {
+		return gitSource, err
+	}
+	return resultGitSource, nil
 }

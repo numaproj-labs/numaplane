@@ -32,8 +32,13 @@ import (
 type AgentSyncer struct {
 	logger *zap.SugaredLogger
 
-	configMap         AgentConfig
-	configMapRevision int // setting this < 0 enables us to check it initially
+	gitSource *apiv1.CredentialedGitSource
+
+	// current Config file
+	config AgentConfig
+
+	// keep track of revision number of config file so we know when it's new
+	configRevision int
 	// todo: add all of these in
 	/*
 		client    client.Client
@@ -47,14 +52,14 @@ type AgentSyncer struct {
 
 func NewAgentSyncer(logger *zap.SugaredLogger) *AgentSyncer {
 	return &AgentSyncer{
-		logger:            logger,
-		configMapRevision: -1,
+		logger:         logger,
+		configRevision: -1, // setting this < 0 enables us to check it initially
 	}
 }
 
 // Run function runs in a loop, syncing the manifest if it's changed, checking every x seconds
 // It responds to all of the following events:
-// 1. ConfigMap change;
+// 1. Config change;
 // 2. Source Manifest change;
 // 3. If file generator is used, then a change from that file
 func (syncer *AgentSyncer) Run(ctx context.Context) error {
@@ -64,11 +69,12 @@ func (syncer *AgentSyncer) Run(ctx context.Context) error {
 		default:
 
 			// Determine the latest value of our GitSource definition
-			gitSource := syncer.getGitSource()
+			syncer.evaluateGitSource()
 
-			syncer.syncLatest(gitSource)
+			// fetch the GitSource and apply the resources
+			syncer.syncLatest()
 
-			time.Sleep(time.Duration(syncer.configMap.TimeIntervalSec) * time.Second)
+			time.Sleep(time.Duration(syncer.config.TimeIntervalSec) * time.Second)
 		case <-ctx.Done():
 			syncer.logger.Info("context ended, terminating AgentSyncer watch")
 			return nil
@@ -77,48 +83,61 @@ func (syncer *AgentSyncer) Run(ctx context.Context) error {
 
 }
 
-// determine if ConfigMap was updated and if so, get latest
-func (syncer *AgentSyncer) checkConfigMapUpdated() bool {
+// determine if Config was updated and if so, get latest
+// return if new
+func (syncer *AgentSyncer) checkConfigUpdate() bool {
 	configManager := GetConfigManagerInstance()
 	var err error
 	var newRevision int
-	// Reload our copy of the ConfigMap if it changed (or load it the first time upon starting)
-	if configManager.GetRevisionIndex() > syncer.configMapRevision {
-		syncer.configMap, newRevision, err = configManager.GetConfig()
+	// Reload our copy of the Config if it changed (or load it the first time upon starting)
+	if configManager.GetRevisionIndex() > syncer.configRevision {
+		syncer.config, newRevision, err = configManager.GetConfig()
 		if err != nil {
 			syncer.logger.Error(err)
 			return false
 		}
-		syncer.configMapRevision = newRevision
+		syncer.configRevision = newRevision
 		return true
 	}
 	return false
 }
 
-func (syncer *AgentSyncer) getGitSource() apiv1.CredentialedGitSource {
+// Determine the latest value of our GitSource definition
+func (syncer *AgentSyncer) evaluateGitSource() {
 
 	// this is the source of our key/value pairs
 	var kvSource kvsource.KVSource
+	var keysValues map[string]string
 
 	keysValuesModified := false // do we need to reevaluate the gitSource because the key/value pairs changed?
 
-	if syncer.checkConfigMapUpdated() {
+	// was Config updated?
+	if syncer.checkConfigUpdate() {
 		// create a KVSource which will return a new set of key/value pairs
-		kvSource = createKVSource(syncer.configMap.Source.KVGenerator)
+		kvSource = createKVSource(syncer.config.Source.KVGenerator)
 		keysValuesModified = true
+		keysValues, _ = kvSource.GetKeysValues()
 
+	} else {
+		if kvSource == nil {
+			// no KVSource defined, so just use the GitDefinition as is
+			syncer.gitSource = &syncer.config.Source.GitDefinition
+			return
+		} else {
+			keysValues, keysValuesModified = kvSource.GetKeysValues()
+		}
 	}
 
-	if kvSource == nil {
-		return syncer.configMap.Source.GitDefinition
-	} else {
-		var keysValues map[string]string
-		keysValues, keysValuesModified = kvSource.GetKeysValues()
-		// if the key/value pairs changed, then reevaluate the gitSource
-		if keysValuesModified {
-			return evaluateGitDefinition(&syncer.configMap.Source.GitDefinition, keysValues)
+	// if the key/value pairs changed, then reevaluate the gitSource (which is presumably templated)
+	if keysValuesModified {
+		gitSource, err := evaluateGitDefinition(&syncer.config.Source.GitDefinition, keysValues)
+		if err != nil {
+			syncer.logger.Error(err)
+			syncer.gitSource = &syncer.config.Source.GitDefinition
+			return
 		} else {
-			return syncer.configMap.Source.GitDefinition
+			syncer.gitSource = gitSource
+			return
 		}
 	}
 
@@ -126,6 +145,6 @@ func (syncer *AgentSyncer) getGitSource() apiv1.CredentialedGitSource {
 
 // clone/fetch repo
 // apply resource if it changed
-func (syncer *AgentSyncer) syncLatest(gitSource apiv1.CredentialedGitSource) {
-
+func (syncer *AgentSyncer) syncLatest() {
+	// fetch using the syncer.gitSource
 }
