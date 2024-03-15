@@ -66,7 +66,7 @@ func NewAgentSyncer(logger *zap.SugaredLogger) *AgentSyncer {
 // 1. Config change;
 // 2. Source Manifest change;
 // 3. If file generator is used, then a change from that file
-func (syncer *AgentSyncer) Run(ctx context.Context) error {
+func (syncer *AgentSyncer) Run(ctx context.Context) {
 
 	for {
 		select {
@@ -81,7 +81,7 @@ func (syncer *AgentSyncer) Run(ctx context.Context) error {
 			time.Sleep(time.Duration(syncer.config.TimeIntervalSec) * time.Second)
 		case <-ctx.Done():
 			syncer.logger.Info("context ended, terminating AgentSyncer watch")
-			return nil
+			return
 		}
 	}
 

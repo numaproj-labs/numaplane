@@ -131,7 +131,7 @@ type HTTPCredential struct {
 }
 
 type SSHCredential struct {
-	SSHKey SecretKeySelector `json:"SSHKey" yaml:"SSHKey" mapstructure:"SSHKey" yaml:"SSHKey"`
+	SSHKey SecretKeySelector `json:"SSHKey" mapstructure:"SSHKey"`
 }
 
 type TLS struct {
