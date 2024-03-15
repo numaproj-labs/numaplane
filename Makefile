@@ -136,7 +136,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 	go run -gcflags=${GCFLAGS} ./cmd/main.go
 
 .PHONY: run-agent
-run-agent: generate fmt vet ## Build agent binary.
+run-agent: generate fmt vet ## Run agent from your host.
 	go run -gcflags=${GCFLAGS} cmd/agent/main.go
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
