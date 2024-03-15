@@ -158,13 +158,13 @@ metadata:
     kind: Deployment
     name: my-deployment
     uid: <uid-of-my-deployment>
-    controller: false
+    controller: true
     blockOwnerDeletion: true
   - apiVersion: v1
     kind: ConfigMap
     name: my-configmap
     uid: <uid-of-my-configmap>
-    controller: false
+    controller: true
     blockOwnerDeletion: true
 `
 
@@ -186,13 +186,13 @@ metadata:
   ownerReferences:
   - apiVersion: apps/v1
     blockOwnerDeletion: true
-    controller: false
+    controller: true
     kind: Deployment
     name: my-deployment
     uid: <uid-of-my-deployment>
   - apiVersion: v1
     blockOwnerDeletion: true
-    controller: false
+    controller: true
     kind: ConfigMap
     name: my-configmap
     uid: <uid-of-my-configmap>
@@ -379,19 +379,19 @@ metadata:
     kind: Deployment
     name: my-deployment
     uid: <uid-of-my-deployment>
-    controller: false
+    controller: true
     blockOwnerDeletion: true
   - apiVersion: v1
     kind: ConfigMap
     name: my-configmap
     uid: <uid-of-my-configmap>
-    controller: false
+    controller: true
     blockOwnerDeletion: true
   - apiVersion: v1
     kind: ConfigMap
     name: my-configmap
     uid: awew
-    controller: false
+    controller: true
     blockOwnerDeletion: true`
 
 	gitsync := &v1alpha1.GitSync{
@@ -413,13 +413,13 @@ metadata:
   ownerReferences:
   - apiVersion: apps/v1
     blockOwnerDeletion: true
-    controller: false
+    controller: true
     kind: Deployment
     name: my-deployment
     uid: <uid-of-my-deployment>
   - apiVersion: v1
     blockOwnerDeletion: true
-    controller: false
+    controller: true
     kind: ConfigMap
     name: my-configmap
     uid: <uid-of-my-configmap>
