@@ -136,13 +136,13 @@ func main() {
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		logger.Fatalw("unable to set up health check", zap.Error(err))
+		logger.Fatalw("Unable to set up health check", zap.Error(err))
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		logger.Fatalw("unable to set up ready check", zap.Error(err))
+		logger.Fatalw("Unable to set up ready check", zap.Error(err))
 	}
 
-	logger.Info("starting manager")
+	logger.Info("Starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		logger.Fatalw("Unable to start manager", zap.Error(err))
 	}
