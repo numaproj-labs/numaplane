@@ -32,7 +32,11 @@ import (
 type AgentSyncer struct {
 	logger *zap.SugaredLogger
 
+	// the source where we watch manifests
 	gitSource *apiv1.CredentialedGitSource
+
+	// this is the source of our key/value pairs
+	kvSource kvsource.KVSource
 
 	// current Config file
 	config AgentConfig
@@ -105,8 +109,6 @@ func (syncer *AgentSyncer) checkConfigUpdate() bool {
 // Determine the latest value of our GitSource definition
 func (syncer *AgentSyncer) evaluateGitSource() {
 
-	// this is the source of our key/value pairs
-	var kvSource kvsource.KVSource
 	var keysValues map[string]string
 
 	keysValuesModified := false // do we need to reevaluate the gitSource because the key/value pairs changed?
@@ -114,17 +116,17 @@ func (syncer *AgentSyncer) evaluateGitSource() {
 	// was Config updated?
 	if syncer.checkConfigUpdate() {
 		// create a KVSource which will return a new set of key/value pairs
-		kvSource = createKVSource(syncer.config.Source.KVGenerator)
+		syncer.kvSource = createKVSource(syncer.config.Source.KVGenerator)
 		keysValuesModified = true
-		keysValues, _ = kvSource.GetKeysValues()
+		keysValues, _ = syncer.kvSource.GetKeysValues()
 
 	} else {
-		if kvSource == nil {
+		if syncer.kvSource == nil {
 			// no KVSource defined, so just use the GitDefinition as is
 			syncer.gitSource = &syncer.config.Source.GitDefinition
 			return
 		} else {
-			keysValues, keysValuesModified = kvSource.GetKeysValues()
+			keysValues, keysValuesModified = syncer.kvSource.GetKeysValues()
 		}
 	}
 

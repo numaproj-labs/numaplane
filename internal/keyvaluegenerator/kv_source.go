@@ -49,11 +49,12 @@ type MultiClusterFileKVSource struct {
 }
 
 func (source *MultiClusterFileKVSource) GetKeysValues() (map[string]string, bool) {
-	// for each defined file:
+	// TODO:
+	// starting from last file in the list:
 	//   clone/fetch repo with credentials to get latest file
-	//   if file changed, get keys/values for our cluster if present
+	//   return keys/values for our cluster if present; also return whether the file is new
+	//   and key/value pairs changed
 
-	// return the key/value pairs and whether they changed
 	modified := false
 	return source.values, modified
 }
