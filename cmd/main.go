@@ -20,16 +20,17 @@ import (
 	"context"
 	"flag"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
+	runtimecontroller "sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller"
@@ -37,7 +38,10 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/sync"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logging"
-	//+kubebuilder:scaffold:imports
+)
+
+const (
+	ControllerGitSync = "gitsync-controller"
 )
 
 var (
@@ -52,7 +56,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(apiv1.AddToScheme(scheme))
-	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
@@ -64,19 +67,14 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
-
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
+		MetricsBindAddress:     metricsAddr,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "c0d86395.github.com.numaproj-labs",
+		LeaderElectionID:       "numaplane-controller-lock",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -90,16 +88,16 @@ func main() {
 		// LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
-		logger.Fatalw("Unable to get a controller-runtime manager", err)
+		logger.Fatalw("Unable to get a controller-runtime manager", zap.Error(err))
 	}
 
 	// Load Config For the pod
 	configManager := config.GetConfigManagerInstance()
 	err = configManager.LoadConfig(func(err error) {
-		logger.Errorw("Failed to reload global configuration file", err)
+		logger.Errorw("Failed to reload global configuration file", zap.Error(err))
 	}, configPath, "config", "yaml")
 	if err != nil {
-		logger.Fatalw("Failed to load config file", err)
+		logger.Fatalw("Failed to load config file", zap.Error(err))
 	}
 
 	kubectl := kubernetes.NewKubectl()
@@ -110,34 +108,43 @@ func main() {
 		kubectl)
 	// Add syncer runner
 	if err = mgr.Add(LeaderElectionRunner(syncer.Start)); err != nil {
-		logger.Fatalw("Unable to add autoscaling runner", "err", err)
+		logger.Fatalw("Unable to add autoscaling runner", zap.Error(err))
 	}
-	reconciler, err := controller.NewGitSyncReconciler(
+	gitSyncReconciler, err := controller.NewGitSyncReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		configManager,
 		syncer,
 	)
 	if err != nil {
-		logger.Fatalw("Unable to create GitSync controller", err)
+		logger.Fatalw("Unable to create GitSync controller", zap.Error(err))
 	}
 
-	if err = reconciler.SetupWithManager(mgr); err != nil {
-		logger.Fatalw("Unable to set up GitSync controller", err)
-
+	gitSyncController, err := runtimecontroller.New(ControllerGitSync, mgr, runtimecontroller.Options{
+		Reconciler: gitSyncReconciler,
+	})
+	if err != nil {
+		logger.Fatalw("Unable to set GitSync controller", zap.Error(err))
 	}
-	//+kubebuilder:scaffold:builder
+
+	// Watch GitSync objects
+	if err := gitSyncController.Watch(&source.Kind{Type: &apiv1.GitSync{}}, &handler.EnqueueRequestForObject{},
+		predicate.Or(
+			predicate.GenerationChangedPredicate{}, predicate.LabelChangedPredicate{},
+		)); err != nil {
+		logger.Fatalw("Unable to watch GitSyncs", zap.Error(err))
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		logger.Fatalw("unable to set up health check", err)
+		logger.Fatalw("unable to set up health check", zap.Error(err))
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		logger.Fatalw("unable to set up ready check", err)
+		logger.Fatalw("unable to set up ready check", zap.Error(err))
 	}
 
 	logger.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		logger.Fatalw("Unable to start manager", err)
+		logger.Fatalw("Unable to start manager", zap.Error(err))
 	}
 }
 
