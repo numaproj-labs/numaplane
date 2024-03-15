@@ -111,13 +111,13 @@ func (syncer *AgentSyncer) evaluateGitSource() {
 
 	var keysValues map[string]string
 
-	keysValuesModified := false // do we need to reevaluate the gitSource because the key/value pairs changed?
+	generateNewSource := false // do we need to reevaluate the gitSource because something changed?
 
 	// was Config updated?
 	if syncer.checkConfigUpdate() {
 		// create a KVSource which will return a new set of key/value pairs
 		syncer.kvSource = createKVSource(syncer.config.Source.KeyValueGenerator)
-		keysValuesModified = true
+		generateNewSource = true
 		keysValues, _ = syncer.kvSource.GetKeysValues()
 		syncer.logger.Infof("Config update: syncer.kvSource=%+v, keysValues=%+v", syncer.kvSource, keysValues)
 
@@ -127,12 +127,12 @@ func (syncer *AgentSyncer) evaluateGitSource() {
 			syncer.gitSource = &syncer.config.Source.GitDefinition
 			return
 		} else {
-			keysValues, keysValuesModified = syncer.kvSource.GetKeysValues()
+			keysValues, generateNewSource = syncer.kvSource.GetKeysValues()
 		}
 	}
 
 	// if the key/value pairs changed, then reevaluate the gitSource (which is presumably templated)
-	if keysValuesModified {
+	if generateNewSource {
 		gitSource, err := evaluateGitDefinition(&syncer.config.Source.GitDefinition, keysValues)
 		if err != nil {
 			syncer.logger.Error(err)
