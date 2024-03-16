@@ -25,12 +25,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	runtimecontroller "sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller"
@@ -110,7 +106,7 @@ func main() {
 	if err = mgr.Add(LeaderElectionRunner(syncer.Start)); err != nil {
 		logger.Fatalw("Unable to add autoscaling runner", zap.Error(err))
 	}
-	gitSyncReconciler, err := controller.NewGitSyncReconciler(
+	reconciler, err := controller.NewGitSyncReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		configManager,
@@ -120,19 +116,8 @@ func main() {
 		logger.Fatalw("Unable to create GitSync controller", zap.Error(err))
 	}
 
-	gitSyncController, err := runtimecontroller.New(ControllerGitSync, mgr, runtimecontroller.Options{
-		Reconciler: gitSyncReconciler,
-	})
-	if err != nil {
-		logger.Fatalw("Unable to set GitSync controller", zap.Error(err))
-	}
-
-	// Watch GitSync objects
-	if err := gitSyncController.Watch(&source.Kind{Type: &apiv1.GitSync{}}, &handler.EnqueueRequestForObject{},
-		predicate.Or(
-			predicate.GenerationChangedPredicate{}, predicate.LabelChangedPredicate{},
-		)); err != nil {
-		logger.Fatalw("Unable to watch GitSyncs", zap.Error(err))
+	if err = reconciler.SetupWithManager(mgr); err != nil {
+		logger.Fatalw("Unable to set up GitSync controller", zap.Error(err))
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
