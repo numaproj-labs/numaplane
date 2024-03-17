@@ -36,10 +36,6 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/util/logging"
 )
 
-const (
-	ControllerGitSync = "gitsync-controller"
-)
-
 var (
 	// scheme is the runtime.Scheme to which all Numaplane API types are registered.
 	scheme = runtime.NewScheme()
