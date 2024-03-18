@@ -10,12 +10,15 @@ import (
 
 	"github.com/argoproj/gitops-engine/pkg/diff"
 	gitopsSync "github.com/argoproj/gitops-engine/pkg/sync"
+	gitopsSyncCommon "github.com/argoproj/gitops-engine/pkg/sync/common"
 	kubeUtil "github.com/argoproj/gitops-engine/pkg/utils/kube"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -210,7 +213,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err != nil {
 		return fmt.Errorf("failed to clone the repo of key %q, %w", key, err)
 	}
-	manifests, err := git.GetLatestManifests(ctx, repo, s.client, gitSync)
+	commitHash, manifests, err := git.GetLatestManifests(ctx, repo, s.client, gitSync)
 	if err != nil {
 		return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
 	}
@@ -218,13 +221,19 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse the manifest of key %q, %w", key, err)
 	}
-	synced := s.sync(gitSync, uns, log)
-	if synced {
+
+	synced := false
+	syncState, syncMessage := s.sync(gitSync, uns, log)
+	if syncState.Successful() {
+		synced = true
 		log.Info("GitSync object is successfully synced.")
 	}
-	// TODO: commit the status
 
-	return err
+	namespacedName := types.NamespacedName{
+		Namespace: gitSync.Namespace,
+		Name:      gitSync.Name,
+	}
+	return updateCommitStatus(ctx, s.client, log, namespacedName, commitHash, synced, syncMessage)
 }
 
 type resourceInfoProviderStub struct {
@@ -234,18 +243,25 @@ func (r *resourceInfoProviderStub) IsNamespaced(_ schema.GroupKind) (bool, error
 	return false, nil
 }
 
-func (s *Syncer) sync(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured, logger *zap.SugaredLogger) bool {
+// sync compares the live state of the watched resources to target state defined in git
+// for the given GitSync. If not matches, syncing the state to the live objects. Otherwise,
+// skip the syncing.
+func (s *Syncer) sync(
+	gitSync *v1alpha1.GitSync,
+	targetObjs []*unstructured.Unstructured,
+	logger *zap.SugaredLogger,
+) (gitopsSyncCommon.OperationPhase, string) {
 	logEntry := log.WithFields(log.Fields{"gitsync": gitSync})
 
 	reconciliationResult, modified, err := s.compareState(gitSync, targetObjs)
 	if err != nil {
-		return false
+		return gitopsSyncCommon.OperationError, "error on comparing git sync state"
 	}
 
 	// If the live state match the target state, then skip the syncing.
 	if !modified {
 		logger.Info("GitSync object is successfully already synced, skip the syncing.")
-		return true
+		return gitopsSyncCommon.OperationSucceeded, ""
 	}
 
 	opts := []gitopsSync.SyncOpt{
@@ -260,7 +276,7 @@ func (s *Syncer) sync(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unst
 
 	cluster, err := s.stateCache.GetClusterCache()
 	if err != nil {
-		return false
+		return gitopsSyncCommon.OperationError, "error on getting the cluster cache"
 	}
 	openAPISchema := cluster.GetOpenAPISchema()
 
@@ -276,13 +292,13 @@ func (s *Syncer) sync(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unst
 	)
 	defer cleanup()
 	if err != nil {
-		return false
+		return gitopsSyncCommon.OperationError, "error on creating syncing context"
 	}
 
 	syncCtx.Sync()
 
-	phase, _, _ := syncCtx.GetState()
-	return phase.Successful()
+	phase, message, _ := syncCtx.GetState()
+	return phase, message
 }
 
 func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (gitopsSync.ReconciliationResult, bool, error) {
@@ -334,4 +350,42 @@ func toUnstructuredAndApplyAnnotation(manifests []string, gitSyncName string) ([
 		uns = append(uns, target)
 	}
 	return uns, nil
+}
+
+// updateCommitStatus will update the commit status in git sync CR also if
+// error happened while syncing the target state then it update the error
+// reason as well.
+func updateCommitStatus(
+	ctx context.Context,
+	kubeClient client.Client,
+	logger *zap.SugaredLogger,
+	namespacedName types.NamespacedName,
+	hash string,
+	synced bool,
+	errMsg string,
+) error {
+	commitStatus := v1alpha1.CommitStatus{
+		Hash:     hash,
+		Synced:   synced,
+		SyncTime: metav1.NewTime(time.Now()),
+		Error:    errMsg,
+	}
+
+	gitSync := &v1alpha1.GitSync{}
+	if err := kubeClient.Get(ctx, namespacedName, gitSync); err != nil {
+		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
+		if apierrors.IsNotFound(err) {
+			return nil
+		} else {
+			logger.Errorw("Unable to get GitSync", "err", err)
+			return err
+		}
+	}
+
+	gitSync.Status.CommitStatus = &commitStatus
+	if err := kubeClient.Status().Update(ctx, gitSync); err != nil {
+		logger.Errorw("Error Updating GitSync Status", "err", err)
+		return err
+	}
+	return nil
 }
