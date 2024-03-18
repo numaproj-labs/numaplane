@@ -59,7 +59,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	originalFileBytes, err := os.ReadFile(originalFile)
 	assert.Nil(t, err, "Failed to read config file")
 	defer func() { // make sure this gets written back to what it was at the end of the test
-		os.WriteFile(originalFile, originalFileBytes, 0644)
+		_ = os.WriteFile(originalFile, originalFileBytes, 0644)
 	}()
 
 	err = copyFile(fileToCopy, originalFile)
@@ -79,13 +79,17 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer source.Close()
+	defer func() {
+		_ = source.Close()
+	}()
 
 	destination, err := os.Create(dst) // create only if it doesn't exist
 	if err != nil {
 		return err
 	}
-	defer destination.Close()
+	defer func() {
+		_ = destination.Close()
+	}()
 	_, err = io.Copy(destination, source)
 	return err
 }
