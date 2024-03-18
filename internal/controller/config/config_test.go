@@ -17,9 +17,9 @@ import (
 func TestLoadConfigMatchValues(t *testing.T) {
 	getwd, err := os.Getwd()
 	assert.Nil(t, err, "Failed to get working directory")
-	configPath := filepath.Join(getwd, "../../../", "tests", "config")
+	configPath := filepath.Join(getwd, "../../../", "tests", "manifests")
 	configManager := GetConfigManagerInstance()
-	err = configManager.LoadConfig(func(err error) {}, configPath, "testconfig", "yaml")
+	err = configManager.LoadConfig(func(err error) {}, configPath, "config", "yaml")
 	assert.NoError(t, err)
 	config, err := configManager.GetConfig()
 	assert.NoError(t, err)
