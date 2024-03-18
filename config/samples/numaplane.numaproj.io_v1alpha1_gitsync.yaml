@@ -4,8 +4,8 @@ metadata:
   name: gitsync-example
   namespace: numaplane-system
 spec:
-  path: ""
-  repoUrl: https://github.com/shubhamdixit863/yamlrepo
+  path: sample-pipeline
+  repoUrl: https://github.com/xdevxy/numaflow-example-pipelines.git
   targetRevision: main
   raw: {}
   destination:

@@ -165,38 +165,34 @@ spec:
 		Status:     v1alpha1.GitSyncStatus{},
 	}
 	reference, err := ApplyGitSyncOwnership(resource, gitsync)
-	assert.Equal(t, `apiVersion: v1
-kind: Pod
+	assert.Equal(t, `apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: frontend
-  namespace: numaflow
+  labels:
+    app: testing-server
+  name: testing-deployment
   ownerReferences:
-  - apiVersion: "1"
+  - apiVersion: numaplane.numaproj.io/v1alpha1
     blockOwnerDeletion: true
     controller: true
     kind: GitSync
     name: gitsync-test
-    uid: awew
+    uid: 12345678-abcd-1234-ef00-1234567890ab
 spec:
-  containers:
-  - image: images.my-company.example/app:v4
-    name: app
-    resources:
-      limits:
-        cpu: 500m
-        memory: 128Mi
-      requests:
-        cpu: 250m
-        memory: 64Mi
-  - image: images.my-company.example/log-aggregator:v6
-    name: log-aggregator
-    resources:
-      limits:
-        cpu: 500m
-        memory: 128Mi
-      requests:
-        cpu: 250m
-        memory: 64Mi
+  replicas: 2
+  selector:
+    matchLabels:
+      app: testing-server
+  template:
+    metadata:
+      labels:
+        app: testing-server
+    spec:
+      containers:
+      - image: nginx:latest
+        name: http-server
+        ports:
+        - containerPort: 80
 `, string(reference))
 	assert.NoError(t, err)
 
@@ -361,4 +357,43 @@ func TestGetSecret(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, secret)
 	assert.Equal(t, "value", string(secret.Data["key"]))
+}
+
+func TestApplyOwnerShipReferenceDifferentNamespace(t *testing.T) {
+	resource := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testing-deployment
+  namespace: test
+  labels:
+    app: testing-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: testing-server
+  template:
+    metadata:
+      labels:
+        app: testing-server
+    spec:
+      containers:
+      - name: http-server
+        image: nginx:latest
+        ports:
+        - containerPort: 80`
+
+	gitsync := &v1alpha1.GitSync{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "GitSync",
+			APIVersion: "numaplane.numaproj.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: "gitsync-test", UID: "12345678-abcd-1234-ef00-1234567890ab", Namespace: "test-2"},
+		Spec:       v1alpha1.GitSyncSpec{},
+		Status:     v1alpha1.GitSyncStatus{},
+	}
+	_, err := ApplyGitSyncOwnership(resource, gitsync)
+	assert.Error(t, err)
+	assert.Equal(t, "GitSync object and the resource must be in the same namespace", err.Error())
+
 }
