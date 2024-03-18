@@ -133,38 +133,34 @@ func TestIsValidKubernetesManifestFile(t *testing.T) {
 }
 
 func TestApplyOwnerShipReference(t *testing.T) {
-	resource := `apiVersion: v1
-kind: Pod
+	resource := `apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: frontend
-  namespace: numaflow
+  name: testing-deployment
+  labels:
+    app: testing-server
 spec:
-  containers:
-    - name: app
-      image: images.my-company.example/app:v4
-      resources:
-        requests:
-          memory: "64Mi"
-          cpu: "250m"
-        limits:
-          memory: "128Mi"
-          cpu: "500m"
-    - name: log-aggregator
-      image: images.my-company.example/log-aggregator:v6
-      resources:
-        requests:
-          memory: "64Mi"
-          cpu: "250m"
-        limits:
-          memory: "128Mi"
-          cpu: "500m"`
+  replicas: 2
+  selector:
+    matchLabels:
+      app: testing-server
+  template:
+    metadata:
+      labels:
+        app: testing-server
+    spec:
+      containers:
+      - name: http-server
+        image: nginx:latest
+        ports:
+        - containerPort: 80`
 
 	gitsync := &v1alpha1.GitSync{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "GitSync",
-			APIVersion: "1",
+			APIVersion: "numaplane.numaproj.io/v1alpha1",
 		},
-		ObjectMeta: metav1.ObjectMeta{Name: "gitsync-test", UID: "awew"},
+		ObjectMeta: metav1.ObjectMeta{Name: "gitsync-test", UID: "12345678-abcd-1234-ef00-1234567890ab"},
 		Spec:       v1alpha1.GitSyncSpec{},
 		Status:     v1alpha1.GitSyncStatus{},
 	}

@@ -112,6 +112,19 @@ func ApplyGitSyncOwnership(manifest string, gitSync *v1alpha1.GitSync) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
+	// Get the namespace of the GitSync Object
+	gitSyncNamespace := gitSync.Namespace
+
+	// Get the namespace of the object we are setting ownership on
+	objectNamespace, found, err := unstructured.NestedString(obj.Object, "metadata", "namespace")
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if they are in the same namespace
+	if gitSyncNamespace != objectNamespace {
+		return nil, fmt.Errorf("GitSync object and the resource must be in the same namespace Gitsync namespace -%s objectNamespace - %s", gitSync.Namespace, objectNamespace)
+	}
 
 	// Construct the new owner reference
 	ownerRef := map[string]interface{}{
