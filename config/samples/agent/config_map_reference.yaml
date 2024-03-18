@@ -18,8 +18,6 @@ data:
             - path: override-clusters.json
               repoUrl: "https://github.com/myrepo.git"
               targetRevision: master
-          clusterKey: "cluster"
-          clusterValue: "staging-usw2-k8s"
       gitDefinition:
         path: sample-pipeline
         repoUrl: "https://github.com/mynumaplaneinstall.git"

@@ -54,6 +54,12 @@ type CredentialedGitSource struct {
 	RepoCredential *RepoCredential `json:"repoCredential,omitempty" mapstructure:"repoCredential,omitempty"`
 }
 
+// CredentialedGitLocation points to a location in git that may or may not require credentials
+type CredentialedGitLocation struct {
+	GitLocation    `json:",inline" mapstructure:",squash"`
+	RepoCredential *RepoCredential `json:"repoCredential,omitempty" mapstructure:"repoCredential,omitempty"`
+}
+
 type GitLocation struct {
 	// RepoUrl is the URL to the repository itself
 	RepoUrl string `json:"repoUrl" mapstructure:"repoUrl"`
@@ -144,16 +150,13 @@ type SecretKeySelector struct {
 	Optional               *bool                                   `json:"optional,omitempty" mapstructure:"optional,omitempty"`
 }
 
+// SingleClusterGenerator consists of a single set of key/value pairs that can be used for templating
 type SingleClusterGenerator struct {
 	Values map[string]string `json:"values" mapstructure:"values"`
 }
 
-// multiple files containing key/value pairs: subsequent entries can override earlier entries
+// MultiClusterFileGenerator consists of multiple files containing key/value pairs: subsequent entries can override earlier entries
+// each file will contain a map of cluster name to the key/value pairs that it uses for templating
 type MultiClusterFileGenerator struct {
-	Files []*MultiClusterFile `json:"files" mapstructure:"files"`
-}
-
-type MultiClusterFile struct {
-	GitLocation    `json:",inline" mapstructure:",squash"`
-	RepoCredential *RepoCredential `json:"repoCredential,omitempty" mapstructure:"repoCredential,omitempty"`
+	Files []*CredentialedGitLocation `json:"files" mapstructure:"files"`
 }
