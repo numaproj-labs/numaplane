@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -51,6 +52,42 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Equal(t, "password", config.RepoCredentials[2].HTTPCredential.Password.Key, "Password Key for HTTPCredential of numalabs does not match")
 
 	assert.True(t, config.RepoCredentials[2].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numalabs does not match")
+
+	// now verify that if we modify the file, it will still be okay
+	originalFile := "../../../tests/config/testconfig.yaml"
+	fileToCopy := "../../../tests/config/testconfig2.yaml"
+	originalFileBytes, err := os.ReadFile(originalFile)
+	assert.Nil(t, err, "Failed to read config file")
+	defer func() { // make sure this gets written back to what it was at the end of the test
+		os.WriteFile(originalFile, originalFileBytes, 0644)
+	}()
+
+	err = copyFile(fileToCopy, originalFile)
+	assert.NoError(t, err)
+	time.Sleep(10 * time.Second) // need to give it time to make sure that the file was reloaded
+	config, err = configManager.GetConfig()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
+	assert.Equal(t, uint(60), config.TimeIntervalSec, "TimeIntervalSec does not match")
+	assert.Len(t, config.RepoCredentials, 0, "RepoCredentials should not be present")
+
+}
+
+func copyFile(src, dst string) error {
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst) // create only if it doesn't exist
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+	_, err = io.Copy(destination, source)
+	return err
 }
 
 // to verify this test run with go test -race ./... it  won't give a race condition as we have used mutex.RwLock
