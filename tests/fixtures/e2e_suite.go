@@ -35,6 +35,7 @@ const (
 	/* resource names */
 	Namespace      = "numaplane-system"
 	Label          = "numaplane-e2e"
+	LabelValue     = "true"
 	defaultTimeout = 60 * time.Second
 )
 
