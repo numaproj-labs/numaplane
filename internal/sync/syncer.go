@@ -244,7 +244,7 @@ func (r *resourceInfoProviderStub) IsNamespaced(_ schema.GroupKind) (bool, error
 }
 
 // sync compares the live state of the watched resources to target state defined in git
-// for the given GitSync. If not matches, syncing the state to the live objects. Otherwise,
+// for the given GitSync. If it doesn't match, syncing the state to the live objects. Otherwise,
 // skip the syncing.
 func (s *Syncer) sync(
 	gitSync *v1alpha1.GitSync,
@@ -352,9 +352,9 @@ func toUnstructuredAndApplyAnnotation(manifests []string, gitSyncName string) ([
 	return uns, nil
 }
 
-// updateCommitStatus will update the commit status in git sync CR also if
-// error happened while syncing the target state then it update the error
-// reason as well.
+// updateCommitStatus will update the commit status in git sync CR.
+// If an error occurred while syncing the target state, then it
+// updates the error reason as well.
 func updateCommitStatus(
 	ctx context.Context,
 	kubeClient client.Client,
