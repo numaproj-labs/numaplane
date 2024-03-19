@@ -83,7 +83,6 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, co
 	if err != nil {
 		return fmt.Errorf("failed unmarshal configuration file. %w", err)
 	}
-	v.WatchConfig()
 	v.OnConfigChange(func(e fsnotify.Event) {
 		cm.lock.Lock()
 		defer cm.lock.Unlock()
@@ -95,6 +94,7 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, co
 		}
 		cm.config = &newConfig
 	})
+	v.WatchConfig()
 	return nil
 }
 
