@@ -29,7 +29,8 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Nil(t, err, "Failed to load configuration")
 
 	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
-	assert.Equal(t, uint(60), config.TimeIntervalSec, "TimeIntervalSec does not match")
+	assert.Equal(t, 60000, config.SyncTimeIntervalMs, "SyncTimeIntervalMs does not match")
+	assert.Equal(t, 30000, config.AutoHealTimeIntervalMs, "AutoHealTimeIntervalMs does not match")
 
 	assert.NotNil(t, config.RepoCredentials, "RepoCredentials should not be nil")
 
@@ -69,7 +70,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
-	assert.Equal(t, uint(60), config.TimeIntervalSec, "TimeIntervalSec does not match")
+	assert.Equal(t, 60000, config.SyncTimeIntervalMs, "SyncTimeIntervalMs does not match")
 	assert.Len(t, config.RepoCredentials, 0, "RepoCredentials should not be present")
 
 }
@@ -176,8 +177,8 @@ func TestGetConfigManagerInstanceSingleton(t *testing.T) {
 
 func TestCloneWithSerialization(t *testing.T) {
 	original := &GlobalConfig{
-		ClusterName:     "testCluster",
-		TimeIntervalSec: 60,
+		ClusterName:        "testCluster",
+		SyncTimeIntervalMs: 60000,
 		RepoCredentials: []apiv1.RepoCredential{
 			{
 				URL: "repo1",
@@ -227,8 +228,8 @@ func TestCloneWithSerialization(t *testing.T) {
 
 func createGlobalConfigForBenchmarking() *GlobalConfig {
 	return &GlobalConfig{
-		ClusterName:     "testCluster",
-		TimeIntervalSec: 60,
+		ClusterName:        "testCluster",
+		SyncTimeIntervalMs: 60000,
 		RepoCredentials: []apiv1.RepoCredential{
 			{
 				URL: "repo1",

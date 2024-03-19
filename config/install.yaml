@@ -390,7 +390,8 @@ subjects:
 apiVersion: v1
 data:
   config.yaml: |
-    timeIntervalSec: 60
+    syncTimeIntervalMs: 60000
+    autoHealTimeIntervalMs: 30000
 kind: ConfigMap
 metadata:
   name: numaplane-controller-config
