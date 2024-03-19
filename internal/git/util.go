@@ -13,10 +13,9 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
@@ -50,21 +49,21 @@ func GetLatestManifests(
 	r *git.Repository,
 	client k8sClient.Client,
 	gitSync *v1alpha1.GitSync,
-) ([]string, error) {
+) (string, []string, error) {
 	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
 	manifests := make([]string, 0)
 
 	// Fetch all remote branches
 	err := fetchUpdates(ctx, client, gitSync, r)
 	if err != nil {
-		return manifests, err
+		return "", manifests, err
 	}
 
 	// The revision can be a branch, a tag, or a commit hash
 	hash, err := getLatestCommitHash(r, gitSync.Spec.TargetRevision)
 	if err != nil {
 		logger.Errorw("error resolving the revision", "revision", gitSync.Spec.TargetRevision, "err", err, "repo", gitSync.Spec.RepoUrl)
-		return manifests, err
+		return "", manifests, err
 	}
 
 	localRepoPath := getLocalRepoPath(gitSync)
@@ -73,7 +72,7 @@ func GetLatestManifests(
 	deployablePath := localRepoPath + "/" + gitSync.Spec.Path
 	// validate the deployablePath path for its existence.
 	if _, err := os.Stat(deployablePath); err != nil {
-		return manifests, fmt.Errorf("invalid deployable path, err: %v", err)
+		return "", manifests, fmt.Errorf("invalid deployable path, err: %v", err)
 	}
 
 	// initialize the kustomize with KUSTOMIZE_BINARY_PATH if defined.
@@ -84,7 +83,7 @@ func GetLatestManifests(
 
 	sourceType, err := gitSync.Spec.ExplicitType()
 	if err != nil {
-		return manifests, err
+		return "", manifests, err
 	}
 
 	switch sourceType {
@@ -92,28 +91,28 @@ func GetLatestManifests(
 		generatedManifest, err := k.Build(nil)
 		if err != nil {
 			logger.Errorw("can not build kustomize yaml", "err", err)
-			return manifests, err
+			return "", manifests, err
 		}
 		manifestData, err := SplitYAMLToString([]byte(generatedManifest))
 		if err != nil {
-			return manifests, fmt.Errorf("can not parse kustomize manifest, err: %v", err)
+			return "", manifests, fmt.Errorf("can not parse kustomize manifest, err: %v", err)
 		}
 		manifests = append(manifests, manifestData...)
 	case v1alpha1.SourceTypeHelm:
 		generatedManifest, err := h.Build(gitSync.Name, gitSync.Spec.Destination.Namespace, gitSync.Spec.Helm.Parameters, gitSync.Spec.Helm.ValueFiles)
 		if err != nil {
-			return manifests, fmt.Errorf("cannot build helm manifest, err: %v", err)
+			return "", manifests, fmt.Errorf("cannot build helm manifest, err: %v", err)
 		}
 		manifestData, err := SplitYAMLToString([]byte(generatedManifest))
 		if err != nil {
-			return manifests, fmt.Errorf("can not parse helm manifest, err: %v", err)
+			return "", manifests, fmt.Errorf("can not parse helm manifest, err: %v", err)
 		}
 		manifests = append(manifests, manifestData...)
 	case v1alpha1.SourceTypeRaw:
 		// Retrieving the commit object matching the hash.
 		tree, err := getCommitTreeAtPath(r, gitSync.Spec.Path, *hash)
 		if err != nil {
-			return manifests, err
+			return "", manifests, err
 		}
 		// Read all the files under the path and apply each one respectively.
 		err = tree.Files().ForEach(func(f *object.File) error {
@@ -134,10 +133,10 @@ func GetLatestManifests(
 			return nil
 		})
 		if err != nil {
-			return manifests, err
+			return "", manifests, err
 		}
 	}
-	return manifests, nil
+	return hash.String(), manifests, nil
 }
 
 // getLatestCommitHash retrieves the latest commit hash of a given branch or tag

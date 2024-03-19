@@ -11,20 +11,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/go-git/go-git/v5/storage/memory"
+	"github.com/golang/mock/gomock"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
+	"github.com/stretchr/testify/assert"
 	cryptossh "golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/storage/memory"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	gitshared "github.com/numaproj-labs/numaplane/internal/util/git"
@@ -329,7 +328,7 @@ func Test_GetLatestManifests(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 
-			_, err = GetLatestManifests(ctx, r, nil, tc.gitSync)
+			_, _, err = GetLatestManifests(ctx, r, nil, tc.gitSync)
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
