@@ -50,7 +50,13 @@ func KeyOfGitSync(gitSync *v1alpha1.GitSync) string {
 }
 
 // NewSyncer returns a Synchronizer instance.
-func NewSyncer(client client.Client, config *rest.Config, rawConfig *rest.Config, kubectl kubeUtil.Kubectl, opts ...Option) *Syncer {
+func NewSyncer(
+	client client.Client,
+	config *rest.Config,
+	rawConfig *rest.Config,
+	kubectl kubeUtil.Kubectl,
+	opts ...Option,
+) *Syncer {
 	watcherOpts := defaultOptions()
 	for _, opt := range opts {
 		if opt != nil {
@@ -261,7 +267,7 @@ func (s *Syncer) sync(
 
 	// If the live state match the target state, then skip the syncing.
 	if !modified {
-		logger.Info("GitSync object is successfully already synced, skip the syncing.")
+		logger.Info("GitSync object is already synced, skip the syncing.")
 		return gitopsSyncCommon.OperationSucceeded, ""
 	}
 
@@ -386,7 +392,7 @@ func updateCommitStatus(
 	}
 	currentCommitStatus := gitSync.Status.CommitStatus
 	// Skip the commit status update if the content are the same.
-	if currentCommitStatus.Synced == commitStatus.Synced &&
+	if currentCommitStatus != nil && currentCommitStatus.Synced == commitStatus.Synced &&
 		currentCommitStatus.Hash == commitStatus.Hash &&
 		currentCommitStatus.Error == commitStatus.Error {
 		return nil

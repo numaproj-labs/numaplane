@@ -1,5 +1,6 @@
 clusterName: "staging-usw2-k8s"
-timeIntervalSec: 60
+syncTimeIntervalMs: 60000
+autoHealTimeIntervalMs: 30000
 repoCredentials:
 - url: "github.com/numaproj-labs"
   httpCredential:
