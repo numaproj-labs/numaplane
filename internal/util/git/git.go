@@ -12,14 +12,14 @@ import (
 	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
-
+	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // GetAuthMethod returns an authMethod  for both cloning and fetching from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
-func GetAuthMethod(ctx context.Context, repoCred *controllerConfig.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (transport.AuthMethod, bool, error) {
+func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (transport.AuthMethod, bool, error) {
 	scheme, err := GetURLScheme(repoUrl)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to parse URL scheme: %w", err)
@@ -84,7 +84,7 @@ func GetAuthMethod(ctx context.Context, repoCred *controllerConfig.RepoCredentia
 }
 
 // GetRepoCloneOptions creates git.CloneOptions for cloning a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
-func GetRepoCloneOptions(ctx context.Context, repoCred *controllerConfig.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (*git.CloneOptions, error) {
+func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (*git.CloneOptions, error) {
 	endpoint, err := transport.NewEndpoint(repoUrl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid repository URL: %w", err)
@@ -103,7 +103,7 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *controllerConfig.RepoCre
 }
 
 // GetRepoFetchOptions creates git.FetchOptions for fetching updates from  a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
-func GetRepoFetchOptions(ctx context.Context, repoCred *controllerConfig.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (*git.FetchOptions, error) {
+func GetRepoFetchOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (*git.FetchOptions, error) {
 	// check to ensure proper repository url is passed
 	_, err := transport.NewEndpoint(repoUrl)
 	if err != nil {
@@ -124,7 +124,7 @@ func GetRepoFetchOptions(ctx context.Context, repoCred *controllerConfig.RepoCre
 
 // FindCredByUrl searches for GitCredential by the specified URL within the provided GlobalConfig.
 // It returns the matching GitCredential if the specified URL starts with the URL of any RepoCredentials, otherwise returns nil.
-func FindCredByUrl(url string, config controllerConfig.GlobalConfig) *controllerConfig.RepoCredential {
+func FindCredByUrl(url string, config controllerConfig.GlobalConfig) *apiv1.RepoCredential {
 	normalizedUrl := NormalizeGitUrl(url)
 	for _, cred := range config.RepoCredentials {
 		if strings.HasPrefix(normalizedUrl, NormalizeGitUrl(cred.URL)) {

@@ -35,9 +35,13 @@ var (
 			Name:      testGitSyncName,
 		},
 		Spec: apiv1.GitSyncSpec{
-			RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
-			Path:           "staging-usw2-k8s",
-			TargetRevision: "main",
+			GitSource: apiv1.GitSource{
+				GitLocation: apiv1.GitLocation{
+					RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
+					Path:           "staging-usw2-k8s",
+					TargetRevision: "main",
+				},
+			},
 
 			Destination: apiv1.Destination{
 				Cluster:   "staging-usw2-k8s",

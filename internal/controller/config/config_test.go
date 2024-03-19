@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -50,6 +52,46 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Equal(t, "password", config.RepoCredentials[2].HTTPCredential.Password.Key, "Password Key for HTTPCredential of numalabs does not match")
 
 	assert.True(t, config.RepoCredentials[2].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numalabs does not match")
+
+	// now verify that if we modify the file, it will still be okay
+	originalFile := "../../../tests/config/testconfig.yaml"
+	fileToCopy := "../../../tests/config/testconfig2.yaml"
+	originalFileBytes, err := os.ReadFile(originalFile)
+	assert.Nil(t, err, "Failed to read config file")
+	defer func() { // make sure this gets written back to what it was at the end of the test
+		_ = os.WriteFile(originalFile, originalFileBytes, 0644)
+	}()
+
+	err = copyFile(fileToCopy, originalFile)
+	assert.NoError(t, err)
+	time.Sleep(10 * time.Second) // need to give it time to make sure that the file was reloaded
+	config, err = configManager.GetConfig()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
+	assert.Equal(t, uint(60), config.TimeIntervalSec, "TimeIntervalSec does not match")
+	assert.Len(t, config.RepoCredentials, 0, "RepoCredentials should not be present")
+
+}
+
+func copyFile(src, dst string) error {
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = source.Close()
+	}()
+
+	destination, err := os.Create(dst) // create only if it doesn't exist
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = destination.Close()
+	}()
+	_, err = io.Copy(destination, source)
+	return err
 }
 
 // to verify this test run with go test -race ./... it  won't give a race condition as we have used mutex.RwLock
@@ -136,12 +178,12 @@ func TestCloneWithSerialization(t *testing.T) {
 	original := &GlobalConfig{
 		ClusterName:     "testCluster",
 		TimeIntervalSec: 60,
-		RepoCredentials: []RepoCredential{
+		RepoCredentials: []apiv1.RepoCredential{
 			{
 				URL: "repo1",
-				HTTPCredential: &HTTPCredential{
+				HTTPCredential: &apiv1.HTTPCredential{
 					Username: "user1",
-					Password: SecretKeySelector{
+					Password: apiv1.SecretKeySelector{
 						ObjectReference: corev1.ObjectReference{
 							Name: "secretName1",
 						},
@@ -149,8 +191,8 @@ func TestCloneWithSerialization(t *testing.T) {
 						Optional: nil,
 					},
 				},
-				SSHCredential: &SSHCredential{
-					SSHKey: SecretKeySelector{
+				SSHCredential: &apiv1.SSHCredential{
+					SSHKey: apiv1.SecretKeySelector{
 						ObjectReference: corev1.ObjectReference{
 							Name: "secretNameSSH",
 						},
@@ -158,7 +200,7 @@ func TestCloneWithSerialization(t *testing.T) {
 						Optional: nil,
 					},
 				},
-				TLS: &TLS{
+				TLS: &apiv1.TLS{
 					InsecureSkipVerify: true,
 				},
 			},
@@ -187,12 +229,12 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 	return &GlobalConfig{
 		ClusterName:     "testCluster",
 		TimeIntervalSec: 60,
-		RepoCredentials: []RepoCredential{
+		RepoCredentials: []apiv1.RepoCredential{
 			{
 				URL: "repo1",
-				HTTPCredential: &HTTPCredential{
+				HTTPCredential: &apiv1.HTTPCredential{
 					Username: "user1",
-					Password: SecretKeySelector{
+					Password: apiv1.SecretKeySelector{
 						ObjectReference: corev1.ObjectReference{
 							Name: "secretName1",
 						},
@@ -200,8 +242,8 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 						Optional: nil,
 					},
 				},
-				SSHCredential: &SSHCredential{
-					SSHKey: SecretKeySelector{
+				SSHCredential: &apiv1.SSHCredential{
+					SSHKey: apiv1.SecretKeySelector{
 						ObjectReference: corev1.ObjectReference{
 							Name: "secretNameSSH",
 						},
@@ -209,7 +251,7 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 						Optional: nil,
 					},
 				},
-				TLS: &TLS{
+				TLS: &apiv1.TLS{
 					InsecureSkipVerify: true,
 				},
 			},
