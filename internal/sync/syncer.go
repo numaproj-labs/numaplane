@@ -207,7 +207,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
-		log.Errorw("error getting  the  global config", "err", err)
+		log.Errorw("error getting  the  global config", zap.Error(err))
 	}
 	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig)
 	if err != nil {
@@ -255,7 +255,8 @@ func (s *Syncer) sync(
 
 	reconciliationResult, modified, err := s.compareState(gitSync, targetObjs)
 	if err != nil {
-		return gitopsSyncCommon.OperationError, "error on comparing git sync state"
+		logger.Errorw("Error on comparing git sync state", zap.Error(err))
+		return gitopsSyncCommon.OperationError, err.Error()
 	}
 
 	// If the live state match the target state, then skip the syncing.
@@ -276,7 +277,8 @@ func (s *Syncer) sync(
 
 	cluster, err := s.stateCache.GetClusterCache()
 	if err != nil {
-		return gitopsSyncCommon.OperationError, "error on getting the cluster cache"
+		logger.Errorw("Error on getting the cluster cache", zap.Error(err))
+		return gitopsSyncCommon.OperationError, err.Error()
 	}
 	openAPISchema := cluster.GetOpenAPISchema()
 
@@ -292,7 +294,8 @@ func (s *Syncer) sync(
 	)
 	defer cleanup()
 	if err != nil {
-		return gitopsSyncCommon.OperationError, "error on creating syncing context"
+		logger.Errorw("Error on creating syncing context", zap.Error(err))
+		return gitopsSyncCommon.OperationError, err.Error()
 	}
 
 	syncCtx.Sync()
@@ -381,7 +384,13 @@ func updateCommitStatus(
 			return err
 		}
 	}
-
+	currentCommitStatus := gitSync.Status.CommitStatus
+	// Skip the commit status update if the content are the same.
+	if currentCommitStatus.Synced == commitStatus.Synced &&
+		currentCommitStatus.Hash == commitStatus.Hash &&
+		currentCommitStatus.Error == commitStatus.Error {
+		return nil
+	}
 	gitSync.Status.CommitStatus = &commitStatus
 	if err := kubeClient.Status().Update(ctx, gitSync); err != nil {
 		logger.Errorw("Error Updating GitSync Status", "err", err)
