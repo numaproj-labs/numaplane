@@ -88,32 +88,7 @@ func GetLatestManifests(
 	case v1alpha1.SourceTypeHelm:
 		targetObjs, err = helmTemplate(localRepoPath, gitSync)
 	case v1alpha1.SourceTypeRaw:
-		//Retrieving the commit object matching the hash.
-		tree, err := getCommitTreeAtPath(r, gitSync.Spec.Path, *hash)
-		if err != nil {
-			return "", nil, err
-		}
-		// Read all the files under the path and apply each one respectively.
-		err = tree.Files().ForEach(func(f *object.File) error {
-			logger.Debugw("read file", "file_name", f.Name)
-			if kubernetes.IsValidKubernetesManifestFile(f.Name) {
-				manifest, err := f.Contents()
-				if err != nil {
-					logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
-					return err
-				}
-				manifestData, err := kube.SplitYAML([]byte(manifest))
-				if err != nil {
-					return fmt.Errorf("can not parse file data, err: %v", err)
-				}
-				targetObjs = append(targetObjs, manifestData...)
-			}
-
-			return nil
-		})
-		if err != nil {
-			return "", nil, err
-		}
+		targetObjs, err = rawTemplate(r, gitSync, hash)
 	}
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to build manifests, err: %v", err)
@@ -171,6 +146,35 @@ func helmTemplate(localRepoPath string, gitSync *v1alpha1.GitSync) ([]*unstructu
 	}
 
 	return kube.SplitYAML([]byte(out))
+}
+
+// rawTemplate will return the list of unstructured objects after templating the raw manifest/yaml files.
+func rawTemplate(r *git.Repository, gitSync *v1alpha1.GitSync, hash *plumbing.Hash) ([]*unstructured.Unstructured, error) {
+	var manifestObj []*unstructured.Unstructured
+	tree, err := getCommitTreeAtPath(r, gitSync.Spec.Path, *hash)
+	if err != nil {
+		return nil, err
+	}
+	// Read all the files under the path and apply each one respectively.
+	if err = tree.Files().ForEach(func(f *object.File) error {
+		if kubernetes.IsValidKubernetesManifestFile(f.Name) {
+			manifest, err := f.Contents()
+			if err != nil {
+				return fmt.Errorf("failed to get file content, filename: %s, err: %v", f.Name, err)
+			}
+			manifestData, err := kube.SplitYAML([]byte(manifest))
+			if err != nil {
+				return fmt.Errorf("can not parse file data, err: %v", err)
+			}
+			manifestObj = append(manifestObj, manifestData...)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return manifestObj, nil
 }
 
 // getLatestCommitHash retrieves the latest commit hash of a given branch or tag
