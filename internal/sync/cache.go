@@ -25,10 +25,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/common"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logging"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 // GitOps engine cluster cache tuning options

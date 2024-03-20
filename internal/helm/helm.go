@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	numaExec "github.com/numaproj-labs/numaplane/internal/util/exec"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 var (

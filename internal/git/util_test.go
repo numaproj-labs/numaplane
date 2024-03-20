@@ -25,8 +25,8 @@ import (
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	gitshared "github.com/numaproj-labs/numaplane/internal/util/git"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 const (

@@ -17,13 +17,13 @@ import (
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/helm"
 	"github.com/numaproj-labs/numaplane/internal/kustomize"
 	gitShared "github.com/numaproj-labs/numaplane/internal/util/git"
 	kubernetesshared "github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logging"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 func CloneRepo(

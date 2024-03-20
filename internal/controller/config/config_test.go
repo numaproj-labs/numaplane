@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/stretchr/testify/assert"

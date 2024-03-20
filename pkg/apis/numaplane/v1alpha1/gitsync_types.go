@@ -90,9 +90,9 @@ type CommitStatus struct {
 	Error string `json:"error,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
+// +genclient
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // GitSync is the Schema for the gitsyncs API
 type GitSync struct {
 	metav1.TypeMeta   `json:",inline"`
