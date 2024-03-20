@@ -2,7 +2,6 @@ package git
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -50,7 +49,7 @@ func GetLatestManifests(
 	r *git.Repository,
 	client k8sClient.Client,
 	gitSync *v1alpha1.GitSync,
-) (string, []string, error) {
+) (string, []*unstructured.Unstructured, error) {
 	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
 
 	// Fetch all remote branches
@@ -94,18 +93,7 @@ func GetLatestManifests(
 		return "", nil, fmt.Errorf("failed to build manifests, err: %v", err)
 	}
 
-	manifests := make([]string, 0)
-	for _, obj := range targetObjs {
-		if obj == nil {
-			continue
-		}
-		manifestStr, err := json.Marshal(obj.Object)
-		if err != nil {
-			return "", nil, err
-		}
-		manifests = append(manifests, string(manifestStr))
-	}
-	return hash.String(), manifests, nil
+	return hash.String(), targetObjs, nil
 }
 
 // helmTemplate will return the list of unstructured objects after templating the helm chart.

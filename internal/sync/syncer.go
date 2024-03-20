@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/common"
@@ -223,7 +222,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
 	}
-	uns, err := toUnstructuredAndApplyAnnotation(manifests, gitSyncName)
+	uns, err := applyAnnotation(manifests, gitSyncName)
 	if err != nil {
 		return fmt.Errorf("failed to parse the manifest of key %q, %w", key, err)
 	}
@@ -265,7 +264,7 @@ func (s *Syncer) sync(
 		return gitopsSyncCommon.OperationError, err.Error()
 	}
 
-	// If the live state match the target state, then skip the syncing.
+	// If the live state matches the target state, then skip the syncing.
 	if !modified {
 		logger.Info("GitSync object is already synced, skip the syncing.")
 		return gitopsSyncCommon.OperationSucceeded, ""
@@ -343,20 +342,14 @@ func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructu
 	return reconciliationResult, modified.Modified, nil
 }
 
-func toUnstructuredAndApplyAnnotation(manifests []string, gitSyncName string) ([]*unstructured.Unstructured, error) {
+func applyAnnotation(manifests []*unstructured.Unstructured, gitSyncName string) ([]*unstructured.Unstructured, error) {
 	uns := make([]*unstructured.Unstructured, 0)
 	for _, m := range manifests {
-		obj := make(map[string]interface{})
-		err := yaml.Unmarshal([]byte(m), &obj)
+		err := kubernetes.SetGitSyncInstanceAnnotation(m, common.AnnotationKeyGitSyncInstance, gitSyncName)
 		if err != nil {
 			return nil, err
 		}
-		target := &unstructured.Unstructured{Object: obj}
-		err = kubernetes.SetGitSyncInstanceAnnotation(target, common.AnnotationKeyGitSyncInstance, gitSyncName)
-		if err != nil {
-			return nil, err
-		}
-		uns = append(uns, target)
+		uns = append(uns, m)
 	}
 	return uns, nil
 }
