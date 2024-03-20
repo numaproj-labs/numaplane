@@ -1,28 +1,29 @@
 package git
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 
+	argoGit "github.com/argoproj/argo-cd/v2/util/git"
+	"github.com/argoproj/argo-cd/v2/util/helm"
+	pathutil "github.com/argoproj/argo-cd/v2/util/io/path"
+	"github.com/argoproj/argo-cd/v2/util/kustomize"
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/cespare/xxhash/v2"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"k8s.io/apimachinery/pkg/runtime"
-	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
-	"github.com/numaproj-labs/numaplane/internal/helm"
-	"github.com/numaproj-labs/numaplane/internal/kustomize"
 	gitShared "github.com/numaproj-labs/numaplane/internal/util/git"
-	kubernetesshared "github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logging"
 )
 
@@ -51,92 +52,125 @@ func GetLatestManifests(
 	gitSync *v1alpha1.GitSync,
 ) (string, []string, error) {
 	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
-	manifests := make([]string, 0)
 
 	// Fetch all remote branches
 	err := fetchUpdates(ctx, client, gitSync, r)
 	if err != nil {
-		return "", manifests, err
+		return "", nil, err
 	}
 
 	// The revision can be a branch, a tag, or a commit hash
 	hash, err := getLatestCommitHash(r, gitSync.Spec.TargetRevision)
 	if err != nil {
 		logger.Errorw("error resolving the revision", "revision", gitSync.Spec.TargetRevision, "err", err, "repo", gitSync.Spec.RepoUrl)
-		return "", manifests, err
+		return "", nil, err
 	}
 
 	localRepoPath := getLocalRepoPath(gitSync)
 
-	// repoPath will be the path of clone repository + the path while needs to be deployed.
+	// deployablePath will be the path of cloned repository + the path while needs to be deployed.
 	deployablePath := localRepoPath + "/" + gitSync.Spec.Path
-	// validate the deployablePath path for its existence.
+	// validate the existence of path.
 	if _, err := os.Stat(deployablePath); err != nil {
-		return "", manifests, fmt.Errorf("invalid deployable path, err: %v", err)
+		return "", nil, fmt.Errorf("invalid repo path, err: %v", err)
 	}
-
-	// initialize the kustomize with KUSTOMIZE_BINARY_PATH if defined.
-	k := kustomize.NewKustomizeApp(deployablePath, gitSync.Spec.RepoUrl, os.Getenv("KUSTOMIZE_BINARY_PATH"))
-
-	// initialize the helm with HELM_BINARY_PATH if defined.
-	h := helm.New(deployablePath, os.Getenv("HELM_BINARY_PATH"))
 
 	sourceType, err := gitSync.Spec.ExplicitType()
 	if err != nil {
-		return "", manifests, err
+		return "", nil, err
 	}
 
+	var targetObjs []*unstructured.Unstructured
 	switch sourceType {
 	case v1alpha1.SourceTypeKustomize:
-		generatedManifest, err := k.Build(nil)
-		if err != nil {
-			logger.Errorw("can not build kustomize yaml", "err", err)
-			return "", manifests, err
-		}
-		manifestData, err := SplitYAMLToString([]byte(generatedManifest))
-		if err != nil {
-			return "", manifests, fmt.Errorf("can not parse kustomize manifest, err: %v", err)
-		}
-		manifests = append(manifests, manifestData...)
+		k := kustomize.NewKustomizeApp(localRepoPath, gitSync.Spec.Path, argoGit.NopCreds{}, gitSync.Spec.RepoUrl, os.Getenv("KUSTOMIZE_BINARY_PATH"))
+		targetObjs, _, err = k.Build(nil, nil, nil)
 	case v1alpha1.SourceTypeHelm:
-		generatedManifest, err := h.Build(gitSync.Name, gitSync.Spec.Destination.Namespace, gitSync.Spec.Helm.Parameters, gitSync.Spec.Helm.ValueFiles)
-		if err != nil {
-			return "", manifests, fmt.Errorf("cannot build helm manifest, err: %v", err)
-		}
-		manifestData, err := SplitYAMLToString([]byte(generatedManifest))
-		if err != nil {
-			return "", manifests, fmt.Errorf("can not parse helm manifest, err: %v", err)
-		}
-		manifests = append(manifests, manifestData...)
+		targetObjs, err = helmTemplate(localRepoPath, gitSync)
 	case v1alpha1.SourceTypeRaw:
-		// Retrieving the commit object matching the hash.
+		//Retrieving the commit object matching the hash.
 		tree, err := getCommitTreeAtPath(r, gitSync.Spec.Path, *hash)
 		if err != nil {
-			return "", manifests, err
+			return "", nil, err
 		}
 		// Read all the files under the path and apply each one respectively.
 		err = tree.Files().ForEach(func(f *object.File) error {
 			logger.Debugw("read file", "file_name", f.Name)
-			if kubernetesshared.IsValidKubernetesManifestFile(f.Name) {
+			if kubernetes.IsValidKubernetesManifestFile(f.Name) {
 				manifest, err := f.Contents()
 				if err != nil {
 					logger.Errorw("cannot get file content", "filename", f.Name, "err", err)
 					return err
 				}
-				manifestData, err := SplitYAMLToString([]byte(manifest))
+				manifestData, err := kube.SplitYAML([]byte(manifest))
 				if err != nil {
 					return fmt.Errorf("can not parse file data, err: %v", err)
 				}
-				manifests = append(manifests, manifestData...)
+				targetObjs = append(targetObjs, manifestData...)
 			}
 
 			return nil
 		})
 		if err != nil {
-			return "", manifests, err
+			return "", nil, err
 		}
 	}
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to build manifests, err: %v", err)
+	}
+
+	manifests := make([]string, 0)
+	for _, obj := range targetObjs {
+		if obj == nil {
+			continue
+		}
+		manifestStr, err := json.Marshal(obj.Object)
+		if err != nil {
+			return "", nil, err
+		}
+		manifests = append(manifests, string(manifestStr))
+	}
 	return hash.String(), manifests, nil
+}
+
+// helmTemplate will return the list of unstructured objects after templating the helm chart.
+func helmTemplate(localRepoPath string, gitSync *v1alpha1.GitSync) ([]*unstructured.Unstructured, error) {
+	h, err := helm.NewHelmApp(localRepoPath+"/"+gitSync.Spec.Path, []helm.HelmRepository{{Repo: gitSync.Spec.RepoUrl}},
+		false, "", "", false)
+	if err != nil {
+		return nil, fmt.Errorf("error initializing helm app object: %w", err)
+	}
+
+	templateOpts := &helm.TemplateOpts{
+		Name:      gitSync.Name,
+		Namespace: gitSync.Spec.Destination.Namespace,
+		Set:       map[string]string{},
+		SkipCrds:  true,
+	}
+
+	for _, value := range gitSync.Spec.Helm.ValueFiles {
+		templateOpts.Values = append(templateOpts.Values, pathutil.ResolvedFilePath(value))
+	}
+
+	for _, p := range gitSync.Spec.Helm.Parameters {
+		templateOpts.Set[p.Name] = p.Value
+	}
+
+	out, err := h.Template(templateOpts)
+	if err != nil {
+		if !helm.IsMissingDependencyErr(err) {
+			return nil, err
+		}
+		if depErr := h.DependencyBuild(); depErr != nil {
+			return nil, depErr
+		}
+
+		if out, err = h.Template(templateOpts); err != nil {
+			return nil, err
+		}
+	}
+
+	return kube.SplitYAML([]byte(out))
 }
 
 // getLatestCommitHash retrieves the latest commit hash of a given branch or tag
@@ -231,26 +265,4 @@ func cloneRepo(ctx context.Context, gitSync *v1alpha1.GitSync, options *git.Clon
 	}
 
 	return r, err
-}
-
-// SplitYAMLToString splits a YAML file into strings. Returns list of yamls
-// found in the yaml. If an error occurs, returns objects that have been parsed so far too.
-func SplitYAMLToString(yamlData []byte) ([]string, error) {
-	d := kubeyaml.NewYAMLOrJSONDecoder(bytes.NewReader(yamlData), 4096)
-	var objs []string
-	for {
-		ext := runtime.RawExtension{}
-		if err := d.Decode(&ext); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return objs, fmt.Errorf("failed to unmarshal manifest: %v", err)
-		}
-		ext.Raw = bytes.TrimSpace(ext.Raw)
-		if len(ext.Raw) == 0 || bytes.Equal(ext.Raw, []byte("null")) {
-			continue
-		}
-		objs = append(objs, string(ext.Raw))
-	}
-	return objs, nil
 }
