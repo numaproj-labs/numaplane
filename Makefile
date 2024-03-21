@@ -201,7 +201,7 @@ $(ENVTEST): $(LOCALBIN)
 .PHONY: gitserver
 gitserver:
 		cd tests/e2e-gitserver && \
-		sudo docker buildx build \
+		 docker buildx build \
 		--no-cache \
 		--build-arg REPO_COUNT=$(REPO_COUNT) \
 		--platform $(PLATFORMS) \
