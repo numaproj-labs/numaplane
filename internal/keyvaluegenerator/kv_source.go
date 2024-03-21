@@ -19,7 +19,7 @@ package keyvaluegenerator
 import (
 	"maps"
 
-	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 // the purpose of this interface is to derive keys/values which can be applied to a spec

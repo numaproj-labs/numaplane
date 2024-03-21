@@ -20,11 +20,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	gitShared "github.com/numaproj-labs/numaplane/internal/util/git"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logging"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 func CloneRepo(

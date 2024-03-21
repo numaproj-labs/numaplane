@@ -22,8 +22,8 @@ import (
 
 	"go.uber.org/zap"
 
-	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	kvsource "github.com/numaproj-labs/numaplane/internal/keyvaluegenerator"
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	//kubeutil "github.com/argoproj/gitops-engine/pkg/utils/kube"
 	//"k8s.io/client-go/rest"
 	//"sigs.k8s.io/controller-runtime/pkg/client"

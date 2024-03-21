@@ -21,7 +21,7 @@ import (
 	testcore "k8s.io/client-go/testing"
 	"sigs.k8s.io/yaml"
 
-	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 var (
