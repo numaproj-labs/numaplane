@@ -5,4 +5,5 @@ metadata:
   name: numaplane-controller-config
 data:
   config.yaml: |
-    timeIntervalSec: 60
+    syncTimeIntervalMs: 60000
+    autoHealTimeIntervalMs: 30000

@@ -28,12 +28,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/sync"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logging"
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 var (
@@ -92,12 +92,23 @@ func main() {
 		logger.Fatalw("Failed to load config file", zap.Error(err))
 	}
 
+	config, err := configManager.GetConfig()
+	if err != nil {
+		logger.Fatalw("Failed to get config", zap.Error(err))
+	}
+	interval := config.AutoHealTimeIntervalMs
+	// If auto healing is not enabled, use the automated syncing
+	// interval instead.
+	if interval == 0 {
+		interval = config.SyncTimeIntervalMs
+	}
 	kubectl := kubernetes.NewKubectl()
 	syncer := sync.NewSyncer(
 		mgr.GetClient(),
 		mgr.GetConfig(),
 		mgr.GetConfig(),
-		kubectl)
+		kubectl,
+		sync.WithTaskInterval(interval))
 	// Add syncer runner
 	if err = mgr.Add(LeaderElectionRunner(syncer.Start)); err != nil {
 		logger.Fatalw("Unable to add autoscaling runner", zap.Error(err))

@@ -15,8 +15,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 const (
@@ -31,9 +31,13 @@ var (
 			Name:      testGitSyncName,
 		},
 		Spec: apiv1.GitSyncSpec{
-			RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
-			Path:           "staging-usw2-k8s",
-			TargetRevision: "main",
+			GitSource: apiv1.GitSource{
+				GitLocation: apiv1.GitLocation{
+					RepoUrl:        "https://github.com/numaproj-labs/numaplane-control-manifests.git",
+					Path:           "staging-usw2-k8s",
+					TargetRevision: "main",
+				},
+			},
 			Destination: apiv1.Destination{
 				Cluster:   "staging-usw2-k8s",
 				Namespace: "team-a-namespace",
