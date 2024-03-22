@@ -19,14 +19,16 @@ package fixtures
 import (
 	"testing"
 
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
+	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 type Expect struct {
-	t          *testing.T
-	restConfig *rest.Config
-	kubeClient kubernetes.Interface
-	gitSync    *v1alpha1.GitSync
+	t             *testing.T
+	restConfig    *rest.Config
+	kubeClient    kubernetes.Interface
+	gitSync       *v1alpha1.GitSync
+	gitSyncClient planepkg.GitSyncInterface
 }

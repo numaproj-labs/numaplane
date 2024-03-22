@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
+	planeversiond "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned"
+	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,9 +47,10 @@ var (
 
 type E2ESuite struct {
 	suite.Suite
-	restConfig *rest.Config
-	kubeClient kubernetes.Interface
-	stopch     chan struct{}
+	restConfig    *rest.Config
+	kubeClient    kubernetes.Interface
+	gitSyncClient planepkg.GitSyncInterface
+	stopch        chan struct{}
 }
 
 func (s *E2ESuite) SetupSuite() {
@@ -56,6 +59,8 @@ func (s *E2ESuite) SetupSuite() {
 	s.CheckError(err)
 	s.kubeClient, err = kubernetes.NewForConfig(s.restConfig)
 	s.CheckError(err)
+
+	s.gitSyncClient = planeversiond.NewForConfigOrDie(s.restConfig).NumaplaneV1alpha1().GitSyncs(Namespace)
 
 	// resource cleanup
 	s.deleteResources([]schema.GroupVersionResource{

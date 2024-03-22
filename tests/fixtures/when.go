@@ -17,32 +17,41 @@ limitations under the License.
 package fixtures
 
 import (
+	"context"
 	"testing"
 
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
+	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 type When struct {
-	t          *testing.T
-	restConfig *rest.Config
-	kubeClient kubernetes.Interface
-	gitSync    *v1alpha1.GitSync
+	t             *testing.T
+	restConfig    *rest.Config
+	kubeClient    kubernetes.Interface
+	gitSync       *v1alpha1.GitSync
+	gitSyncClient planepkg.GitSyncInterface
 
 	// is this needed if we port forward only git pod?
 	portForwarderStopChannels map[string]chan struct{}
 }
 
-func (w *When) CreateGitSync() *When {
+func (w *When) CreateGitSyncAndWait() *When {
 
 	w.t.Helper()
 	if w.gitSync == nil {
 		w.t.Fatal("No GitSync to create")
 	}
 	w.t.Log("Creating GitSync", w.gitSync.Name)
-	// ctx := context.Background()
-	// i, err := w.kubeClient.CoreV1().RESTClient().Post()
+	ctx := context.Background()
+	i, err := w.gitSyncClient.Create(ctx, w.gitSync, metav1.CreateOptions{})
+	if err != nil {
+		w.t.Fatal(err)
+	} else {
+		w.gitSync = i
+	}
 
 	return w
 }
@@ -53,18 +62,20 @@ func (w *When) DeleteGitSync() *When {
 
 func (w *When) Given() *Given {
 	return &Given{
-		t:          w.t,
-		gitSync:    w.gitSync,
-		restConfig: w.restConfig,
-		kubeClient: w.kubeClient,
+		t:             w.t,
+		gitSync:       w.gitSync,
+		restConfig:    w.restConfig,
+		kubeClient:    w.kubeClient,
+		gitSyncClient: w.gitSyncClient,
 	}
 }
 
 func (w *When) Expect() *Expect {
 	return &Expect{
-		t:          w.t,
-		gitSync:    w.gitSync,
-		restConfig: w.restConfig,
-		kubeClient: w.kubeClient,
+		t:             w.t,
+		gitSync:       w.gitSync,
+		restConfig:    w.restConfig,
+		kubeClient:    w.kubeClient,
+		gitSyncClient: w.gitSyncClient,
 	}
 }

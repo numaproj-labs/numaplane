@@ -21,7 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
+	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -29,10 +30,11 @@ import (
 )
 
 type Given struct {
-	t          *testing.T
-	restConfig *rest.Config
-	kubeClient kubernetes.Interface
-	gitSync    *v1alpha1.GitSync
+	t             *testing.T
+	restConfig    *rest.Config
+	kubeClient    kubernetes.Interface
+	gitSyncClient planepkg.GitSyncInterface
+	gitSync       *v1alpha1.GitSync
 }
 
 // create GitSync using raw YAML or @filename
@@ -95,9 +97,10 @@ func (g *Given) readResource(text string, v metav1.Object) {
 
 func (g *Given) When() *When {
 	return &When{
-		t:          g.t,
-		gitSync:    g.gitSync,
-		restConfig: g.restConfig,
-		kubeClient: g.kubeClient,
+		t:             g.t,
+		gitSync:       g.gitSync,
+		restConfig:    g.restConfig,
+		kubeClient:    g.kubeClient,
+		gitSyncClient: g.gitSyncClient,
 	}
 }
