@@ -1,3 +1,4 @@
+#kubectl apply -k .
 resources:
   - gitserver.yaml
 

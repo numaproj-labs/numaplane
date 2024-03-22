@@ -33,7 +33,7 @@ ENVTEST_K8S_VERSION = 1.28.0
 
 # LOCAL GIT SERVER CONFIG
 REPO_COUNT=5
-GITSERVER_NAME=numaplane-e2e-gitserver
+GITSERVER_NAME=quay.io/numaio/numaplane-e2e-gitserver:latest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -200,10 +200,10 @@ $(ENVTEST): $(LOCALBIN)
 
 .PHONY: gitserver
 gitserver:
-		cd tests/e2e-gitserver && \
+		cd tests/gitserver && \
 		sudo docker buildx build \
 		--no-cache \
 		--build-arg REPO_COUNT=$(REPO_COUNT) \
 		--platform $(PLATFORMS) \
-		-t quay.io/numaio/$(GITSERVER_NAME):latest \
+		-t $(GITSERVER_NAME) \
 		--push .
