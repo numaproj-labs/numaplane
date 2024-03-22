@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	"github.com/spf13/viper"
 )
 

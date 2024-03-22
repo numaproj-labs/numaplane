@@ -19,8 +19,8 @@ package agent
 import (
 	"encoding/json"
 
-	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
 	"github.com/numaproj-labs/numaplane/internal/keyvaluegenerator"
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 // create the KVSource, which will be used to generate key/value pairs

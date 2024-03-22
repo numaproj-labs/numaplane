@@ -94,6 +94,7 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 
 .PHONY: codegen
 codegen: generate manifests
+	./hack/update-codegen.sh
 	rm -rf ./vendor
 	go mod tidy
 
