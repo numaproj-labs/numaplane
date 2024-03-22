@@ -11,24 +11,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/go-git/go-git/v5/storage/memory"
+	"github.com/golang/mock/gomock"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
+	"github.com/stretchr/testify/assert"
 	cryptossh "golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/storage/memory"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/numaproj-labs/numaplane/api/v1alpha1"
-	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	gitshared "github.com/numaproj-labs/numaplane/internal/util/git"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 const (
@@ -131,9 +129,13 @@ func newGitSync(name string, repoUrl string, path string, targetRevision string)
 			Name:      name,
 		},
 		Spec: v1alpha1.GitSyncSpec{
-			RepoUrl:        repoUrl,
-			TargetRevision: targetRevision,
-			Path:           path,
+			GitSource: v1alpha1.GitSource{
+				GitLocation: v1alpha1.GitLocation{
+					RepoUrl:        repoUrl,
+					TargetRevision: targetRevision,
+					Path:           path,
+				},
+			},
 		},
 		Status: v1alpha1.GitSyncStatus{},
 	}
@@ -272,10 +274,14 @@ func Test_GetLatestManifests(t *testing.T) {
 					Name:      "kustomize-manifest",
 				},
 				Spec: v1alpha1.GitSyncSpec{
-					RepoUrl:        "https://github.com/numaproj/numaflow.git",
-					TargetRevision: "main",
-					Path:           "config/namespace-install",
-					Kustomize:      &v1alpha1.KustomizeSource{},
+					GitSource: v1alpha1.GitSource{
+						GitLocation: v1alpha1.GitLocation{
+							RepoUrl:        "https://github.com/numaproj/numaflow.git",
+							TargetRevision: "main",
+							Path:           "config/namespace-install",
+						},
+						Kustomize: &v1alpha1.KustomizeSource{},
+					},
 				},
 			},
 			hasErr: false,
@@ -288,10 +294,14 @@ func Test_GetLatestManifests(t *testing.T) {
 					Name:      "helm-manifest",
 				},
 				Spec: v1alpha1.GitSyncSpec{
-					RepoUrl:        "https://github.com/numaproj/helm-charts.git",
-					TargetRevision: "main",
-					Path:           "charts/numaflow",
-					Helm:           &v1alpha1.HelmSource{},
+					GitSource: v1alpha1.GitSource{
+						GitLocation: v1alpha1.GitLocation{
+							RepoUrl:        "https://github.com/numaproj/helm-charts.git",
+							TargetRevision: "main",
+							Path:           "charts/numaflow",
+						},
+						Helm: &v1alpha1.HelmSource{},
+					},
 				},
 			},
 			hasErr: false,
@@ -318,7 +328,7 @@ func Test_GetLatestManifests(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 
-			_, err = GetLatestManifests(ctx, r, nil, tc.gitSync)
+			_, _, err = GetLatestManifests(ctx, r, nil, tc.gitSync)
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
@@ -398,8 +408,8 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 	client, err := GetFakeKubernetesClient(secret)
 	assert.Nil(t, err)
 
-	credential := &config.RepoCredential{
-		SSHCredential: &config.SSHCredential{SSHKey: config.SecretKeySelector{
+	credential := &v1alpha1.RepoCredential{
+		SSHCredential: &v1alpha1.SSHCredential{SSHKey: v1alpha1.SecretKeySelector{
 			ObjectReference: corev1.ObjectReference{Name: "sshKey", Namespace: testNamespace},
 			Key:             "sshKey",
 			Optional:        nil,
@@ -440,10 +450,10 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 	client, err := GetFakeKubernetesClient(secret)
 	assert.Nil(t, err)
 
-	credential := &config.RepoCredential{
-		HTTPCredential: &config.HTTPCredential{
+	credential := &v1alpha1.RepoCredential{
+		HTTPCredential: &v1alpha1.HTTPCredential{
 			Username: "root",
-			Password: config.SecretKeySelector{
+			Password: v1alpha1.SecretKeySelector{
 				ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
 				Key:             "password",
 				Optional:        nil,
@@ -480,16 +490,16 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 	client, err := GetFakeKubernetesClient(secret)
 	assert.Nil(t, err)
 
-	credential := &config.RepoCredential{
-		HTTPCredential: &config.HTTPCredential{
+	credential := &v1alpha1.RepoCredential{
+		HTTPCredential: &v1alpha1.HTTPCredential{
 			Username: "root",
-			Password: config.SecretKeySelector{
+			Password: v1alpha1.SecretKeySelector{
 				ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
 				Key:             "password",
 				Optional:        nil,
 			},
 		},
-		TLS: &config.TLS{
+		TLS: &v1alpha1.TLS{
 			InsecureSkipVerify: true, // As we are using local ca certificates in docker container so skipping strict checking
 
 		},

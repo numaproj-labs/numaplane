@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Important: Run "make" to regenerate code after modifying this file
+
 package v1alpha1
 
 import (
-	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,10 +31,6 @@ type GitSyncPhase string
 
 type ConditionType string
 
-// +kubebuilder:validation:Enum=Helm;Kustomize;Raw
-// ApplicationSourceType specifies the type of the application source
-type SourceType string
-
 const (
 	GitSyncPhasePending GitSyncPhase = "Pending"
 	GitSyncPhaseRunning GitSyncPhase = "Running"
@@ -44,37 +40,11 @@ const (
 	// GitSyncConditionConfigured has the status True when the GitSync
 	// has valid configuration.
 	GitSyncConditionConfigured ConditionType = "Configured"
-
-	SourceTypeHelm      SourceType = "Helm"
-	SourceTypeKustomize SourceType = "Kustomize"
-	SourceTypeRaw       SourceType = "Raw"
 )
 
 // GitSyncSpec defines the desired state of GitSync
 type GitSyncSpec struct {
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// RepoUrl is the URL to the repository itself
-	RepoUrl string `json:"repoUrl"`
-
-	// Path is the full path from the root of the repository to where the resources are held
-	//  If the Path is empty, then the root directory will be used.
-	// Can be a file or a directory
-	// Note that all resources within this path (described by .yaml files) will be synced
-	Path string `json:"path"`
-
-	// TargetRevision specifies the target revision to sync to, it can be a branch, a tag,
-	// or a commit hash.
-	TargetRevision string `json:"targetRevision"`
-
-	// Kustomize holds kustomize specific options
-	Kustomize *KustomizeSource `json:"kustomize,omitempty"`
-
-	// Helm holds helm specific options
-	Helm *HelmSource `json:"helm,omitempty"`
-
-	// Raw holds path or directory-specific options
-	Raw *RawSource `json:"raw,omitempty"`
+	GitSource `json:",inline"`
 
 	// Destination describes which cluster/namespace to sync it
 	Destination Destination `json:"destination"`
@@ -95,28 +65,6 @@ type GitSyncStatus struct {
 	// Last commit processed and the status
 	CommitStatus *CommitStatus `json:"commitStatus,omitempty"`
 }
-
-// KustomizeSource holds kustomize specific options
-type KustomizeSource struct{}
-
-// HelmSource holds helm-specific options
-type HelmSource struct {
-	// ValuesFiles is a list of Helm value files to use when generating a template
-	ValueFiles []string `json:"valueFiles,omitempty"`
-	// Parameters is a list of Helm parameters which are passed to the helm template command upon manifest generation
-	Parameters []HelmParameter `json:"parameters,omitempty"`
-}
-
-// HelmParameter is a parameter passed to helm template during manifest generation
-type HelmParameter struct {
-	// Name is the name of the Helm parameter
-	Name string `json:"name,omitempty"`
-	// Value is the value for the Helm parameter
-	Value string `json:"value,omitempty"`
-}
-
-// RawSource holds raw specific options
-type RawSource struct{}
 
 // Destination indicates a Cluster to sync to
 type Destination struct {
@@ -142,9 +90,9 @@ type CommitStatus struct {
 	Error string `json:"error,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
+// +genclient
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // GitSync is the Schema for the gitsyncs API
 type GitSync struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -188,29 +136,7 @@ func (gitSyncSpec *GitSyncSpec) GetDestinationNamespace(cluster string) string {
 
 // ExplicitType returns the type (e.g., Helm, Kustomize, etc.) of the application. If either none or multiple types are defined, returns an error.
 func (gitSyncSpec *GitSyncSpec) ExplicitType() (SourceType, error) {
-	var appTypes []SourceType
-	if gitSyncSpec.Kustomize != nil {
-		appTypes = append(appTypes, SourceTypeKustomize)
-	}
-	if gitSyncSpec.Helm != nil {
-		appTypes = append(appTypes, SourceTypeHelm)
-	}
-	if gitSyncSpec.Raw != nil {
-		appTypes = append(appTypes, SourceTypeRaw)
-	}
-	if len(appTypes) == 0 {
-		// Fallback to a raw source type if a user has not specified anything.
-		return SourceTypeRaw, nil
-	}
-	if len(appTypes) > 1 {
-		typeNames := make([]string, len(appTypes))
-		for i := range appTypes {
-			typeNames[i] = string(appTypes[i])
-		}
-		return "", fmt.Errorf("multiple sources defined: %s", strings.Join(typeNames, ","))
-	}
-	appType := appTypes[0]
-	return appType, nil
+	return gitSyncSpec.GitSource.ExplicitType()
 }
 
 func (status *GitSyncStatus) SetPhase(phase GitSyncPhase, msg string) {

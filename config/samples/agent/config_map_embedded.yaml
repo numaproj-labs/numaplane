@@ -1,0 +1,26 @@
+#Example config map for Agent which includes an embedded generator
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-config
+  namespace: numaplane-system
+data:
+  config.yaml: |
+    clusterName: staging-usw2-k8s
+    timeIntervalSec: 60
+    source:
+      keyValueGenerator:
+        embedded:
+          values:
+            clusterName: staging-usw2-k8s
+            controllerHostName: numaplane.stagingusw2k8s.mydomain.com
+      gitDefinition:
+        path: sample-pipeline
+        repoUrl: "https://github.com/mynumaplaneinstall.git"
+        targetRevision: main
+        helm:
+          parameters:
+            - name: clusterName
+              value: '{{clusterName}}'
+            - name: controllerHostName
+              value: '{{controllerHostName}}'

@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	"github.com/spf13/viper"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type ConfigManager struct {
@@ -33,36 +33,11 @@ func GetConfigManagerInstance() *ConfigManager {
 // supposed to be populated from the configmap attached to the
 // controller manager.
 type GlobalConfig struct {
-	ClusterName     string `json:"clusterName"`
-	TimeIntervalSec uint   `json:"timeIntervalSec"`
+	ClusterName            string `json:"clusterName" mapstructure:"clusterName"`
+	SyncTimeIntervalMs     int    `json:"syncTimeIntervalMs" mapstructure:"syncTimeIntervalMs"`
+	AutoHealTimeIntervalMs int    `json:"autoHealTimeIntervalMs" mapstructure:"autoHealTimeIntervalMs"`
 	// RepoCredentials maps each Git Repository Path prefix to the corresponding credentials that are needed for it
-	RepoCredentials []RepoCredential `json:"repoCredentials"`
-}
-
-type RepoCredential struct {
-	URL            string          `json:"url"`
-	HTTPCredential *HTTPCredential `json:"httpCredential"`
-	SSHCredential  *SSHCredential  `json:"sshCredential"`
-	TLS            *TLS            `json:"tls"`
-}
-
-type HTTPCredential struct {
-	Username string            `json:"username"`
-	Password SecretKeySelector `json:"password"`
-}
-
-type SSHCredential struct {
-	SSHKey SecretKeySelector `json:"SSHKey" yaml:"SSHKey" `
-}
-
-type TLS struct {
-	InsecureSkipVerify bool `json:"insecureSkipVerify"`
-}
-
-type SecretKeySelector struct {
-	corev1.ObjectReference `mapstructure:",squash"` // for viper to correctly parse the config
-	Key                    string                   `json:"key" `
-	Optional               *bool                    `json:"optional,omitempty" `
+	RepoCredentials []apiv1.RepoCredential `json:"repoCredentials" mapstructure:"repoCredentials"`
 }
 
 func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {
@@ -88,15 +63,17 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, co
 	if err != nil {
 		return fmt.Errorf("failed unmarshal configuration file. %w", err)
 	}
-	v.WatchConfig()
 	v.OnConfigChange(func(e fsnotify.Event) {
 		cm.lock.Lock()
 		defer cm.lock.Unlock()
-		err = v.Unmarshal(cm.config)
+		newConfig := GlobalConfig{}
+		err = v.Unmarshal(&newConfig)
 		if err != nil {
 			onErrorReloading(err)
 		}
+		cm.config = &newConfig
 	})
+	v.WatchConfig()
 	return nil
 }
 
