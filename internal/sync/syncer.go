@@ -26,6 +26,7 @@ import (
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	"github.com/numaproj-labs/numaplane/internal/util/logging"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
@@ -114,10 +115,11 @@ func (s *Syncer) StopWatching(key string) {
 // Start function starts the synchronizer worker group.
 // Each worker keeps picking up tasks (which contains GitSync keys) to sync the resources.
 func (s *Syncer) Start(ctx context.Context) error {
-	log := logging.FromContext(ctx).Named("synchronizer")
-	log.Info("Starting synchronizer...")
+	numaLogger := logger.FromContext(ctx).WithName("synchronizer")
+	numaLogger.Info("Starting synchronizer...")
+
 	keyCh := make(chan string)
-	ctx, cancel := context.WithCancel(logging.WithLogger(ctx, log))
+	ctx, cancel := context.WithCancel(logger.WithLogger(ctx, numaLogger))
 	defer cancel()
 
 	s.stateCache.Init()
