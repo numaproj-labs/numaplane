@@ -59,9 +59,13 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, co
 	if err != nil {
 		return fmt.Errorf("failed to load configuration file. %w", err)
 	}
-	err = v.Unmarshal(cm.config)
-	if err != nil {
-		return fmt.Errorf("failed unmarshal configuration file. %w", err)
+	{
+		cm.lock.Lock()
+		defer cm.lock.Unlock()
+		err = v.Unmarshal(cm.config)
+		if err != nil {
+			return fmt.Errorf("failed unmarshal configuration file. %w", err)
+		}
 	}
 	v.OnConfigChange(func(e fsnotify.Event) {
 		cm.lock.Lock()
