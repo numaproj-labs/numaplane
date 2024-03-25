@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/numaproj-labs/numaplane/internal/common"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/sync"
 	gitshared "github.com/numaproj-labs/numaplane/internal/util/git"
@@ -137,6 +137,13 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 	if !gitSync.DeletionTimestamp.IsZero() {
 		logger.Infow("Deleting", "GitSync", gitSync)
 		if r.syncer != nil {
+			// Delete the linked resources to the GitSync
+			gvk := kubernetesshared.NewGroupVersionKind(gitSync.APIVersion, gitSync.Kind)
+			// Is gitSync.Name is the correct value for annotation ?
+			err := kubernetesshared.DeleteResourcesByAnnotations(ctx, r.client, gvk, common.AnnotationKeyGitSyncInstance, gitSync.Name)
+			if err != nil {
+				return err
+			}
 			r.syncer.StopWatching(gitSyncKey)
 		}
 		if controllerutil.ContainsFinalizer(gitSync, finalizerName) {

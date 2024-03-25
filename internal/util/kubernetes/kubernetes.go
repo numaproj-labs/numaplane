@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"regexp"
 	"strings"
 
@@ -86,10 +87,46 @@ func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretNa
 	return secret, nil
 }
 
+func DeleteKubernetesResource(ctx context.Context, client k8sClient.Client, item k8sClient.Object) error {
+	if err := client.Delete(ctx, item); err != nil {
+		return fmt.Errorf("error deleting resource %s/%s: %v", item.GetNamespace(), item.GetName(), err)
+	}
+	return nil
+}
+
 func IsValidKubernetesManifestFile(fileName string) bool {
 	fileExt := strings.Split(fileName, ".")
 	if _, ok := validManifestExtensions[fileExt[len(fileExt)-1]]; ok {
 		return true
 	}
 	return false
+}
+
+// NewGroupVersionKind creates a GroupVersionKind for core Kubernetes API groups.
+func NewGroupVersionKind(version, kind string) schema.GroupVersionKind {
+	return schema.GroupVersionKind{Group: "", Version: version, Kind: kind}
+}
+
+// DeleteResourcesByAnnotations deletes all resources of a given GroupVersionKind across the kubernetes cluster
+func DeleteResourcesByAnnotations(ctx context.Context, client k8sClient.Client, gvk schema.GroupVersionKind, annotationKey string, annotationValue string) error {
+
+	listItems := &unstructured.UnstructuredList{}
+	listItems.SetGroupVersionKind(gvk)
+
+	// List all resources of the given GroupVersionKind across the cluster
+	if err := client.List(ctx, listItems); err != nil {
+		return err
+	}
+
+	for _, item := range listItems.Items {
+		annotations := item.GetAnnotations()
+		if val, ok := annotations[annotationKey]; ok && val == annotationValue {
+			err := DeleteKubernetesResource(ctx, client, &item)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

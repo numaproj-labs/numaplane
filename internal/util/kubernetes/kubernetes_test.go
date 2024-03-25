@@ -154,3 +154,37 @@ func TestIsValidKubernetesManifestFile(t *testing.T) {
 	}
 
 }
+
+func TestDeleteKubernetesResource(t *testing.T) {
+	scheme := runtime.NewScheme()
+	err := corev1.AddToScheme(scheme)
+	assert.NoError(t, err)
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "numaplane-test",
+		},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pod).Build()
+	err = DeleteKubernetesResource(context.Background(), fakeClient, pod)
+	assert.NoError(t, err)
+}
+
+func TestDeleteResourcesByAnnotation(t *testing.T) {
+	scheme := runtime.NewScheme()
+	err := corev1.AddToScheme(scheme)
+	assert.NoError(t, err)
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "numaplane-test",
+			Annotations: map[string]string{
+				common.AnnotationKeyGitSyncInstance: "test-gitsync",
+			},
+		},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pod).Build()
+	gvs := NewGroupVersionKind("v1", "Pod")
+	err = DeleteResourcesByAnnotations(context.Background(), fakeClient, gvs, common.AnnotationKeyGitSyncInstance, "test-gitsync")
+	assert.Nil(t, err)
+}
