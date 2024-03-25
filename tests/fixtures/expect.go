@@ -17,6 +17,7 @@ limitations under the License.
 package fixtures
 
 import (
+	"context"
 	"testing"
 
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
@@ -31,4 +32,44 @@ type Expect struct {
 	kubeClient    kubernetes.Interface
 	gitSync       *v1alpha1.GitSync
 	gitSyncClient planepkg.GitSyncInterface
+}
+
+// check that resources are created
+func (e *Expect) ResourcesExist(resourceType string, resources []string) *Expect {
+
+	e.t.Helper()
+	ctx := context.Background()
+	for _, r := range resources {
+		result := e.kubeClient.CoreV1().RESTClient().Get().Timeout(defaultTimeout).Namespace(TargetNamespace).Resource(resourceType).Name(r).Do(ctx)
+		if result.Error() != nil {
+			e.t.Fatalf("Resource %s does not exist", r)
+		}
+	}
+
+	return e
+}
+
+// check that resources are deleted
+func (e *Expect) ResourcesDontExist(resourceType string, resources []string) *Expect {
+
+	e.t.Helper()
+	ctx := context.Background()
+	for _, r := range resources {
+		result := e.kubeClient.CoreV1().RESTClient().Get().Timeout(defaultTimeout).Namespace(TargetNamespace).Resource(resourceType).Name(r).Do(ctx)
+		if result.Error() != nil {
+			e.t.Fatalf("Resource %s does exist", r)
+		}
+	}
+
+	return e
+}
+
+func (e *Expect) When() *When {
+	return &When{
+		t:             e.t,
+		gitSync:       e.gitSync,
+		restConfig:    e.restConfig,
+		kubeClient:    e.kubeClient,
+		gitSyncClient: e.gitSyncClient,
+	}
 }

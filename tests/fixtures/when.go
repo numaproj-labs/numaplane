@@ -18,8 +18,11 @@ package fixtures
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
+	git "github.com/go-git/go-git/v5"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,9 +36,6 @@ type When struct {
 	kubeClient    kubernetes.Interface
 	gitSync       *v1alpha1.GitSync
 	gitSyncClient planepkg.GitSyncInterface
-
-	// is this needed if we port forward only git pod?
-	portForwarderStopChannels map[string]chan struct{}
 }
 
 func (w *When) CreateGitSyncAndWait() *When {
@@ -52,10 +52,61 @@ func (w *When) CreateGitSyncAndWait() *When {
 	} else {
 		w.gitSync = i
 	}
+	// wait for GitSync to run
+	if err := WaitForGitSyncRunning(ctx, w.gitSyncClient, w.gitSync.Name, defaultTimeout); err != nil {
+		w.t.Fatal(err)
+	}
+	return w
+
+}
+func (w *When) DeleteGitSync() *When {
+
+	w.t.Helper()
+	if w.gitSync == nil {
+		w.t.Fatal("No gitsync to delete")
+	}
+	w.t.Log("Deleting gitsync", w.gitSync.Name)
+	ctx := context.Background()
+	if err := w.gitSyncClient.Delete(ctx, w.gitSync.Name, metav1.DeleteOptions{}); err != nil {
+		w.t.Fatal(err)
+	}
 
 	return w
 }
-func (w *When) DeleteGitSync() *When {
+
+// make git push to Git server pod
+func (w *When) PushToGitRepo(repoPath string, files []string) *When {
+
+	// open path to git server
+	// an example path would be http://localhost:8080/git/repo1.git
+	repo, err := git.PlainOpen(repoPath)
+	if err != nil {
+		w.t.Fatal(err)
+	}
+
+	// open worktree
+	wt, err := repo.Worktree()
+	if err != nil {
+		w.t.Fatal(err)
+	}
+
+	// iterate over files to be added and committed
+	for _, f := range files {
+		_, err = wt.Add(f)
+		if err != nil {
+			w.t.Fatal(err)
+		}
+	}
+
+	_, err = wt.Commit("Committing to git server", &git.CommitOptions{})
+	if err != nil {
+		w.t.Fatal(err)
+	}
+
+	// git push to remote
+	err = repo.Push(&git.PushOptions{
+		RemoteName: "origin",
+	})
 
 	return w
 }
@@ -77,5 +128,35 @@ func (w *When) Expect() *Expect {
 		restConfig:    w.restConfig,
 		kubeClient:    w.kubeClient,
 		gitSyncClient: w.gitSyncClient,
+	}
+}
+
+func WaitForGitSyncRunning(ctx context.Context, gitSyncClient planepkg.GitSyncInterface, gitSyncName string, timeout time.Duration) error {
+	fieldSelector := "metadata.name=" + gitSyncName
+	opts := metav1.ListOptions{FieldSelector: fieldSelector}
+	watch, err := gitSyncClient.Watch(ctx, opts)
+	if err != nil {
+		return err
+	}
+	defer watch.Stop()
+	timeoutCh := make(chan bool, 1)
+	go func() {
+		time.Sleep(timeout)
+		timeoutCh <- true
+	}()
+	for {
+		select {
+		case event := <-watch.ResultChan():
+			i, ok := event.Object.(*v1alpha1.GitSync)
+			if ok {
+				if i.Status.Phase == v1alpha1.GitSyncPhaseRunning {
+					return nil
+				}
+			} else {
+				return fmt.Errorf("not gitsync")
+			}
+		case <-timeoutCh:
+			return fmt.Errorf("timeout after %v waiting for GitSync running", timeout)
+		}
 	}
 }
