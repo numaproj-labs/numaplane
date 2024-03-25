@@ -107,6 +107,9 @@ func (w *When) PushToGitRepo(repoPath string, files []string) *When {
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 	})
+	if err != nil {
+		w.t.Fatal(err)
+	}
 
 	return w
 }
