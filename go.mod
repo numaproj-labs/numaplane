@@ -6,7 +6,6 @@ require (
 	github.com/argoproj/argo-cd/v2 v2.10.3
 	github.com/argoproj/gitops-engine v0.7.1-0.20240124052710-5fd9f449e757
 	github.com/argoproj/pkg v0.13.7-0.20230626144333-d56162821bd1
-	github.com/bombsimon/logrusr/v2 v2.0.1
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
@@ -45,6 +44,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.0 // indirect
+	github.com/bombsimon/logrusr/v2 v2.0.1 // indirect
 	github.com/bradleyfalzon/ghinstallation/v2 v2.6.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
