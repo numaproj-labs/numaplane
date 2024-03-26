@@ -5,11 +5,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/rs/zerolog"
 )
+
+// TODOs:
+// - move functions outside
+// - file separator const and other changes to that caller func
 
 const (
 	loggerFieldName      = "logger"
@@ -67,19 +72,12 @@ type LogSink struct {
 // The writer argument sets the output the logs will be written to. If it is nil, os.Stdout will be used.
 // The level argument sets the log level value for this logger instance.
 func New(writer *io.Writer, level *int) NumaLogger {
-	// Adds a way to convert a custom zerolog.Level values to strings.
-	zerolog.LevelFieldMarshalFunc = func(lvl zerolog.Level) string {
-		switch lvl {
-		case logrVerbosityToZerologLevelMap[verboseLevel]:
-			return "verbose"
-		}
-		return lvl.String()
-	}
-
 	// Set some zerolog customization
 	zerolog.MessageFieldName = messageFieldName
 	zerolog.TimestampFieldName = timestampFieldName
 	zerolog.TimeFieldFormat = time.RFC3339Nano
+	zerolog.LevelFieldMarshalFunc = zerologLevelFieldMarshalFunc
+	zerolog.CallerMarshalFunc = zerologCallerMarshalFunc
 
 	// Set zerolog global level to the most verbose level
 	zerolog.SetGlobalLevel(logrVerbosityToZerologLevelMap[verboseLevel])
@@ -275,6 +273,23 @@ func (ls LogSink) WithCallDepth(depth int) logr.LogSink {
 	return &ls
 }
 
+// setLoggerLevel sets the zerolog log level based on the given logr.Logger verbosity.
 func setLoggerLevel(logger zerolog.Logger, level int) zerolog.Logger {
 	return logger.Level(logrVerbosityToZerologLevelMap[level])
+}
+
+// zerologLevelFieldMarshalFunc adds a way to convert a custom zerolog.Level values to strings.
+func zerologLevelFieldMarshalFunc(lvl zerolog.Level) string {
+	switch lvl {
+	case logrVerbosityToZerologLevelMap[verboseLevel]:
+		return "verbose"
+	}
+	return lvl.String()
+}
+
+// zerologCallerMarshalFunc customizes the caller by only extracting last 2 path levels.
+func zerologCallerMarshalFunc(pc uintptr, file string, line int) string {
+	dir := filepath.Dir(file)
+	base := filepath.Base(dir)
+	return fmt.Sprintf("%s/%s:%d", base, filepath.Base(file), line)
 }

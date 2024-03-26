@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"testing"
@@ -11,7 +12,7 @@ import (
 
 type LogJSON struct {
 	Level   string `json:"level"`
-	Message string `json:"message"`
+	Message string `json:"msg"`
 	Error   string `json:"error,omitempty"`
 	Logger  string `json:"logger,omitempty"`
 	FieldA  string `json:"fieldA,omitempty"`
@@ -33,7 +34,7 @@ func TestWrappers(t *testing.T) {
 			"verbose",
 			"test verbose message",
 			"",
-			"",
+			loggerDefaultName,
 			"",
 			"",
 		}
@@ -55,7 +56,7 @@ func TestWrappers(t *testing.T) {
 			"debug",
 			"test debug message",
 			"",
-			"",
+			loggerDefaultName,
 			"",
 			"",
 		}
@@ -77,7 +78,7 @@ func TestWrappers(t *testing.T) {
 			"info",
 			"test info message",
 			"",
-			"",
+			loggerDefaultName,
 			"",
 			"",
 		}
@@ -99,7 +100,7 @@ func TestWrappers(t *testing.T) {
 			"warn",
 			"test warn message",
 			"",
-			"",
+			loggerDefaultName,
 			"",
 			"",
 		}
@@ -123,7 +124,7 @@ func TestWrappers(t *testing.T) {
 			"error",
 			"test error message",
 			err.Error(),
-			"",
+			loggerDefaultName,
 			"",
 			"",
 		}
@@ -147,7 +148,7 @@ func TestFWrappers(t *testing.T) {
 			"verbose",
 			"test verbosef message 123",
 			"",
-			"",
+			loggerDefaultName,
 			"",
 			"",
 		}
@@ -169,7 +170,7 @@ func TestFWrappers(t *testing.T) {
 			"debug",
 			"test debugf message 123 ABC",
 			"",
-			"",
+			loggerDefaultName,
 			"",
 			"",
 		}
@@ -191,7 +192,7 @@ func TestFWrappers(t *testing.T) {
 			"info",
 			"test infof message 456",
 			"",
-			"",
+			loggerDefaultName,
 			"",
 			"",
 		}
@@ -213,7 +214,7 @@ func TestFWrappers(t *testing.T) {
 			"warn",
 			"test warnf message ABC",
 			"",
-			"",
+			loggerDefaultName,
 			"",
 			"",
 		}
@@ -237,7 +238,7 @@ func TestFWrappers(t *testing.T) {
 			"error",
 			"test errorf message 123ABC",
 			err.Error(),
-			"",
+			loggerDefaultName,
 			"",
 			"",
 		}
@@ -261,12 +262,12 @@ func TestWithClauses(t *testing.T) {
 			"info",
 			"test info message",
 			"",
-			"logger-name-test",
+			fmt.Sprintf("%s.logger-name-test", loggerDefaultName),
 			"",
 			"",
 		}
 
-		nl.WithName(expected.Logger).Info(expected.Message)
+		nl.WithName("logger-name-test").Info(expected.Message)
 
 		var actual LogJSON
 		_ = json.Unmarshal(buf.Bytes(), &actual)
@@ -283,7 +284,7 @@ func TestWithClauses(t *testing.T) {
 			"debug",
 			"test debug message",
 			"",
-			"",
+			loggerDefaultName,
 			"valA",
 			"valB",
 		}
@@ -305,7 +306,7 @@ func TestWithClauses(t *testing.T) {
 			"debug",
 			"test debug message",
 			"",
-			"",
+			loggerDefaultName,
 			"valA",
 			"valB",
 		}
