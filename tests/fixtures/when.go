@@ -25,6 +25,7 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -71,22 +72,21 @@ func (w *When) DeleteGitSyncAndWait() *When {
 		w.t.Fatal(err)
 	}
 
-	timeout := defaultTimeout
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	labelSelector := fmt.Sprintf("%s=%s", E2ELabel, E2ELabelValue)
 	for {
 		select {
 		case <-ctx.Done():
-			w.t.Fatalf("Timeout after %v waiting for gitSync terminating", timeout)
+			w.t.Fatalf("Timeout after %v waiting for gitSync terminating", defaultTimeout)
 		default:
 		}
-		gitSyncList, err := w.gitSyncClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+		_, err := w.gitSyncClient.Get(ctx, w.gitSync.Name, metav1.GetOptions{})
 		if err != nil {
-			w.t.Fatalf("Error getting gitSync: %v", err)
-		}
-		if len(gitSyncList.Items) == 0 {
-			return w
+			if errors.IsNotFound(err) {
+				return w
+			} else {
+				w.t.Fatalf("Error getting gitSync: %v", err)
+			}
 		}
 		time.Sleep(2 * time.Second)
 	}
