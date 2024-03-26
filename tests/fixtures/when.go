@@ -59,7 +59,7 @@ func (w *When) CreateGitSyncAndWait() *When {
 	return w
 
 }
-func (w *When) DeleteGitSync() *When {
+func (w *When) DeleteGitSyncAndWait() *When {
 
 	w.t.Helper()
 	if w.gitSync == nil {
@@ -71,7 +71,25 @@ func (w *When) DeleteGitSync() *When {
 		w.t.Fatal(err)
 	}
 
-	return w
+	timeout := defaultTimeout
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	labelSelector := fmt.Sprintf("%s=%s", E2ELabel, E2ELabelValue)
+	for {
+		select {
+		case <-ctx.Done():
+			w.t.Fatalf("Timeout after %v waiting for gitSync terminating", timeout)
+		default:
+		}
+		gitSyncList, err := w.gitSyncClient.List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+		if err != nil {
+			w.t.Fatalf("Error getting gitSync: %v", err)
+		}
+		if len(gitSyncList.Items) == 0 {
+			return w
+		}
+		time.Sleep(2 * time.Second)
+	}
 }
 
 // make git push to Git server pod
