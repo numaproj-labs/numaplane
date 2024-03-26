@@ -3,9 +3,10 @@ package kubernetes
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"regexp"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -102,11 +103,6 @@ func IsValidKubernetesManifestFile(fileName string) bool {
 		return true
 	}
 	return false
-}
-
-// NewGroupVersionKind creates a GroupVersionKind for core Kubernetes API groups.
-func NewGroupVersionKind(version, kind string) schema.GroupVersionKind {
-	return schema.GroupVersionKind{Group: "", Version: version, Kind: kind}
 }
 
 // DeleteResourcesByAnnotations deletes all resources of a given GroupVersionKind across the kubernetes cluster

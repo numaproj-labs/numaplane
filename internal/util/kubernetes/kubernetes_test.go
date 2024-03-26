@@ -184,7 +184,6 @@ func TestDeleteResourcesByAnnotation(t *testing.T) {
 		},
 	}
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pod).Build()
-	gvs := NewGroupVersionKind("v1", "Pod")
-	err = DeleteResourcesByAnnotations(context.Background(), fakeClient, gvs, common.AnnotationKeyGitSyncInstance, "test-gitsync")
+	err = DeleteResourcesByAnnotations(context.Background(), fakeClient, common.PredefinedGroupVersionKinds, common.AnnotationKeyGitSyncInstance, "test-gitsync")
 	assert.Nil(t, err)
 }

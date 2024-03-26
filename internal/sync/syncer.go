@@ -422,28 +422,3 @@ func updateCommitStatus(
 	}
 	return nil
 }
-
-// NewGroupVersionKind creates a GroupVersionKind for core Kubernetes API groups.
-func newGroupVersionKind(version, kind string) schema.GroupVersionKind {
-	return schema.GroupVersionKind{Group: "", Version: version, Kind: kind}
-}
-
-func deleteResourcesByAnnotation(ctx context.Context, k8sClient client.Client, gvk schema.GroupVersionKind, annotationKey string, annotationValue string) error {
-	// Create an unstructured list for dynamic querying
-	listItems := &unstructured.UnstructuredList{}
-	listItems.SetGroupVersionKind(gvk)
-	// List all resources across the cluster
-	if err := k8sClient.List(ctx, listItems); err != nil {
-		return err
-	}
-	for _, item := range listItems.Items {
-		annotations := item.GetAnnotations()
-		if val, ok := annotations[annotationKey]; ok && val == annotationValue {
-			err := kubernetes.DeleteKubernetesResource(ctx, k8sClient, &item)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
