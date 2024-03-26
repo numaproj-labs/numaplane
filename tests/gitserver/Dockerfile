@@ -83,6 +83,8 @@ RUN a2ensite 000-default && \
 EXPOSE 22 80 443
 
 
+# Creating a non bare git repo with working directory as per the RepoCount variable and pushing the changes
+# to the bare repository created in /var/www/git
 RUN for i in $(seq 1 $REPO_COUNT); do \
     mkdir /tmp/git-repo$i && \
     cd /tmp/git-repo$i && \
@@ -100,6 +102,7 @@ RUN for i in $(seq 1 $REPO_COUNT); do \
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
+# gitscript.sh contains the cgi script to which gets executed through api call and creates the bare repo
 COPY gitscript.sh /usr/lib/cgi-bin/create_repo.cgi
 RUN chmod +x /usr/lib/cgi-bin/create_repo.cgi
 
