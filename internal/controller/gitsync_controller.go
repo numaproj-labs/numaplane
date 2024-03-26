@@ -138,9 +138,8 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 		logger.Infow("Deleting", "GitSync", gitSync)
 		if r.syncer != nil {
 			// Delete the linked resources to the GitSync
-			gvk := kubernetesshared.NewGroupVersionKind(gitSync.APIVersion, gitSync.Kind)
 			// Is gitSync.Name is the correct value for annotation ?
-			err := kubernetesshared.DeleteResourcesByAnnotations(ctx, r.client, gvk, common.AnnotationKeyGitSyncInstance, gitSync.Name)
+			err := kubernetesshared.DeleteResourcesByAnnotations(ctx, r.client, common.PredefinedGroupVersionKinds, common.AnnotationKeyGitSyncInstance, gitSync.Name)
 			if err != nil {
 				return err
 			}

@@ -206,8 +206,14 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		return fmt.Errorf("failed to query GitSync object of key %q, %w", key, err)
 	}
 	if !gitSync.GetDeletionTimestamp().IsZero() {
-		s.StopWatching(key)
 		log.Debug("GitSync object being deleted.")
+		// Delete the linked resources to the GitSync
+		// Is gitSync.Name is the correct value for annotation ?
+		err := kubernetes.DeleteResourcesByAnnotations(ctx, s.client, common.PredefinedGroupVersionKinds, common.AnnotationKeyGitSyncInstance, gitSync.Name)
+		if err != nil {
+			return err
+		}
+		s.StopWatching(key)
 		return nil
 	}
 
@@ -238,6 +244,18 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	namespacedName := types.NamespacedName{
 		Namespace: gitSync.Namespace,
 		Name:      gitSync.Name,
+	}
+
+	if !gitSync.GetDeletionTimestamp().IsZero() {
+		log.Debug("GitSync object being deleted.")
+		// Delete the linked resources to the GitSync
+		// Is gitSync.Name is the correct value for annotation ?
+		err := kubernetes.DeleteResourcesByAnnotations(ctx, s.client, common.PredefinedGroupVersionKinds, common.AnnotationKeyGitSyncInstance, gitSync.Name)
+		if err != nil {
+			return err
+		}
+		s.StopWatching(key)
+		return nil
 	}
 	return updateCommitStatus(ctx, s.client, log, namespacedName, commitHash, synced, syncMessage)
 }
