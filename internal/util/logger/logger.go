@@ -171,7 +171,16 @@ func FromContext(ctx context.Context) NumaLogger {
 
 // WithName appends a given name to the logger.
 func (nl NumaLogger) WithName(name string) NumaLogger {
+	// TODO: it should create a new logger instance
 	ll := nl.LogrLogger.WithName(name)
+	nl.LogrLogger = &ll
+	return nl
+}
+
+// WithValues appends additional key/value pairs to the logger.
+func (nl NumaLogger) WithValues(keysAndValues ...any) NumaLogger {
+	// TODO: it should create a new logger instance
+	ll := nl.LogrLogger.WithValues(keysAndValues)
 	nl.LogrLogger = &ll
 	return nl
 }
@@ -179,6 +188,13 @@ func (nl NumaLogger) WithName(name string) NumaLogger {
 // Error logs an error with a message and optional key/value pairs.
 func (nl NumaLogger) Error(err error, msg string, keysAndValues ...any) {
 	nl.LogrLogger.Error(err, msg, keysAndValues...)
+}
+
+// Fatal logs an error with a message and optional key/value pairs. Then, exits with code 1.
+func (nl NumaLogger) Fatal(err error, msg string, keysAndValues ...any) {
+	// TODO: implement a way to display the level as "fatal" instead of "error" in the logs
+	nl.LogrLogger.Error(err, msg, keysAndValues...)
+	os.Exit(1)
 }
 
 // Warn logs a warning-level message with optional key/value pairs.
