@@ -37,8 +37,8 @@ const (
 	/* resource names */
 	Namespace       = "numaplane-system"
 	TargetNamespace = "numaflow-pipeline"
-	Label           = "numaplane-e2e"
-	LabelValue      = "true"
+	E2ELabel        = "numaplane-e2e"
+	E2ELabelValue   = "true"
 	defaultTimeout  = 60 * time.Second
 )
 
@@ -89,7 +89,7 @@ func (s *E2ESuite) CheckError(err error) {
 }
 
 func (s *E2ESuite) deleteResources(resources []schema.GroupVersionResource) {
-	hasTestLabel := metav1.ListOptions{LabelSelector: Label}
+	hasTestLabel := metav1.ListOptions{LabelSelector: E2ELabel}
 	ctx := context.Background()
 	for _, r := range resources {
 		err := s.dynamicFor(r).DeleteCollection(ctx, metav1.DeleteOptions{PropagationPolicy: &background}, hasTestLabel)
