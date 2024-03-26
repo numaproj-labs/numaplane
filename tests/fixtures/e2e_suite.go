@@ -88,6 +88,15 @@ func (s *E2ESuite) CheckError(err error) {
 	}
 }
 
+func (s *E2ESuite) Given() *Given {
+	return &Given{
+		t:             s.T(),
+		restConfig:    s.restConfig,
+		kubeClient:    s.kubeClient,
+		gitSyncClient: s.gitSyncClient,
+	}
+}
+
 func (s *E2ESuite) deleteResources(resources []schema.GroupVersionResource) {
 	hasTestLabel := metav1.ListOptions{LabelSelector: E2ELabel}
 	ctx := context.Background()
