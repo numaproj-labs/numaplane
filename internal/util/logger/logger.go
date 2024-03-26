@@ -10,9 +10,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// TODOs:
-// - implement a way to display the level as "fatal" instead of "error" in the logs
-
 const (
 	loggerFieldName      = "logger"
 	loggerFieldSeparator = "."
@@ -20,20 +17,31 @@ const (
 
 /*
 Log Level Mapping:
-| logr verbosity | NumaLogger semantic | zerolog 			 |
-| -------------- | ------------------- | ------------- |
-| 	error				 | 	 error						 |	 3		  		 |
-| 	0				 		 | 	 warn							 |	 2		 			 |
-| 	1				 		 | 	 info						 	 |	 1		 			 |
-| 	2				 		 | 	 debug						 |	 0		 			 |
-| 	4				 		 | 	 verbose					 |	 -2 (custom) |
+| NumaLogger semantic | logr verbosity | zerolog 			 |
+| ------------------- | -------------- | ------------- |
+| 	 fatal						| 	0				 		 |	 4					 |
+| 	 error						| 	error (NA)	 |	 3		  		 |
+| 	 warn							| 	1				 		 |	 2		 			 |
+| 	 info						 	| 	2				 		 |	 1		 			 |
+| 	 debug						| 	3				 		 |	 0		 			 |
+| 	 verbose					| 	4				 		 |	 -2 (custom) |
 */
+
 const (
+	fatalLevel   = 0
+	warnLevel    = 1
+	infoLevel    = 2
+	debugLevel   = 3
 	verboseLevel = 4
-	debugLevel   = 2
-	infoLevel    = 1
-	warnLevel    = 0
 )
+
+var logrVerbosityToZerologLevelMap = map[int]zerolog.Level{
+	fatalLevel:   4,
+	warnLevel:    2,
+	infoLevel:    1,
+	debugLevel:   0,
+	verboseLevel: -2,
+}
 
 const defaultLevel = infoLevel
 
@@ -58,14 +66,14 @@ func New(writer *io.Writer, level *int) NumaLogger {
 	// Adds a way to convert a custom zerolog.Level values to strings.
 	zerolog.LevelFieldMarshalFunc = func(lvl zerolog.Level) string {
 		switch lvl {
-		case zerolog.WarnLevel - verboseLevel:
+		case logrVerbosityToZerologLevelMap[verboseLevel]:
 			return "verbose"
 		}
 		return lvl.String()
 	}
 
 	// Set zerolog global level to the most verbose level
-	zerolog.SetGlobalLevel(zerolog.WarnLevel - verboseLevel)
+	zerolog.SetGlobalLevel(logrVerbosityToZerologLevelMap[verboseLevel])
 
 	w := io.Writer(os.Stdout)
 	if writer != nil {
@@ -132,7 +140,8 @@ func (nl NumaLogger) Errorf(err error, msg string, args ...any) {
 
 // Fatal logs an error with a message and optional key/value pairs. Then, exits with code 1.
 func (nl NumaLogger) Fatal(err error, msg string, keysAndValues ...any) {
-	nl.LogrLogger.Error(err, msg, keysAndValues...)
+	keysAndValues = append(keysAndValues, "error", err)
+	nl.LogrLogger.V(fatalLevel).Info(msg, keysAndValues...)
 	os.Exit(1)
 }
 
@@ -190,13 +199,13 @@ func (ls *LogSink) Init(ri logr.RuntimeInfo) {
 // Enabled tests whether this LogSink is enabled at the specified V-level and per-package.
 func (ls *LogSink) Enabled(level int) bool {
 	// TODO: this should return true based on level settings (global, log level, etc.) and also based on caller package (per-module logging feature)
-	zlLevel := getZerologLevel(level)
+	zlLevel := logrVerbosityToZerologLevelMap[level]
 	return zlLevel >= ls.l.GetLevel() && zlLevel >= zerolog.GlobalLevel()
 }
 
 // Info logs a non-error message (msg) with the given key/value pairs as context and the specified level.
 func (ls *LogSink) Info(level int, msg string, keysAndValues ...any) {
-	zlEvent := ls.l.WithLevel(getZerologLevel(level))
+	zlEvent := ls.l.WithLevel(logrVerbosityToZerologLevelMap[level])
 	ls.log(zlEvent, msg, keysAndValues)
 }
 
@@ -250,9 +259,5 @@ func (ls LogSink) WithCallDepth(depth int) logr.LogSink {
 }
 
 func setLoggerLevel(logger zerolog.Logger, level int) zerolog.Logger {
-	return logger.Level(getZerologLevel(level))
-}
-
-func getZerologLevel(verbosity int) zerolog.Level {
-	return zerolog.WarnLevel - zerolog.Level(verbosity)
+	return logger.Level(logrVerbosityToZerologLevelMap[level])
 }
