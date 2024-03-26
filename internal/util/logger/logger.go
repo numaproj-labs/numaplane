@@ -22,14 +22,14 @@ const (
 
 /*
 Log Level Mapping:
-| NumaLogger semantic | logr verbosity | zerolog 			 |
-| ------------------- | -------------- | ------------- |
-| 	 fatal						| 	0				 		 |	 4					 |
-| 	 error						| 	error (NA)	 |	 3		  		 |
-| 	 warn							| 	1				 		 |	 2		 			 |
-| 	 info						 	| 	2				 		 |	 1		 			 |
-| 	 debug						| 	3				 		 |	 0		 			 |
-| 	 verbose					| 	4				 		 |	 -2 (custom) |
+| NumaLogger semantic | logr verbosity  | zerolog        |
+| ------------------- | --------------- | -------------- |
+|    fatal            |    0            |    4           |
+|    error            |    error (NA)   |    3           |
+|    warn             |    1            |    2           |
+|    info             |    2            |    1           |
+|    debug            |    3            |    0           |
+|    verbose          |    4            |    -2 (custom) |
 */
 
 const (
