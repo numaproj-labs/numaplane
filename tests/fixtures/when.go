@@ -53,7 +53,7 @@ func (w *When) CreateGitSyncAndWait() *When {
 		w.gitSync = i
 	}
 	// wait for GitSync to run
-	if err := WaitForGitSyncRunning(ctx, w.gitSyncClient, w.gitSync.Name, defaultTimeout); err != nil {
+	if err := w.waitForGitSyncRunning(ctx, w.gitSyncClient, w.gitSync.Name, defaultTimeout); err != nil {
 		w.t.Fatal(err)
 	}
 	return w
@@ -152,7 +152,7 @@ func (w *When) Expect() *Expect {
 	}
 }
 
-func WaitForGitSyncRunning(ctx context.Context, gitSyncClient planepkg.GitSyncInterface,
+func (w *When) waitForGitSyncRunning(ctx context.Context, gitSyncClient planepkg.GitSyncInterface,
 	gitSyncName string, timeout time.Duration) error {
 
 	fieldSelector := "metadata.name=" + gitSyncName
@@ -174,6 +174,7 @@ func WaitForGitSyncRunning(ctx context.Context, gitSyncClient planepkg.GitSyncIn
 			if ok {
 				// gitSync is about to start
 				if i.Status.Phase == v1alpha1.GitSyncPhasePending {
+					w.t.Logf("GitSync %s is in pending state", gitSyncName)
 					continue
 				}
 				if i.Status.Phase == v1alpha1.GitSyncPhaseRunning {
