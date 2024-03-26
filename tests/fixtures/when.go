@@ -134,7 +134,9 @@ func (w *When) Expect() *Expect {
 	}
 }
 
-func WaitForGitSyncRunning(ctx context.Context, gitSyncClient planepkg.GitSyncInterface, gitSyncName string, timeout time.Duration) error {
+func WaitForGitSyncRunning(ctx context.Context, gitSyncClient planepkg.GitSyncInterface,
+	gitSyncName string, timeout time.Duration) error {
+
 	fieldSelector := "metadata.name=" + gitSyncName
 	opts := metav1.ListOptions{FieldSelector: fieldSelector}
 	watch, err := gitSyncClient.Watch(ctx, opts)
@@ -152,6 +154,10 @@ func WaitForGitSyncRunning(ctx context.Context, gitSyncClient planepkg.GitSyncIn
 		case event := <-watch.ResultChan():
 			i, ok := event.Object.(*v1alpha1.GitSync)
 			if ok {
+				// gitSync is about to start
+				if i.Status.Phase == v1alpha1.GitSyncPhasePending {
+					continue
+				}
 				if i.Status.Phase == v1alpha1.GitSyncPhaseRunning {
 					return nil
 				}

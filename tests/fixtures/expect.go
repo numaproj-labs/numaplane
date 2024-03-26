@@ -40,7 +40,12 @@ func (e *Expect) ResourcesExist(resourceType string, resources []string) *Expect
 	e.t.Helper()
 	ctx := context.Background()
 	for _, r := range resources {
-		result := e.kubeClient.CoreV1().RESTClient().Get().Timeout(defaultTimeout).Namespace(TargetNamespace).Resource(resourceType).Name(r).Do(ctx)
+		result := e.kubeClient.CoreV1().RESTClient().Get().
+			Timeout(defaultTimeout).
+			Namespace(TargetNamespace).
+			Resource(resourceType).
+			Name(r).
+			Do(ctx)
 		if result.Error() != nil {
 			e.t.Fatalf("Resource %s does not exist", r)
 		}
@@ -55,8 +60,13 @@ func (e *Expect) ResourcesDontExist(resourceType string, resources []string) *Ex
 	e.t.Helper()
 	ctx := context.Background()
 	for _, r := range resources {
-		result := e.kubeClient.CoreV1().RESTClient().Get().Timeout(defaultTimeout).Namespace(TargetNamespace).Resource(resourceType).Name(r).Do(ctx)
-		if result.Error() != nil {
+		result := e.kubeClient.CoreV1().RESTClient().Get().
+			Timeout(defaultTimeout).
+			Namespace(TargetNamespace).
+			Resource(resourceType).
+			Name(r).
+			Do(ctx)
+		if result.Error() == nil {
 			e.t.Fatalf("Resource %s does exist", r)
 		}
 	}

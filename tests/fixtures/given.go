@@ -42,25 +42,24 @@ func (g *Given) GitSync(text string) *Given {
 	g.t.Helper()
 	g.gitSync = &v1alpha1.GitSync{}
 	g.readResource(text, g.gitSync)
-	l := g.gitSync.GetLabels()
-	if l == nil {
-		l = map[string]string{}
-	}
-	l[Label] = LabelValue
-	g.gitSync.SetLabels(l)
+	g.addLabel()
 	return g
 }
 
 func (g *Given) WithGitSync(gs *v1alpha1.GitSync) *Given {
 	g.t.Helper()
 	g.gitSync = gs
+	g.addLabel()
+	return g
+}
+
+func (g *Given) addLabel() {
 	l := g.gitSync.GetLabels()
 	if l == nil {
 		l = map[string]string{}
 	}
 	l[Label] = LabelValue
 	g.gitSync.SetLabels(l)
-	return g
 }
 
 // helper func to read and unmarshal GitSync YAML into object
