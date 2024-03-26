@@ -12,10 +12,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// TODOs:
-// - move functions outside
-// - file separator const and other changes to that caller func
-
 const (
 	loggerFieldName      = "logger"
 	loggerFieldSeparator = "."
