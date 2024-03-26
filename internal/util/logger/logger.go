@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/rs/zerolog"
@@ -13,6 +14,9 @@ import (
 const (
 	loggerFieldName      = "logger"
 	loggerFieldSeparator = "."
+	loggerDefaultName    = "numaplane"
+	messageFieldName     = "msg"
+	timestampFieldName   = "ts"
 )
 
 /*
@@ -72,6 +76,11 @@ func New(writer *io.Writer, level *int) NumaLogger {
 		return lvl.String()
 	}
 
+	// Set some zerolog customization
+	zerolog.MessageFieldName = messageFieldName
+	zerolog.TimestampFieldName = timestampFieldName
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+
 	// Set zerolog global level to the most verbose level
 	zerolog.SetGlobalLevel(logrVerbosityToZerologLevelMap[verboseLevel])
 
@@ -93,7 +102,7 @@ func New(writer *io.Writer, level *int) NumaLogger {
 		Logger()
 
 	sink := &LogSink{l: &zl}
-	ll := logr.New(sink)
+	ll := logr.New(sink).WithName(loggerDefaultName)
 
 	return NumaLogger{&ll}
 }
@@ -128,6 +137,14 @@ func (nl NumaLogger) WithValues(keysAndValues ...any) NumaLogger {
 	return nl
 }
 
+// WithCallDepth returns a Logger instance that offsets the call stack by the
+// specified number of frames when logging call site information.
+func (nl NumaLogger) WithCallDepth(depth int) NumaLogger {
+	ll := nl.LogrLogger.WithCallDepth(depth)
+	nl.LogrLogger = &ll
+	return nl
+}
+
 // Error logs an error with a message and optional key/value pairs.
 func (nl NumaLogger) Error(err error, msg string, keysAndValues ...any) {
 	nl.LogrLogger.Error(err, msg, keysAndValues...)
@@ -135,7 +152,7 @@ func (nl NumaLogger) Error(err error, msg string, keysAndValues ...any) {
 
 // Errorf logs an error with a formatted message with args.
 func (nl NumaLogger) Errorf(err error, msg string, args ...any) {
-	nl.Error(err, fmt.Sprintf(msg, args...))
+	nl.WithCallDepth(1).Error(err, fmt.Sprintf(msg, args...))
 }
 
 // Fatal logs an error with a message and optional key/value pairs. Then, exits with code 1.
@@ -147,7 +164,7 @@ func (nl NumaLogger) Fatal(err error, msg string, keysAndValues ...any) {
 
 // Fatalf logs an error with a formatted message with args. Then, exits with code 1.
 func (nl NumaLogger) Fatalf(err error, msg string, args ...any) {
-	nl.Fatal(err, fmt.Sprintf(msg, args...))
+	nl.WithCallDepth(1).Fatal(err, fmt.Sprintf(msg, args...))
 }
 
 // Warn logs a warning-level message with optional key/value pairs.
@@ -157,7 +174,7 @@ func (nl NumaLogger) Warn(msg string, keysAndValues ...any) {
 
 // Warn logs a warning-level formatted message with args.
 func (nl NumaLogger) Warnf(msg string, args ...any) {
-	nl.Warn(fmt.Sprintf(msg, args...))
+	nl.WithCallDepth(1).Warn(fmt.Sprintf(msg, args...))
 }
 
 // Info logs an info-level message with optional key/value pairs.
@@ -167,7 +184,7 @@ func (nl NumaLogger) Info(msg string, keysAndValues ...any) {
 
 // Infof logs an info-level formatted message with args.
 func (nl NumaLogger) Infof(msg string, args ...any) {
-	nl.Info(fmt.Sprintf(msg, args...))
+	nl.WithCallDepth(1).Info(fmt.Sprintf(msg, args...))
 }
 
 // Debug logs a debug-level message with optional key/value pairs.
@@ -177,7 +194,7 @@ func (nl NumaLogger) Debug(msg string, keysAndValues ...any) {
 
 // Debugf logs a debug-level formatted message with args.
 func (nl NumaLogger) Debugf(msg string, args ...any) {
-	nl.Debug(fmt.Sprintf(msg, args...))
+	nl.WithCallDepth(1).Debug(fmt.Sprintf(msg, args...))
 }
 
 // Verbose logs a verbose-level message with optional key/value pairs.
@@ -187,13 +204,13 @@ func (nl NumaLogger) Verbose(msg string, keysAndValues ...any) {
 
 // Verbosef logs a verbose-level formatted message with args.
 func (nl NumaLogger) Verbosef(msg string, args ...any) {
-	nl.Verbose(fmt.Sprintf(msg, args...))
+	nl.WithCallDepth(1).Verbose(fmt.Sprintf(msg, args...))
 }
 
 // Init receives optional information about the logr library
 // and sets the call depth accordingly.
 func (ls *LogSink) Init(ri logr.RuntimeInfo) {
-	ls.depth = ri.CallDepth + 3
+	ls.depth = ri.CallDepth + 2
 }
 
 // Enabled tests whether this LogSink is enabled at the specified V-level and per-package.
@@ -226,7 +243,7 @@ func (ls *LogSink) log(zlEvent *zerolog.Event, msg string, keysAndValues []any) 
 	}
 
 	zlEvent.Fields(keysAndValues).
-		CallerSkipFrame(ls.depth).
+		CallerSkipFrame(ls.depth + 1).
 		Msg(msg)
 }
 
