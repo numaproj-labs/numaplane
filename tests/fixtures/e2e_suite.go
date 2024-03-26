@@ -56,6 +56,7 @@ type E2ESuite struct {
 
 func (s *E2ESuite) SetupSuite() {
 	var err error
+	s.stopch = make(chan struct{})
 	s.restConfig, err = k8sRestConfig()
 	s.CheckError(err)
 	s.kubeClient, err = kubernetes.NewForConfig(s.restConfig)
