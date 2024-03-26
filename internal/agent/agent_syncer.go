@@ -18,7 +18,6 @@ package agent
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	kvsource "github.com/numaproj-labs/numaplane/internal/keyvaluegenerator"
@@ -118,7 +117,7 @@ func (syncer *AgentSyncer) evaluateGitSource() {
 		// create a KVSource which will return a new set of key/value pairs
 		syncer.kvSource = createKVSource(syncer.config.Source.KeyValueGenerator)
 		generateNewGitSource = true
-		syncer.numaLogger.Info(fmt.Sprintf("config update: syncer.kvSource=%+v", syncer.kvSource))
+		syncer.numaLogger.Infof("config update: syncer.kvSource=%+v", syncer.kvSource)
 	}
 	if syncer.kvSource == nil {
 		// no KVSource defined, so just use the GitDefinition as is
@@ -139,7 +138,7 @@ func (syncer *AgentSyncer) evaluateGitSource() {
 			return
 		} else {
 			syncer.gitSource = gitSource
-			syncer.numaLogger.Info(fmt.Sprintf("keysValues modified: %+v; new gitSource value: %v", keysValues, syncer.gitSource))
+			syncer.numaLogger.Infof("keysValues modified: %+v; new gitSource value: %v", keysValues, syncer.gitSource)
 			return
 		}
 	}

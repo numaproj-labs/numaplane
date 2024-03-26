@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 
@@ -9,11 +10,12 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var (
-	// LoggerFieldName is the field key for logr.WithName.
-	LoggerFieldName = "logger"
-	// LoggerFieldSeparator separates names for logr.WithName.
-	LoggerFieldSeparator = "."
+// TODOs:
+// - implement a way to display the level as "fatal" instead of "error" in the logs
+
+const (
+	loggerFieldName      = "logger"
+	loggerFieldSeparator = "."
 )
 
 /*
@@ -88,6 +90,97 @@ func New(writer *io.Writer, level *int) NumaLogger {
 	return NumaLogger{&ll}
 }
 
+// WithLogger returns a copy of parent context in which the
+// value associated with logger key is the supplied logger.
+func WithLogger(ctx context.Context, logger NumaLogger) context.Context {
+	return context.WithValue(ctx, loggerKey{}, logger)
+}
+
+// FromContext returns the logger in the context.
+// If there is no logger in context, a new one is created.
+func FromContext(ctx context.Context) NumaLogger {
+	if logger, ok := ctx.Value(loggerKey{}).(NumaLogger); ok {
+		return logger
+	}
+
+	return New(nil, nil)
+}
+
+// WithName appends a given name to the logger.
+func (nl NumaLogger) WithName(name string) NumaLogger {
+	ll := nl.LogrLogger.WithName(name)
+	nl.LogrLogger = &ll
+	return nl
+}
+
+// WithValues appends additional key/value pairs to the logger.
+func (nl NumaLogger) WithValues(keysAndValues ...any) NumaLogger {
+	ll := nl.LogrLogger.WithValues(keysAndValues)
+	nl.LogrLogger = &ll
+	return nl
+}
+
+// Error logs an error with a message and optional key/value pairs.
+func (nl NumaLogger) Error(err error, msg string, keysAndValues ...any) {
+	nl.LogrLogger.Error(err, msg, keysAndValues...)
+}
+
+// Errorf logs an error with a formatted message with args.
+func (nl NumaLogger) Errorf(err error, msg string, args ...any) {
+	nl.Error(err, fmt.Sprintf(msg, args...))
+}
+
+// Fatal logs an error with a message and optional key/value pairs. Then, exits with code 1.
+func (nl NumaLogger) Fatal(err error, msg string, keysAndValues ...any) {
+	nl.LogrLogger.Error(err, msg, keysAndValues...)
+	os.Exit(1)
+}
+
+// Fatalf logs an error with a formatted message with args. Then, exits with code 1.
+func (nl NumaLogger) Fatalf(err error, msg string, args ...any) {
+	nl.Fatal(err, fmt.Sprintf(msg, args...))
+}
+
+// Warn logs a warning-level message with optional key/value pairs.
+func (nl NumaLogger) Warn(msg string, keysAndValues ...any) {
+	nl.LogrLogger.V(warnLevel).Info(msg, keysAndValues...)
+}
+
+// Warn logs a warning-level formatted message with args.
+func (nl NumaLogger) Warnf(msg string, args ...any) {
+	nl.Warn(fmt.Sprintf(msg, args...))
+}
+
+// Info logs an info-level message with optional key/value pairs.
+func (nl NumaLogger) Info(msg string, keysAndValues ...any) {
+	nl.LogrLogger.V(infoLevel).Info(msg, keysAndValues...)
+}
+
+// Infof logs an info-level formatted message with args.
+func (nl NumaLogger) Infof(msg string, args ...any) {
+	nl.Info(fmt.Sprintf(msg, args...))
+}
+
+// Debug logs a debug-level message with optional key/value pairs.
+func (nl NumaLogger) Debug(msg string, keysAndValues ...any) {
+	nl.LogrLogger.V(debugLevel).Info(msg, keysAndValues...)
+}
+
+// Debugf logs a debug-level formatted message with args.
+func (nl NumaLogger) Debugf(msg string, args ...any) {
+	nl.Debug(fmt.Sprintf(msg, args...))
+}
+
+// Verbose logs a verbose-level message with optional key/value pairs.
+func (nl NumaLogger) Verbose(msg string, keysAndValues ...any) {
+	nl.LogrLogger.V(verboseLevel).Info(msg, keysAndValues...)
+}
+
+// Verbosef logs a verbose-level formatted message with args.
+func (nl NumaLogger) Verbosef(msg string, args ...any) {
+	nl.Verbose(fmt.Sprintf(msg, args...))
+}
+
 // Init receives optional information about the logr library
 // and sets the call depth accordingly.
 func (ls *LogSink) Init(ri logr.RuntimeInfo) {
@@ -120,7 +213,7 @@ func (ls *LogSink) log(zlEvent *zerolog.Event, msg string, keysAndValues []any) 
 	}
 
 	if ls.name != "" {
-		zlEvent = zlEvent.Str(LoggerFieldName, ls.name)
+		zlEvent = zlEvent.Str(loggerFieldName, ls.name)
 	}
 
 	zlEvent.Fields(keysAndValues).
@@ -130,15 +223,18 @@ func (ls *LogSink) log(zlEvent *zerolog.Event, msg string, keysAndValues []any) 
 
 // WithValues returns a new LogSink with additional key/value pairs.
 func (ls LogSink) WithValues(keysAndValues ...any) logr.LogSink {
-	l := ls.l.With().Fields(keysAndValues).Logger()
-	ls.l = &l
+	// Not sure why variadic arg keysAndValues is an array of array instead of just an array
+	idky := keysAndValues[0]
+
+	zl := ls.l.With().Fields(idky).Logger()
+	ls.l = &zl
 	return &ls
 }
 
 // WithName returns a new LogSink with the specified name appended.
 func (ls LogSink) WithName(name string) logr.LogSink {
 	if ls.name != "" {
-		ls.name += LoggerFieldSeparator + name
+		ls.name += loggerFieldSeparator + name
 	} else {
 		ls.name = name
 	}
@@ -151,70 +247,6 @@ func (ls LogSink) WithName(name string) logr.LogSink {
 func (ls LogSink) WithCallDepth(depth int) logr.LogSink {
 	ls.depth += depth
 	return &ls
-}
-
-// WithLogger returns a copy of parent context in which the
-// value associated with logger key is the supplied logger.
-func WithLogger(ctx context.Context, logger NumaLogger) context.Context {
-	return context.WithValue(ctx, loggerKey{}, logger)
-}
-
-// FromContext returns the logger in the context.
-// If there is no logger in context, a new one is created.
-func FromContext(ctx context.Context) NumaLogger {
-	if logger, ok := ctx.Value(loggerKey{}).(NumaLogger); ok {
-		return logger
-	}
-
-	return New(nil, nil)
-}
-
-// WithName appends a given name to the logger.
-func (nl NumaLogger) WithName(name string) NumaLogger {
-	// TODO: it should create a new logger instance
-	ll := nl.LogrLogger.WithName(name)
-	nl.LogrLogger = &ll
-	return nl
-}
-
-// WithValues appends additional key/value pairs to the logger.
-func (nl NumaLogger) WithValues(keysAndValues ...any) NumaLogger {
-	// TODO: it should create a new logger instance
-	ll := nl.LogrLogger.WithValues(keysAndValues)
-	nl.LogrLogger = &ll
-	return nl
-}
-
-// Error logs an error with a message and optional key/value pairs.
-func (nl NumaLogger) Error(err error, msg string, keysAndValues ...any) {
-	nl.LogrLogger.Error(err, msg, keysAndValues...)
-}
-
-// Fatal logs an error with a message and optional key/value pairs. Then, exits with code 1.
-func (nl NumaLogger) Fatal(err error, msg string, keysAndValues ...any) {
-	// TODO: implement a way to display the level as "fatal" instead of "error" in the logs
-	nl.LogrLogger.Error(err, msg, keysAndValues...)
-	os.Exit(1)
-}
-
-// Warn logs a warning-level message with optional key/value pairs.
-func (nl NumaLogger) Warn(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(warnLevel).Info(msg, keysAndValues...)
-}
-
-// Info logs an info-level message with optional key/value pairs.
-func (nl NumaLogger) Info(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(infoLevel).Info(msg, keysAndValues...)
-}
-
-// Debug logs a debug-level message with optional key/value pairs.
-func (nl NumaLogger) Debug(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(debugLevel).Info(msg, keysAndValues...)
-}
-
-// Verbose logs a verbose-level message with optional key/value pairs.
-func (nl NumaLogger) Verbose(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(verboseLevel).Info(msg, keysAndValues...)
 }
 
 func setLoggerLevel(logger zerolog.Logger, level int) zerolog.Logger {

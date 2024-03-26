@@ -171,11 +171,11 @@ func (s *Syncer) Start(ctx context.Context) error {
 // It waits for keys in the channel, and starts a synchronization job
 func (s *Syncer) run(ctx context.Context, id int, keyCh <-chan string) {
 	numaLogger := logger.FromContext(ctx)
-	numaLogger.Info(fmt.Sprintf("Started synchronizer worker %v", id))
+	numaLogger.Infof("Started synchronizer worker %v", id)
 	for {
 		select {
 		case <-ctx.Done():
-			numaLogger.Info(fmt.Sprintf("Stopped synchronizer worker %v", id))
+			numaLogger.Infof("Stopped synchronizer worker %v", id)
 			return
 		case key := <-keyCh:
 			if err := s.runOnce(ctx, key, id); err != nil {
@@ -188,7 +188,7 @@ func (s *Syncer) run(ctx context.Context, id int, keyCh <-chan string) {
 // Function runOnce implements the logic of each synchronization.
 func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	numaLogger := logger.FromContext(ctx).WithValues("worker", worker, "gitSyncKey", key)
-	numaLogger.Debug(fmt.Sprintf("Working on key: %s.", key))
+	numaLogger.Debugf("Working on key: %s.", key)
 	strs := strings.Split(key, "/")
 	if len(strs) != 2 {
 		return fmt.Errorf("invalid key %q", key)

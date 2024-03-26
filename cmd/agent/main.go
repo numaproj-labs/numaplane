@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/numaproj-labs/numaplane/internal/agent"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
@@ -51,7 +50,7 @@ func main() {
 	if err != nil {
 		numaLogger.Fatal(err, "Failed to get configuration file")
 	}
-	numaLogger.Info(fmt.Sprintf("config: %+v", config))
+	numaLogger.Infof("config: %+v", config)
 
 	// create a new AgentSyncer
 	syncer := agent.NewAgentSyncer(&numaLogger)
