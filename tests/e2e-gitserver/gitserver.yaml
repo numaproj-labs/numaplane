@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: localgitserver
+spec:
+  serviceName: "localgitserver"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: localgitserver
+  template:
+    metadata:
+      labels:
+        app: localgitserver
+    spec:
+      containers:
+        - name: gitserver
+          image: quay.io/numaio/numaplane-e2e-gitserver:latest
+          ports:
+            - containerPort: 22
+            - containerPort: 80
+            - containerPort: 443
+          volumeMounts:
+            - name: ssh-config
+              mountPath: /root/.ssh/authorized_keys
+              subPath: authorized_keys
+            - name: http-config
+              mountPath: /auth/.htpasswd
+              subPath: htpasswd
+      volumes:
+        - name: ssh-config
+          configMap:
+            name: git-ssh-config
+        - name: http-config
+          configMap:
+            name: git-http-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: localgitserver-service
+spec:
+  type: ClusterIP
+  selector:
+    app: localgitserver
+  ports:
+    - name: ssh
+      port: 22
+      targetPort: 22
+    - name: http
+      port: 80
+      targetPort: 80
+    - name: https
+      port: 443
+      targetPort: 443
