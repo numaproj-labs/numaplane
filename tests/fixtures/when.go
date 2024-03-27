@@ -18,6 +18,7 @@ package fixtures
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -26,7 +27,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -79,7 +80,7 @@ func (w *When) DeleteGitSyncAndWait() *When {
 	}
 
 	err := w.waitForGitSyncDeleted()
-	if errors.IsNotFound(err) {
+	if apierr.IsNotFound(err) {
 		return w
 	} else {
 		w.t.Fatalf("Error getting gitSync: %v", err)
@@ -91,9 +92,11 @@ func (w *When) DeleteGitSyncAndWait() *When {
 // make git push to Git server pod
 func (w *When) PushToGitRepo(files []string) *When {
 
+	ctx := context.Background()
+
 	// open path to git server
 	// an example path would be http://localhost:8080/git/repo1.git
-	repo, err := git.PlainOpen(w.gitSync.Spec.RepoUrl)
+	repo, err := w.cloneRepo(ctx)
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -202,5 +205,24 @@ func (w *When) waitForGitSyncDeleted() error {
 		}
 		time.Sleep(2 * time.Second)
 	}
+
+}
+
+func (w *When) cloneRepo(ctx context.Context) (*git.Repository, error) {
+
+	path := fmt.Sprintf("/tmp/%s", w.gitSync.Spec.RepoUrl)
+
+	cloneOpts := git.CloneOptions{URL: w.gitSync.Spec.RepoUrl, Auth: auth}
+
+	repo, err := git.PlainCloneContext(ctx, path, false, &cloneOpts)
+	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
+		existingRepo, openErr := git.PlainOpen(path)
+		if openErr != nil {
+			return repo, fmt.Errorf("failed to open existing repo: %v", openErr)
+		}
+		return existingRepo, nil
+	}
+
+	return repo, nil
 
 }
