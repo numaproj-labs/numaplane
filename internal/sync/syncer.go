@@ -257,11 +257,9 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err != nil {
 		return err
 	}
-
 	if !gitSync.GetDeletionTimestamp().IsZero() {
 		log.Debug("GitSync object being deleted.")
 		// Delete the linked resources to the GitSync
-		// Is gitSync.Name is the correct value for annotation ?
 		objects, err := GetLiveManagedObjects(s.stateCache, gitSync)
 		if err != nil {
 			log.Debug("Live managed objects not found")
