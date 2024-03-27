@@ -208,6 +208,7 @@ func (w *When) waitForGitSyncDeleted() error {
 
 }
 
+// clone repository unless it's already been cloned
 func (w *When) cloneRepo(ctx context.Context) (*git.Repository, error) {
 
 	path := fmt.Sprintf("/tmp/%s", w.gitSync.Spec.RepoUrl)
