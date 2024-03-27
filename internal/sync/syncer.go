@@ -11,6 +11,7 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/diff"
 	gitopsSync "github.com/argoproj/gitops-engine/pkg/sync"
 	gitopsSyncCommon "github.com/argoproj/gitops-engine/pkg/sync/common"
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	kubeUtil "github.com/argoproj/gitops-engine/pkg/utils/kube"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/zap"
@@ -209,7 +210,13 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		log.Debug("GitSync object being deleted.")
 		// Delete the linked resources to the GitSync
 		// Is gitSync.Name is the correct value for annotation ?
-		err := kubernetes.DeleteResourcesByAnnotations(ctx, s.client, s.stateCache, gitSync)
+		// Retrieve live objects managed by Gitsync
+		objects, err := GetLiveManagedObjects(s.stateCache, gitSync)
+		if err != nil {
+			log.Debug("Live managed objects not found")
+
+		}
+		err = kubernetes.DeleteManagedObjectsGitSync(ctx, s.client, objects)
 		if err != nil {
 			return err
 		}
@@ -255,7 +262,12 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		log.Debug("GitSync object being deleted.")
 		// Delete the linked resources to the GitSync
 		// Is gitSync.Name is the correct value for annotation ?
-		err := kubernetes.DeleteResourcesByAnnotations(ctx, s.client, s.stateCache, gitSync)
+		objects, err := GetLiveManagedObjects(s.stateCache, gitSync)
+		if err != nil {
+			log.Debug("Live managed objects not found")
+
+		}
+		err = kubernetes.DeleteManagedObjectsGitSync(ctx, s.client, objects)
 		if err != nil {
 			return err
 		}
@@ -426,4 +438,18 @@ func updateCommitStatus(
 		return err
 	}
 	return nil
+}
+
+// GetStateCache is the exported method for getting the cache  in other packages
+func (s *Syncer) GetStateCache() LiveStateCache {
+	return s.stateCache
+}
+
+func GetLiveManagedObjects(cache LiveStateCache, gitSync *v1alpha1.GitSync) (map[kube.ResourceKey]*unstructured.Unstructured, error) {
+	var unstructuredObj []*unstructured.Unstructured
+	objs, err := cache.GetManagedLiveObjs(gitSync, unstructuredObj)
+	if err != nil {
+		return nil, err
+	}
+	return objs, nil
 }

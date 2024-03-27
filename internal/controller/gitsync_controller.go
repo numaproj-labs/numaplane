@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -139,7 +142,11 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 		if r.syncer != nil {
 			// Delete the linked resources to the GitSync
 			// Is gitSync.Name is the correct value for annotation ?
-			err := kubernetesshared.DeleteResourcesByAnnotations(ctx, r.client, r.synce, gitSync)
+			objects, err := GetLiveManagedObjects(r.syncer.GetStateCache(), gitSync)
+			if err != nil {
+				logger.Infow("Live Managed Objects Nit Found", "GitSync", gitSync)
+			}
+			err = kubernetesshared.DeleteManagedObjectsGitSync(ctx, r.client, objects)
 			if err != nil {
 				return err
 			}
@@ -212,4 +219,13 @@ func needsUpdate(old, new *apiv1.GitSync) bool {
 		return true
 	}
 	return false
+}
+
+func GetLiveManagedObjects(cache sync.LiveStateCache, gitSync *apiv1.GitSync) (map[kube.ResourceKey]*unstructured.Unstructured, error) {
+	var unstructuredObj []*unstructured.Unstructured
+	objs, err := cache.GetManagedLiveObjs(gitSync, unstructuredObj)
+	if err != nil {
+		return nil, err
+	}
+	return objs, nil
 }

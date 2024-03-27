@@ -6,14 +6,12 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/numaproj-labs/numaplane/internal/sync"
-	"github.com/numaproj-labs/numaplane/internal/util/logging"
-	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 // validManifestExtensions contains the supported extension for raw file.
@@ -105,25 +103,13 @@ func IsValidKubernetesManifestFile(fileName string) bool {
 	return false
 }
 
-// DeleteResourcesByAnnotations deletes all resources of a given GroupVersionKind across the kubernetes cluster
-func DeleteResourcesByAnnotations(ctx context.Context, client k8sClient.Client, cache sync.LiveStateCache, gitsync *v1alpha1.GitSync) error {
-	logger := logging.FromContext(ctx)
-
-	// Retrieve live objects managed by Gitsync
-	var unstructuredObj []*unstructured.Unstructured
-	objs, err := cache.GetManagedLiveObjs(gitsync, unstructuredObj)
-	if err != nil {
-		logger.Infow("live objects not found", "gitsync", gitsync)
-	}
-	// Iterate over returned managed live objects
+// DeleteManagedObjectsGitSync deletes all resources of a given GroupVersionKind across the kubernetes cluster
+func DeleteManagedObjectsGitSync(ctx context.Context, client k8sClient.Client, objs map[kube.ResourceKey]*unstructured.Unstructured) error {
 	for _, obj := range objs {
-		// Prepare the object for deletion
 		if err := DeleteKubernetesResource(ctx, client, obj); err != nil {
-			return fmt.Errorf("failed to delete resource %s/%s with GVK %s and annotation %s=%s: %w",
+			return fmt.Errorf("failed to delete resource %s/%s with error %w ",
 				obj.GetNamespace(), obj.GetName(), err)
 		}
-
 	}
-
 	return nil
 }

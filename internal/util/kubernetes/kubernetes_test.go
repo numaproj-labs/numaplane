@@ -5,6 +5,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -171,19 +176,38 @@ func TestDeleteKubernetesResource(t *testing.T) {
 }
 
 func TestDeleteResourcesByAnnotation(t *testing.T) {
+	ctx := context.TODO()
 	scheme := runtime.NewScheme()
 	err := corev1.AddToScheme(scheme)
 	assert.NoError(t, err)
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod",
-			Namespace: "numaplane-test",
-			Annotations: map[string]string{
-				common.AnnotationKeyGitSyncInstance: "test-gitsync",
-			},
-		},
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	resource := &unstructured.Unstructured{}
+	resource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "testgroup",
+		Version: "v1",
+		Kind:    "TestKind",
+	})
+	resource.SetNamespace("test-namespace")
+	resource.SetName("test-name")
+	err = fakeClient.Create(ctx, resource)
+	assert.NoError(t, err)
+
+	objs := map[kube.ResourceKey]*unstructured.Unstructured{
+		{
+			Name:      "test-name",
+			Namespace: "test-namespace",
+		}: resource,
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pod).Build()
-	err = DeleteResourcesByAnnotations(context.Background(), fakeClient, common.PredefinedGroupVersionKinds, common.AnnotationKeyGitSyncInstance, "test-gitsync")
+	// Now call DeleteResourcesByAnnotations
+	err = DeleteManagedObjectsGitSync(ctx, fakeClient, objs)
+	assert.NoError(t, err)
 	assert.Nil(t, err)
+
+	// Verify the resources were deleted
+	namespacedName := types.NamespacedName{Name: "test-name", Namespace: "test-namespace"}
+	err = fakeClient.Get(ctx, namespacedName, resource)
+	assert.Error(t, err)
+	assert.True(t, k8sClient.IgnoreNotFound(err) == nil)
 }
