@@ -6,14 +6,14 @@ import (
 	"regexp"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/numaproj-labs/numaplane/internal/sync"
 	"github.com/numaproj-labs/numaplane/internal/util/logging"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 // validManifestExtensions contains the supported extension for raw file.
@@ -106,28 +106,24 @@ func IsValidKubernetesManifestFile(fileName string) bool {
 }
 
 // DeleteResourcesByAnnotations deletes all resources of a given GroupVersionKind across the kubernetes cluster
-func DeleteResourcesByAnnotations(ctx context.Context, client k8sClient.Client, gvks []schema.GroupVersionKind, annotationKey string, annotationValue string) error {
+func DeleteResourcesByAnnotations(ctx context.Context, client k8sClient.Client, cache sync.LiveStateCache, gitsync *v1alpha1.GitSync) error {
 	logger := logging.FromContext(ctx)
-	for _, gvk := range gvks {
-		listItems := &unstructured.UnstructuredList{}
-		listItems.SetGroupVersionKind(gvk)
 
-		// List all resources of the given GroupVersionKind across the cluster
-		if err := client.List(ctx, listItems); err != nil {
-			// silently ignoring the error if resource is not found as some resources might not be available in  common.PredefinedGroupVersionKinds
-			logger.Errorw("failed to list resources for GVK %s: %w", gvk.String(), err)
-		}
-
-		for _, item := range listItems.Items {
-			annotations := item.GetAnnotations()
-			if val, ok := annotations[annotationKey]; ok && val == annotationValue {
-				localItem := item
-				if err := DeleteKubernetesResource(ctx, client, &localItem); err != nil {
-					return fmt.Errorf("failed to delete resource %s/%s with GVK %s and annotation %s=%s: %w",
-						localItem.GetNamespace(), localItem.GetName(), gvk.String(), annotationKey, annotationValue, err)
-				}
-			}
-		}
+	// Retrieve live objects managed by Gitsync
+	var unstructuredObj []*unstructured.Unstructured
+	objs, err := cache.GetManagedLiveObjs(gitsync, unstructuredObj)
+	if err != nil {
+		logger.Infow("live objects not found", "gitsync", gitsync)
 	}
+	// Iterate over returned managed live objects
+	for _, obj := range objs {
+		// Prepare the object for deletion
+		if err := DeleteKubernetesResource(ctx, client, obj); err != nil {
+			return fmt.Errorf("failed to delete resource %s/%s with GVK %s and annotation %s=%s: %w",
+				obj.GetNamespace(), obj.GetName(), err)
+		}
+
+	}
+
 	return nil
 }

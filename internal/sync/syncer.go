@@ -209,7 +209,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		log.Debug("GitSync object being deleted.")
 		// Delete the linked resources to the GitSync
 		// Is gitSync.Name is the correct value for annotation ?
-		err := kubernetes.DeleteResourcesByAnnotations(ctx, s.client, common.PredefinedGroupVersionKinds, common.AnnotationKeyGitSyncInstance, gitSync.Name)
+		err := kubernetes.DeleteResourcesByAnnotations(ctx, s.client, s.stateCache, gitSync)
 		if err != nil {
 			return err
 		}
@@ -246,18 +246,23 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		Name:      gitSync.Name,
 	}
 
+	err = updateCommitStatus(ctx, s.client, log, namespacedName, commitHash, synced, syncMessage)
+	if err != nil {
+		return err
+	}
+
 	if !gitSync.GetDeletionTimestamp().IsZero() {
 		log.Debug("GitSync object being deleted.")
 		// Delete the linked resources to the GitSync
 		// Is gitSync.Name is the correct value for annotation ?
-		err := kubernetes.DeleteResourcesByAnnotations(ctx, s.client, common.PredefinedGroupVersionKinds, common.AnnotationKeyGitSyncInstance, gitSync.Name)
+		err := kubernetes.DeleteResourcesByAnnotations(ctx, s.client, s.stateCache, gitSync)
 		if err != nil {
 			return err
 		}
 		s.StopWatching(key)
 		return nil
 	}
-	return updateCommitStatus(ctx, s.client, log, namespacedName, commitHash, synced, syncMessage)
+	return nil
 }
 
 type resourceInfoProviderStub struct {
