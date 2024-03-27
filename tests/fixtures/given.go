@@ -17,10 +17,15 @@ limitations under the License.
 package fixtures
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	git "github.com/go-git/go-git/v5"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -92,6 +97,84 @@ func (g *Given) readResource(text string, v metav1.Object) {
 	if err != nil {
 		g.t.Fatal(err)
 	}
+}
+
+// initialize git repo with all Numaflow files
+func (g *Given) CloneGitRepo() *Given {
+
+	ctx := context.Background()
+
+	// open path to git server
+	// an example path would be http://localhost:8080/git/repo1.git
+	repo, err := g.cloneRepo(ctx)
+	if err != nil {
+		g.t.Fatal(err)
+	}
+
+	tmpPath := filepath.Join("tmp", g.gitSync.Spec.Path)
+	dataPath := filepath.Join("testdata", g.gitSync.Spec.Path)
+
+	// create dir for gitsync path
+	_ = os.Mkdir(tmpPath, 0777)
+
+	dir, err := os.ReadDir(dataPath)
+	if err != nil {
+		g.t.Fatal(err)
+	}
+
+	// assumes no nested directory for now
+	for _, file := range dir {
+		name := file.Name()
+		err := CopyFile(filepath.Join(dataPath, name), filepath.Join(tmpPath, name))
+		if err != nil {
+			g.t.Fatal(err)
+		}
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		g.t.Fatal(err)
+	}
+
+	_, err = wt.Add(g.gitSync.Spec.Path)
+	if err != nil {
+		g.t.Fatal(err)
+	}
+
+	_, err = wt.Commit("Initial commit", &git.CommitOptions{})
+	if err != nil {
+		g.t.Fatal(err)
+	}
+
+	err = repo.Push(&git.PushOptions{
+		RemoteName: "origin",
+		Auth:       auth,
+	})
+	if err != nil {
+		g.t.Fatal(err)
+	}
+
+	return g
+}
+
+// clone repository unless it's already been cloned
+func (g *Given) cloneRepo(ctx context.Context) (*git.Repository, error) {
+
+	path := "./tmp"
+
+	cloneOpts := git.CloneOptions{URL: g.gitSync.Spec.RepoUrl, Auth: auth}
+
+	repo, err := git.PlainCloneContext(ctx, path, false, &cloneOpts)
+	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
+		existingRepo, openErr := git.PlainOpen(path)
+		if openErr != nil {
+			return repo, fmt.Errorf("failed to open existing repo: %v", openErr)
+		}
+		return existingRepo, nil
+	}
+
+	return repo, nil
+
 }
 
 func (g *Given) When() *When {

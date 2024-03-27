@@ -18,7 +18,6 @@ package fixtures
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -92,11 +91,9 @@ func (w *When) DeleteGitSyncAndWait() *When {
 // make git push to Git server pod
 func (w *When) PushToGitRepo(files []string) *When {
 
-	ctx := context.Background()
-
 	// open path to git server
 	// an example path would be http://localhost:8080/git/repo1.git
-	repo, err := w.cloneRepo(ctx)
+	repo, err := git.PlainOpen("./tmp")
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -205,25 +202,5 @@ func (w *When) waitForGitSyncDeleted() error {
 		}
 		time.Sleep(2 * time.Second)
 	}
-
-}
-
-// clone repository unless it's already been cloned
-func (w *When) cloneRepo(ctx context.Context) (*git.Repository, error) {
-
-	path := fmt.Sprintf("/tmp/%s", w.gitSync.Spec.RepoUrl)
-
-	cloneOpts := git.CloneOptions{URL: w.gitSync.Spec.RepoUrl, Auth: auth}
-
-	repo, err := git.PlainCloneContext(ctx, path, false, &cloneOpts)
-	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		existingRepo, openErr := git.PlainOpen(path)
-		if openErr != nil {
-			return repo, fmt.Errorf("failed to open existing repo: %v", openErr)
-		}
-		return existingRepo, nil
-	}
-
-	return repo, nil
 
 }
