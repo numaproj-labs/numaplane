@@ -1,0 +1,13 @@
+resources:
+  - gitserver.yaml
+
+commonLabels:
+  "numaplane-e2e": "true"
+
+configMapGenerator:
+  - name: git-ssh-config
+    files:
+      - authorized_keys=authorized_keys
+  - name: git-http-config
+    files:
+      - htpasswd=.htpasswd
