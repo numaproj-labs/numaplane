@@ -78,24 +78,14 @@ func (w *When) DeleteGitSyncAndWait() *When {
 		w.t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
-	for {
-		select {
-		case <-ctx.Done():
-			w.t.Fatalf("Timeout after %v waiting for gitSync terminating", defaultTimeout)
-		default:
-		}
-		_, err := w.gitSyncClient.Get(ctx, w.gitSync.Name, metav1.GetOptions{})
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return w
-			} else {
-				w.t.Fatalf("Error getting gitSync: %v", err)
-			}
-		}
-		time.Sleep(2 * time.Second)
+	err := w.waitForGitSyncDeleted()
+	if errors.IsNotFound(err) {
+		return w
+	} else {
+		w.t.Fatalf("Error getting gitSync: %v", err)
 	}
+
+	return w
 }
 
 // make git push to Git server pod
@@ -194,4 +184,23 @@ func (w *When) waitForGitSyncRunning(ctx context.Context, gitSyncClient planepkg
 			return fmt.Errorf("timeout after %v waiting for GitSync running", timeout)
 		}
 	}
+}
+
+func (w *When) waitForGitSyncDeleted() error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			w.t.Fatalf("Timeout after %v waiting for gitSync terminating", defaultTimeout)
+		default:
+		}
+		_, err := w.gitSyncClient.Get(ctx, w.gitSync.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		time.Sleep(2 * time.Second)
+	}
+
 }
