@@ -33,8 +33,8 @@ ENVTEST_K8S_VERSION = 1.28.0
 
 # LOCAL GIT SERVER CONFIG
 REPO_COUNT=5
-GITSERVER_IMAGE=quay.io/numaio/numaplane-e2e-gitserver:latest
-
+GIT_SERVER_VERSION ?= latest
+GITSERVER_IMAGE=quay.io/numaio/numaplane-e2e-gitserver:$(GIT_SERVER_VERSION)
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -206,5 +206,5 @@ gitserver:
 		--no-cache \
 		--build-arg REPO_COUNT=$(REPO_COUNT) \
 		--platform $(PLATFORMS) \
-		-t $(GITSERVER_NAME) \
+		-t $(GITSERVER_IMAGE) \
 		--push .
