@@ -23,6 +23,7 @@ import (
 	"time"
 
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -30,6 +31,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
+
+var auth = &http.BasicAuth{
+	Username: "root",
+	Password: "root",
+}
 
 type When struct {
 	t             *testing.T
@@ -93,11 +99,11 @@ func (w *When) DeleteGitSyncAndWait() *When {
 }
 
 // make git push to Git server pod
-func (w *When) PushToGitRepo(repoPath string, files []string) *When {
+func (w *When) PushToGitRepo(files []string) *When {
 
 	// open path to git server
 	// an example path would be http://localhost:8080/git/repo1.git
-	repo, err := git.PlainOpen(repoPath)
+	repo, err := git.PlainOpen(w.gitSync.Spec.RepoUrl)
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -124,6 +130,7 @@ func (w *When) PushToGitRepo(repoPath string, files []string) *When {
 	// git push to remote
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
+		Auth:       auth,
 	})
 	if err != nil {
 		w.t.Fatal(err)

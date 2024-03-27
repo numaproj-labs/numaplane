@@ -60,9 +60,9 @@ func (e *Expect) ResourcesExist(resourceType string, resources []string) *Expect
 func (e *Expect) ResourcesDontExist(resourceType string, resources []string) *Expect {
 
 	e.t.Helper()
-	for _, resource := range resources {
-		if !e.isDeleted(resourceType, resource) {
-			e.t.Fatalf("Resource %s not deleted", resource)
+	for _, r := range resources {
+		if !e.isDeleted(resourceType, r) {
+			e.t.Fatalf("Resource %s not deleted", r)
 		}
 	}
 
@@ -86,6 +86,7 @@ func (e *Expect) isDeleted(resourceType, resource string) bool {
 	for {
 		select {
 		case <-ctx.Done():
+			e.t.Logf("Timeout verifying that resource %s deleted", resource)
 			return false
 		default:
 		}
@@ -98,6 +99,7 @@ func (e *Expect) isDeleted(resourceType, resource string) bool {
 			if errors.IsNotFound(result.Error()) {
 				return true
 			} else {
+				e.t.Logf("Network error %v occurred", result.Error())
 				return false
 			}
 		}
