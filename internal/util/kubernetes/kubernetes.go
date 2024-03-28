@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -86,10 +88,28 @@ func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretNa
 	return secret, nil
 }
 
+func DeleteKubernetesResource(ctx context.Context, client k8sClient.Client, item k8sClient.Object) error {
+	if err := client.Delete(ctx, item); err != nil {
+		return fmt.Errorf("error deleting resource %s/%s: %v", item.GetNamespace(), item.GetName(), err)
+	}
+	return nil
+}
+
 func IsValidKubernetesManifestFile(fileName string) bool {
 	fileExt := strings.Split(fileName, ".")
 	if _, ok := validManifestExtensions[fileExt[len(fileExt)-1]]; ok {
 		return true
 	}
 	return false
+}
+
+// DeleteManagedObjectsGitSync deletes all resources of a given GroupVersionKind across the kubernetes cluster
+func DeleteManagedObjectsGitSync(ctx context.Context, client k8sClient.Client, objs map[kube.ResourceKey]*unstructured.Unstructured) error {
+	for _, obj := range objs {
+		if err := DeleteKubernetesResource(ctx, client, obj); err != nil {
+			return fmt.Errorf("failed to delete resource %s/%s with error %w ",
+				obj.GetNamespace(), obj.GetName(), err)
+		}
+	}
+	return nil
 }

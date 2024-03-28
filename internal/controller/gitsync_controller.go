@@ -137,6 +137,18 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 	if !gitSync.DeletionTimestamp.IsZero() {
 		logger.Infow("Deleting", "GitSync", gitSync)
 		if r.syncer != nil {
+			controllerConfig, err := config.GetConfigManagerInstance().GetConfig()
+			if err != nil {
+				logger.Errorw("Problem in Getting Config", err)
+				return err
+			}
+			// if cascade deletion is enabled in the config ,Delete the linked resources to the GitSync
+			if controllerConfig.CascadeDeletion {
+				err := sync.CascadeDeletion(ctx, r.client, r.syncer.GetStateCache(), gitSync)
+				if err != nil {
+					return err
+				}
+			}
 			r.syncer.StopWatching(gitSyncKey)
 		}
 		if controllerutil.ContainsFinalizer(gitSync, finalizerName) {

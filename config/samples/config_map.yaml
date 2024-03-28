@@ -8,6 +8,7 @@ data:
   config.yaml: |
     clusterName: "CLUSTER_NAME_VALUE" # Replace with the cluster name where numaplane will get deployed.
     syncTimeIntervalMs: 60000
+    cascadeDeletion: false
     autoHealTimeIntervalMs: 30000
     repoCredentials:
       - url: "github.com/numaproj-labs"
