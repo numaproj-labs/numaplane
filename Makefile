@@ -31,6 +31,10 @@ GCFLAGS="all=-N -l"
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.28.0
 
+# LOCAL GIT SERVER CONFIG
+REPO_COUNT=5
+GIT_SERVER_VERSION ?= latest
+GITSERVER_IMAGE=quay.io/numaio/numaplane-e2e-gitserver:$(GIT_SERVER_VERSION)
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -194,3 +198,13 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+.PHONY: gitserver
+gitserver:
+		cd tests/gitserver && \
+		 docker buildx build \
+		--no-cache \
+		--build-arg REPO_COUNT=$(REPO_COUNT) \
+		--platform $(PLATFORMS) \
+		-t $(GITSERVER_IMAGE) \
+		--push .
