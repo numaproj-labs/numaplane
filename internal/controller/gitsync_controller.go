@@ -32,7 +32,7 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/sync"
 	gitshared "github.com/numaproj-labs/numaplane/internal/util/git"
 	kubernetesshared "github.com/numaproj-labs/numaplane/internal/util/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/util/logging"
+	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
@@ -78,7 +78,7 @@ func NewGitSyncReconciler(
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := logging.FromContext(ctx)
+	numaLogger := logger.FromContext(ctx)
 
 	// get the GitSync CR - if not found, it may have been deleted in the past
 	gitSync := &apiv1.GitSync{}
@@ -87,7 +87,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		} else {
-			logger.Errorw("Unable to get GitSync", "err", err, "request", req)
+			numaLogger.Error(err, "Unable to get GitSync", "request", req)
 			return ctrl.Result{}, err
 		}
 	}
@@ -106,7 +106,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if needsUpdate(gitSyncOrig, gitSync) {
 		gitSyncStatus := gitSync.Status
 		if err := r.client.Update(ctx, gitSync); err != nil {
-			logger.Errorw("Error Updating GitSync", "err", err, "GitSync", gitSync)
+			numaLogger.Error(err, "Error Updating GitSync", "GitSync", gitSync)
 			return ctrl.Result{}, err
 		}
 		// restore the original status, which would've been wiped in the previous call to Update()
@@ -116,7 +116,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// Update the Status subresource
 	if gitSync.DeletionTimestamp.IsZero() { // would've already been deleted
 		if err := r.client.Status().Update(ctx, gitSync); err != nil {
-			logger.Errorw("Error Updating GitSync Status", "err", err, "GitSync", gitSync)
+			numaLogger.Error(err, "Error Updating GitSync Status", "GitSync", gitSync)
 			return ctrl.Result{}, err
 		}
 	}
@@ -126,7 +126,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // reconcile does the real logic
 func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSync) error {
-	logger := logging.FromContext(ctx)
+	numaLogger := logger.FromContext(ctx)
 
 	if !gitSync.Spec.ContainsClusterDestination(r.clusterName) {
 		gitSync.Status.MarkNotApplicable("ClusterMismatch", "This cluster isn't a destination")
@@ -135,7 +135,7 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 
 	gitSyncKey := sync.KeyOfGitSync(gitSync)
 	if !gitSync.DeletionTimestamp.IsZero() {
-		logger.Infow("Deleting", "GitSync", gitSync)
+		numaLogger.Info("Deleting", "GitSync", gitSync)
 		if r.syncer != nil {
 			r.syncer.StopWatching(gitSyncKey)
 		}
@@ -148,7 +148,7 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 	// first validate it
 	err := r.validate(gitSync)
 	if err != nil {
-		logger.Errorw("Validation failed", "err", err, "GitSync", gitSync)
+		numaLogger.Error(err, "Validation failed", "GitSync", gitSync)
 		gitSync.Status.MarkFailed("InvalidSpec", err.Error())
 		return err
 	}

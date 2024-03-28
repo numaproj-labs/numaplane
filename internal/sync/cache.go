@@ -27,7 +27,7 @@ import (
 
 	"github.com/numaproj-labs/numaplane/internal/common"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/util/logging"
+	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
@@ -149,7 +149,7 @@ func (c *liveStateCache) getCluster() clustercache.ClusterCache {
 		clustercache.SetSettings(cacheSettings.clusterSettings),
 		clustercache.SetPopulateResourceInfoHandler(c.PopulateResourceInfo),
 		clustercache.SetRetryOptions(clusterCacheAttemptLimit, clusterCacheRetryUseBackoff, isRetryableError),
-		clustercache.SetLogr(logging.NewLogrusLogger(logging.NewWithCurrentConfig())),
+		clustercache.SetLogr(*logger.New().LogrLogger),
 	}
 
 	clusterCache := clustercache.NewClusterCache(clusterCacheConfig, clusterCacheOpts...)
