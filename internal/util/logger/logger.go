@@ -64,10 +64,18 @@ type LogSink struct {
 	depth int
 }
 
-// New returns a new NumaLogger with a logr.Logger instance with a default setup for zerolog.
+// New returns a new NumaLogger with a logr.Logger instance with a
+// default setup for zerolog, os.Stdout writer, and info level.
+func New() NumaLogger {
+	w := io.Writer(os.Stdout)
+	lvl := int(defaultLevel)
+	return newNumaLogger(&w, &lvl)
+}
+
+// newNumaLogger returns a new NumaLogger with a logr.Logger instance with a default setup for zerolog.
 // The writer argument sets the output the logs will be written to. If it is nil, os.Stdout will be used.
 // The level argument sets the log level value for this logger instance.
-func New(writer *io.Writer, level *int) NumaLogger {
+func newNumaLogger(writer *io.Writer, level *int) NumaLogger {
 	// Set some zerolog customization
 	zerolog.MessageFieldName = messageFieldName
 	zerolog.TimestampFieldName = timestampFieldName
@@ -114,7 +122,7 @@ func FromContext(ctx context.Context) NumaLogger {
 		return logger
 	}
 
-	return New(nil, nil)
+	return New()
 }
 
 // WithName appends a given name to the logger.

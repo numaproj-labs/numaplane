@@ -327,7 +327,7 @@ func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructu
 	}
 
 	diffOpts := []diff.Option{
-		diff.WithLogr(*logger.New(nil, nil).WithValues("gitsync", gitSync).LogrLogger),
+		diff.WithLogr(*logger.New().WithValues("gitsync", gitSync).LogrLogger),
 	}
 
 	modified, err := StateDiffs(reconciliationResult.Target, reconciliationResult.Live, overrides, diffOpts)

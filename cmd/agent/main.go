@@ -25,7 +25,7 @@ import (
 
 var (
 	// logger is the global logger for the numaplane-agent
-	numaLogger = logger.New(nil, nil).WithName("numaplane-agent")
+	numaLogger = logger.New().WithName("numaplane-agent")
 	configPath = "/etc/agent" // Path in the volume mounted in the pod where yaml is present
 )
 

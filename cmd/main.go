@@ -40,7 +40,7 @@ var (
 	// scheme is the runtime.Scheme to which all Numaplane API types are registered.
 	scheme = runtime.NewScheme()
 	// logger is the global logger for the controller-manager.
-	numaLogger = logger.New(nil, nil).WithName("controller-manager")
+	numaLogger = logger.New().WithName("controller-manager")
 	configPath = "/etc/numaplane" // Path in the volume mounted in the pod where yaml is present
 )
 

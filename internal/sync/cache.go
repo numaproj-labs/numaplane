@@ -149,7 +149,7 @@ func (c *liveStateCache) getCluster() clustercache.ClusterCache {
 		clustercache.SetSettings(cacheSettings.clusterSettings),
 		clustercache.SetPopulateResourceInfoHandler(c.PopulateResourceInfo),
 		clustercache.SetRetryOptions(clusterCacheAttemptLimit, clusterCacheRetryUseBackoff, isRetryableError),
-		clustercache.SetLogr(*logger.New(nil, nil).LogrLogger),
+		clustercache.SetLogr(*logger.New().LogrLogger),
 	}
 
 	clusterCache := clustercache.NewClusterCache(clusterCacheConfig, clusterCacheOpts...)

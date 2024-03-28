@@ -23,7 +23,7 @@ func mock() (NumaLogger, *bytes.Buffer) {
 	var buf bytes.Buffer
 	w := io.Writer(&buf)
 	lvl := verboseLevel
-	return New(&w, &lvl), &buf
+	return newNumaLogger(&w, &lvl), &buf
 }
 
 func TestWrappers(t *testing.T) {

@@ -12,10 +12,10 @@ var tracer tracing.Tracer = &tracing.NopTracer{}
 
 func init() {
 	if os.Getenv("NUMAPLANE_TRACING_ENABLED") == "1" {
-		tracer = tracing.NewLoggingTracer(*logger.New(nil, nil).LogrLogger)
+		tracer = tracing.NewLoggingTracer(*logger.New().LogrLogger)
 	}
 }
 
 func NewKubectl() kube.Kubectl {
-	return &kube.KubectlCmd{Tracer: tracer, Log: *logger.New(nil, nil).LogrLogger}
+	return &kube.KubectlCmd{Tracer: tracer, Log: *logger.New().LogrLogger}
 }
