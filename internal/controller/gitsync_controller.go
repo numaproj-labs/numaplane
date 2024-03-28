@@ -20,9 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -140,15 +137,17 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 	if !gitSync.DeletionTimestamp.IsZero() {
 		logger.Infow("Deleting", "GitSync", gitSync)
 		if r.syncer != nil {
-			// Delete the linked resources to the GitSync
-			// Is gitSync.Name is the correct value for annotation ?
-			objects, err := GetLiveManagedObjects(r.syncer.GetStateCache(), gitSync)
+			controllerConfig, err := config.GetConfigManagerInstance().GetConfig()
 			if err != nil {
-				logger.Infow("Live Managed Objects Nit Found", "GitSync", gitSync)
-			}
-			err = kubernetesshared.DeleteManagedObjectsGitSync(ctx, r.client, objects)
-			if err != nil {
+				logger.Errorw("Problem in Getting Config", err)
 				return err
+			}
+			// if cascade deletion is enabled in the config ,Delete the linked resources to the GitSync
+			if controllerConfig.CascadeDeletion {
+				err := sync.CascadeDeletion(ctx, r.client, r.syncer.GetStateCache(), gitSync)
+				if err != nil {
+					return err
+				}
 			}
 			r.syncer.StopWatching(gitSyncKey)
 		}
@@ -219,13 +218,4 @@ func needsUpdate(old, new *apiv1.GitSync) bool {
 		return true
 	}
 	return false
-}
-
-func GetLiveManagedObjects(cache sync.LiveStateCache, gitSync *apiv1.GitSync) (map[kube.ResourceKey]*unstructured.Unstructured, error) {
-	var unstructuredObj []*unstructured.Unstructured
-	objs, err := cache.GetManagedLiveObjs(gitSync, unstructuredObj)
-	if err != nil {
-		return nil, err
-	}
-	return objs, nil
 }

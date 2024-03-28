@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
-	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -31,6 +32,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
 	assert.Equal(t, 60000, config.SyncTimeIntervalMs, "SyncTimeIntervalMs does not match")
 	assert.Equal(t, 30000, config.AutoHealTimeIntervalMs, "AutoHealTimeIntervalMs does not match")
+	assert.Equal(t, false, config.CascadeDeletion, "CascadeDeletion Field does not match")
 
 	assert.NotNil(t, config.RepoCredentials, "RepoCredentials should not be nil")
 

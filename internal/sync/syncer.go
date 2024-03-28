@@ -208,17 +208,18 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	}
 	if !gitSync.GetDeletionTimestamp().IsZero() {
 		log.Debug("GitSync object being deleted.")
-		// Delete the linked resources to the GitSync
-		// Is gitSync.Name is the correct value for annotation ?
-		// Retrieve live objects managed by Gitsync
-		objects, err := GetLiveManagedObjects(s.stateCache, gitSync)
-		if err != nil {
-			log.Debug("Live managed objects not found")
 
-		}
-		err = kubernetes.DeleteManagedObjectsGitSync(ctx, s.client, objects)
+		config, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 		if err != nil {
+			log.Errorw("Problem in Getting Config", err)
 			return err
+		}
+		// if cascade deletion is enabled in the config , Delete the linked resources to the GitSync
+		if config.CascadeDeletion {
+			err := CascadeDeletion(ctx, s.client, s.stateCache, gitSync)
+			if err != nil {
+				return err
+			}
 		}
 		s.StopWatching(key)
 		return nil
@@ -259,16 +260,20 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	}
 	if !gitSync.GetDeletionTimestamp().IsZero() {
 		log.Debug("GitSync object being deleted.")
-		// Delete the linked resources to the GitSync
-		objects, err := GetLiveManagedObjects(s.stateCache, gitSync)
-		if err != nil {
-			log.Debug("Live managed objects not found")
 
-		}
-		err = kubernetes.DeleteManagedObjectsGitSync(ctx, s.client, objects)
+		config, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 		if err != nil {
+			log.Errorw("Problem in Getting Config", err)
 			return err
 		}
+		// if cascade deletion is enabled in the config ,Delete the linked resources to the GitSync
+		if config.CascadeDeletion {
+			err := CascadeDeletion(ctx, s.client, s.stateCache, gitSync)
+			if err != nil {
+				return err
+			}
+		}
+
 		s.StopWatching(key)
 		return nil
 	}
@@ -443,6 +448,8 @@ func (s *Syncer) GetStateCache() LiveStateCache {
 	return s.stateCache
 }
 
+// GetLiveManagedObjects retrieves live managed objects from the provided cache for the given GitSync configuration.
+// It returns a map of Kubernetes resource keys to unstructured objects and an error if any.
 func GetLiveManagedObjects(cache LiveStateCache, gitSync *v1alpha1.GitSync) (map[kube.ResourceKey]*unstructured.Unstructured, error) {
 	var unstructuredObj []*unstructured.Unstructured
 	objs, err := cache.GetManagedLiveObjs(gitSync, unstructuredObj)
@@ -450,4 +457,21 @@ func GetLiveManagedObjects(cache LiveStateCache, gitSync *v1alpha1.GitSync) (map
 		return nil, err
 	}
 	return objs, nil
+}
+
+// CascadeDeletion performs cascading deletion of live managed objects using GitSync.
+// It utilizes the provided context, Kubernetes client, cache, and GitSync configuration.
+// Returns an error if the deletion process encounters any issues.
+func CascadeDeletion(ctx context.Context, k8sClient client.Client, cache LiveStateCache, gitSync *v1alpha1.GitSync) error {
+	logger := logging.FromContext(ctx)
+	objects, err := GetLiveManagedObjects(cache, gitSync)
+	// Ignore the error if Not found
+	if err != nil {
+		logger.Debug("Live managed objects not found")
+	}
+	err = kubernetes.DeleteManagedObjectsGitSync(ctx, k8sClient, objects)
+	if err != nil {
+		return err
+	}
+	return nil
 }
