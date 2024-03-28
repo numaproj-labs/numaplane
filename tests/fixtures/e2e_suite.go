@@ -69,9 +69,9 @@ func (s *E2ESuite) SetupSuite() {
 		v1alpha1.GitSyncGroupVersionResource,
 	})
 
-	/* port forward git server pod */
-	// err = PodPortForward(s.restConfig, Namespace, "git-server-pod", 8443, 8443,s.stopch)
-	// s.CheckError(err)
+	// port forward git server pod
+	err = PodPortForward(s.restConfig, Namespace, "localgitserver-0", 8080, 80, s.stopch)
+	s.CheckError(err)
 
 }
 
