@@ -22,7 +22,7 @@ import (
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	gitShared "github.com/numaproj-labs/numaplane/internal/util/git"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/util/logging"
+	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
@@ -50,7 +50,7 @@ func GetLatestManifests(
 	client k8sClient.Client,
 	gitSync *v1alpha1.GitSync,
 ) (string, []*unstructured.Unstructured, error) {
-	logger := logging.FromContext(ctx).With("GitSync name", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
+	numaLogger := logger.FromContext(ctx).WithValues("GitSync name", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
 
 	// Fetch all remote branches
 	err := fetchUpdates(ctx, client, gitSync, r)
@@ -61,7 +61,7 @@ func GetLatestManifests(
 	// The revision can be a branch, a tag, or a commit hash
 	hash, err := getLatestCommitHash(r, gitSync.Spec.TargetRevision)
 	if err != nil {
-		logger.Errorw("error resolving the revision", "revision", gitSync.Spec.TargetRevision, "err", err, "repo", gitSync.Spec.RepoUrl)
+		numaLogger.Error(err, "error resolving the revision", "revision", gitSync.Spec.TargetRevision, "repo", gitSync.Spec.RepoUrl)
 		return "", nil, err
 	}
 
