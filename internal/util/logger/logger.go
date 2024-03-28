@@ -6,9 +6,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/numaproj-labs/numaplane/internal/common"
 	"github.com/rs/zerolog"
 )
 
@@ -68,8 +70,14 @@ type LogSink struct {
 // default setup for zerolog, os.Stdout writer, and info level.
 func New() NumaLogger {
 	w := io.Writer(os.Stdout)
-	lvl := int(defaultLevel)
-	return newNumaLogger(&w, &lvl)
+
+	lvlStr := os.Getenv(common.EnvLogLevel)
+	lvlInt, err := strconv.Atoi(lvlStr)
+	if err != nil {
+		return newNumaLogger(&w, nil)
+	}
+
+	return newNumaLogger(&w, &lvlInt)
 }
 
 // newNumaLogger returns a new NumaLogger with a logr.Logger instance with a default setup for zerolog.
