@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	apiv1 "github.com/numaproj-labs/numaplane/api/v1alpha1"
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	"github.com/spf13/viper"
 )
 
@@ -78,10 +78,13 @@ func (cm *ConfigManager) LoadConfig(onErrorReloading func(error), configPath, co
 	if err != nil {
 		return fmt.Errorf("failed to load configuration file. %w", err)
 	}
-
-	err = v.Unmarshal(cm.config)
-	if err != nil {
-		return fmt.Errorf("failed unmarshal configuration file. %w", err)
+	{
+		cm.lock.Lock()
+		defer cm.lock.Unlock()
+		err = v.Unmarshal(cm.config)
+		if err != nil {
+			return fmt.Errorf("failed unmarshal configuration file. %w", err)
+		}
 	}
 	v.OnConfigChange(func(e fsnotify.Event) {
 		cm.lock.Lock()
