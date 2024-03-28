@@ -26,3 +26,6 @@ Dockerfile.cross
 *.swo
 *~
 **/.DS_Store
+
+# tmp directory built for e2e test
+tests/e2e/tmp

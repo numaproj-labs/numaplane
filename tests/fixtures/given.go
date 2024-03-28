@@ -26,12 +26,21 @@ import (
 	"testing"
 
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
+)
+
+var (
+	auth = &http.BasicAuth{
+		Username: "root",
+		Password: "root",
+	}
+	tempPath = "./tmp"
 )
 
 type Given struct {
@@ -123,6 +132,7 @@ func (g *Given) CloneGitRepo() *Given {
 	}
 
 	// assumes no nested directory for now
+	// TODO: account for nested directories
 	for _, file := range dir {
 		name := file.Name()
 		err := CopyFile(filepath.Join(dataPath, name), filepath.Join(tmpPath, name))
@@ -160,13 +170,11 @@ func (g *Given) CloneGitRepo() *Given {
 // clone repository unless it's already been cloned
 func (g *Given) cloneRepo(ctx context.Context) (*git.Repository, error) {
 
-	path := "./tmp"
-
 	cloneOpts := git.CloneOptions{URL: g.gitSync.Spec.RepoUrl, Auth: auth}
 
-	repo, err := git.PlainCloneContext(ctx, path, false, &cloneOpts)
+	repo, err := git.PlainCloneContext(ctx, tempPath, false, &cloneOpts)
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		existingRepo, openErr := git.PlainOpen(path)
+		existingRepo, openErr := git.PlainOpen(tempPath)
 		if openErr != nil {
 			return repo, fmt.Errorf("failed to open existing repo: %v", openErr)
 		}

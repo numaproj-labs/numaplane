@@ -27,14 +27,12 @@ func CopyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
 
 	// create dest file, overwrite if already exists
 	destFile, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer destFile.Close()
 
 	_, err = io.Copy(destFile, srcFile)
 	if err != nil {
@@ -42,6 +40,16 @@ func CopyFile(src, dst string) error {
 	}
 
 	err = destFile.Sync()
+	if err != nil {
+		return err
+	}
+
+	err = srcFile.Close()
+	if err != nil {
+		return err
+	}
+
+	err = destFile.Close()
 	if err != nil {
 		return err
 	}
