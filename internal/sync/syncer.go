@@ -212,7 +212,6 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 			return err
 		}
 		s.StopWatching(key)
-
 		return nil
 	}
 
