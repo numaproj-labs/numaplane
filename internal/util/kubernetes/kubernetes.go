@@ -114,8 +114,7 @@ func IsValidKubernetesManifestFile(fileName string) bool {
 func DeleteManagedObjectsGitSync(ctx context.Context, client k8sClient.Client, objs map[kube.ResourceKey]*unstructured.Unstructured) error {
 	for _, obj := range objs {
 		if err := DeleteKubernetesResource(ctx, client, obj); err != nil {
-			return fmt.Errorf("failed to delete resource %s/%s with error %w ",
-				obj.GetNamespace(), obj.GetName(), err)
+			return err
 		}
 	}
 	return nil

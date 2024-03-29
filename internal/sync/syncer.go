@@ -255,7 +255,6 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	} else {
 		return updateCommitStatus(ctx, s.client, &numaLogger, namespacedName, commitHash, synced, syncMessage)
 	}
-
 }
 
 type resourceInfoProviderStub struct {
