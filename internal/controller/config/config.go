@@ -38,6 +38,7 @@ type GlobalConfig struct {
 	AutoHealTimeIntervalMs int    `json:"autoHealTimeIntervalMs" mapstructure:"autoHealTimeIntervalMs"`
 	// RepoCredentials maps each Git Repository Path prefix to the corresponding credentials that are needed for it
 	RepoCredentials []apiv1.RepoCredential `json:"repoCredentials" mapstructure:"repoCredentials"`
+	LogLevel        int                    `json:"logLevel" mapstructure:"logLevel"`
 }
 
 func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {

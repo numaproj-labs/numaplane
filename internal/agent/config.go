@@ -29,8 +29,8 @@ import (
 type AgentConfig struct {
 	ClusterName     string `mapstructure:"clusterName"`
 	TimeIntervalSec uint   `mapstructure:"timeIntervalSec"`
-
-	Source Source `mapstructure:"source"`
+	Source          Source `mapstructure:"source"`
+	LogLevel        int    `mapstructure:"logLevel"`
 }
 
 type Source struct {
