@@ -100,6 +100,9 @@ func (syncer *AgentSyncer) checkConfigUpdate() bool {
 			return false
 		}
 		syncer.configRevision = newRevision
+
+		syncer.numaLogger.SetLevel(syncer.config.LogLevel)
+
 		return true
 	}
 	return false
