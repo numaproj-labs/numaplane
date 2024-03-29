@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
+	planeversiond "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned"
+	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -33,9 +35,11 @@ import (
 
 const (
 	/* resource names */
-	Namespace      = "numaplane-system"
-	Label          = "numaplane-e2e"
-	defaultTimeout = 60 * time.Second
+	Namespace       = "numaplane-system"
+	TargetNamespace = "numaflow-pipeline"
+	E2ELabel        = "numaplane-e2e"
+	E2ELabelValue   = "true"
+	defaultTimeout  = 60 * time.Second
 )
 
 var (
@@ -44,17 +48,21 @@ var (
 
 type E2ESuite struct {
 	suite.Suite
-	restConfig *rest.Config
-	kubeClient kubernetes.Interface
-	stopch     chan struct{}
+	restConfig    *rest.Config
+	kubeClient    kubernetes.Interface
+	gitSyncClient planepkg.GitSyncInterface
+	stopch        chan struct{}
 }
 
 func (s *E2ESuite) SetupSuite() {
 	var err error
+	s.stopch = make(chan struct{})
 	s.restConfig, err = k8sRestConfig()
 	s.CheckError(err)
 	s.kubeClient, err = kubernetes.NewForConfig(s.restConfig)
 	s.CheckError(err)
+
+	s.gitSyncClient = planeversiond.NewForConfigOrDie(s.restConfig).NumaplaneV1alpha1().GitSyncs(Namespace)
 
 	// resource cleanup
 	s.deleteResources([]schema.GroupVersionResource{
@@ -81,8 +89,17 @@ func (s *E2ESuite) CheckError(err error) {
 	}
 }
 
+func (s *E2ESuite) Given() *Given {
+	return &Given{
+		t:             s.T(),
+		restConfig:    s.restConfig,
+		kubeClient:    s.kubeClient,
+		gitSyncClient: s.gitSyncClient,
+	}
+}
+
 func (s *E2ESuite) deleteResources(resources []schema.GroupVersionResource) {
-	hasTestLabel := metav1.ListOptions{LabelSelector: Label}
+	hasTestLabel := metav1.ListOptions{LabelSelector: E2ELabel}
 	ctx := context.Background()
 	for _, r := range resources {
 		err := s.dynamicFor(r).DeleteCollection(ctx, metav1.DeleteOptions{PropagationPolicy: &background}, hasTestLabel)

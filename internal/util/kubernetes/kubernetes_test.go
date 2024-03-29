@@ -175,7 +175,22 @@ func TestDeleteKubernetesResource(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestDeleteResourcesByAnnotation(t *testing.T) {
+func TestDeleteKubernetesResourceNotFound(t *testing.T) {
+	scheme := runtime.NewScheme()
+	err := corev1.AddToScheme(scheme)
+	assert.NoError(t, err)
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "numaplane-test",
+		},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	err = DeleteKubernetesResource(context.Background(), fakeClient, pod)
+	assert.NoError(t, err)
+}
+
+func TestDeleteManagedObjectsGitSync(t *testing.T) {
 	ctx := context.TODO()
 	scheme := runtime.NewScheme()
 	err := corev1.AddToScheme(scheme)
@@ -200,7 +215,7 @@ func TestDeleteResourcesByAnnotation(t *testing.T) {
 			Namespace: "test-namespace",
 		}: resource,
 	}
-	// Now call DeleteResourcesByAnnotations
+	// Now call DeleteManagedObjectsGitSync
 	err = DeleteManagedObjectsGitSync(ctx, fakeClient, objs)
 	assert.NoError(t, err)
 	assert.Nil(t, err)
