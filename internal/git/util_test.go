@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -54,15 +55,27 @@ func TestMain(m *testing.M) {
 	}
 	pool = p
 
+	relativePath := "../../tests/e2e-gitserver"
+	absolutePath, err := filepath.Abs(relativePath)
+	if err != nil {
+		log.Fatalf("Failed to get absolute path: %s", err)
+	}
+
+	authorizedKeys := fmt.Sprintf("%s/authorized_keys:/root/.ssh/authorized_keys", absolutePath)
+	httPasswd := fmt.Sprintf("%s/.htpasswd:/auth/.htpasswd", absolutePath)
 	// Start the local Git server container if not already running
 	opts := dockertest.RunOptions{
-		Repository:   "quay.io/numaio/localgitserver",
+		Repository:   "quay.io/numaio/numaplane-e2e-gitserver",
 		Tag:          "latest",
 		ExposedPorts: []string{"22", "80", "443"},
 		PortBindings: map[docker.Port][]docker.PortBinding{
 			"22/tcp":  {{HostIP: "127.0.0.1", HostPort: "2222"}},
 			"443/tcp": {{HostIP: "127.0.0.1", HostPort: "8443"}},
 			"80/tcp":  {{HostIP: "127.0.0.1", HostPort: "8080"}},
+		},
+		Mounts: []string{
+			authorizedKeys,
+			httPasswd,
 		},
 	}
 	resource, err := pool.RunWithOptions(&opts)
