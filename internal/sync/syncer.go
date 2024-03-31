@@ -410,11 +410,6 @@ func updateCommitStatus(
 	return nil
 }
 
-// GetStateCache is the exported method for getting the cache  in other packages
-func (s *Syncer) GetStateCache() LiveStateCache {
-	return s.stateCache
-}
-
 // GetLiveManagedObjects retrieves live managed objects from the provided cache for the given GitSync configuration.
 // It returns a map of Kubernetes resource keys to unstructured objects and an error if any.
 func GetLiveManagedObjects(cache LiveStateCache, gitSync *v1alpha1.GitSync) (map[kube.ResourceKey]*unstructured.Unstructured, error) {
@@ -436,7 +431,7 @@ func CascadeDeletion(ctx context.Context, k8sClient client.Client, cache LiveSta
 		numaLogger.Debug("Live managed objects not found")
 		return err
 	}
-	err = kubernetes.DeleteManagedObjectsGitSync(ctx, k8sClient, objects)
+	err = kubernetes.DeleteManagedObjects(ctx, k8sClient, objects)
 	if err != nil {
 		return err
 	}
@@ -450,10 +445,7 @@ func ProcessGitSyncDeletion(ctx context.Context, gitSync *v1alpha1.GitSync, s *S
 	}
 	// if cascade deletion is enabled in the config ,Delete the linked resources to the GitSync
 	if config.CascadeDeletion {
-		err := CascadeDeletion(ctx, s.client, s.stateCache, gitSync)
-		if err != nil {
-			return err
-		}
+		return CascadeDeletion(ctx, s.client, s.stateCache, gitSync)
 	}
 	return nil
 }

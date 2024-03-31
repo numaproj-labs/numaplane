@@ -216,7 +216,7 @@ func TestDeleteManagedObjectsGitSync(t *testing.T) {
 		}: resource,
 	}
 	// Now call DeleteManagedObjectsGitSync
-	err = DeleteManagedObjectsGitSync(ctx, fakeClient, objs)
+	err = DeleteManagedObjects(ctx, fakeClient, objs)
 	assert.NoError(t, err)
 	assert.Nil(t, err)
 

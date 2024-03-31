@@ -110,8 +110,8 @@ func IsValidKubernetesManifestFile(fileName string) bool {
 	return false
 }
 
-// DeleteManagedObjectsGitSync deletes Kubernetes resources from a map sequentially, returning an error if any deletion fails.
-func DeleteManagedObjectsGitSync(ctx context.Context, client k8sClient.Client, objs map[kube.ResourceKey]*unstructured.Unstructured) error {
+// DeleteManagedObjects deletes Kubernetes resources from a map sequentially, returning an error if any deletion fails.
+func DeleteManagedObjects(ctx context.Context, client k8sClient.Client, objs map[kube.ResourceKey]*unstructured.Unstructured) error {
 	for _, obj := range objs {
 		if err := DeleteKubernetesResource(ctx, client, obj); err != nil {
 			return err
