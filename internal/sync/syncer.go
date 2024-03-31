@@ -112,7 +112,7 @@ func (s *Syncer) StopWatching(key string) {
 }
 
 // Start function starts the synchronizer worker group.
-// Each worker keeps picking up tasks (which contains GitSync keys) to sync the resources.
+// Each worker keeps picking up tasks (which contains GitSync keys) to sync the includedResources.
 func (s *Syncer) Start(ctx context.Context) error {
 	numaLogger := logger.FromContext(ctx).WithName("synchronizer")
 	numaLogger.Info("Starting synchronizer...")
@@ -121,7 +121,10 @@ func (s *Syncer) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(logger.WithLogger(ctx, numaLogger))
 	defer cancel()
 
-	s.stateCache.Init()
+	err := s.stateCache.Init()
+	if err != nil {
+		return err
+	}
 
 	// Worker group
 	for i := 1; i <= s.options.workers; i++ {
@@ -217,7 +220,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
-		numaLogger.Error(err, "error getting  the  global config")
+		numaLogger.Error(err, "error getting the global config")
 	}
 
 	numaLogger.SetLevel(globalConfig.LogLevel)
@@ -267,7 +270,7 @@ func (r *resourceInfoProviderStub) IsNamespaced(_ schema.GroupKind) (bool, error
 	return false, nil
 }
 
-// sync compares the live state of the watched resources to target state defined in git
+// sync compares the live state of the watched includedResources to target state defined in git
 // for the given GitSync. If it doesn't match, syncing the state to the live objects. Otherwise,
 // skip the syncing.
 func (s *Syncer) sync(

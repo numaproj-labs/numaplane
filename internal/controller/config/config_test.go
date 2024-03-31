@@ -33,6 +33,12 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Equal(t, 60000, config.SyncTimeIntervalMs, "SyncTimeIntervalMs does not match")
 	assert.Equal(t, 30000, config.AutoHealTimeIntervalMs, "AutoHealTimeIntervalMs does not match")
 	assert.Equal(t, false, config.CascadeDeletion, "CascadeDeletion Field does not match")
+	assert.Equal(t, "group=apps,kind=Deployment;"+
+		"group=,kind=ConfigMap;group=,kind=Secret;group=,kind=ServiceAccount;group=,kind=Namespace;"+
+		"group=numaflow.numaproj.io,kind=;"+
+		"group=numaflow.numaproj.io,kind=;"+
+		"group=rbac.authorization.k8s.io,kind=RoleBinding;group=rbac.authorization.k8s.io,kind=Role",
+		config.IncludedResources, "IncludedResources does not match")
 
 	assert.NotNil(t, config.RepoCredentials, "RepoCredentials should not be nil")
 

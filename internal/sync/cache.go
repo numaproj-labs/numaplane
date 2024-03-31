@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/numaproj-labs/numaplane/internal/common"
+	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
@@ -78,7 +79,7 @@ type LiveStateCache interface {
 	// GetManagedLiveObjs returns state of live nodes which correspond to target nodes of specified gitsync.
 	GetManagedLiveObjs(gitsync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (map[kube.ResourceKey]*unstructured.Unstructured, error)
 	// Init must be executed before cache can be used
-	Init()
+	Init() error
 	// PopulateResourceInfo is called by the cache to update ResourceInfo struct for a managed resource
 	PopulateResourceInfo(un *unstructured.Unstructured, isRoot bool) (interface{}, bool)
 }
@@ -165,7 +166,7 @@ func (c *liveStateCache) getCluster() clustercache.ClusterCache {
 		}
 
 		// TODO: when switch to change event triggering for sync tasking, notify
-		//       the GitSync managing the resources that there are changes happen
+		//       the GitSync managing the includedResources that there are changes happen
 	})
 
 	c.cluster = clusterCache
@@ -322,19 +323,62 @@ func (c *liveStateCache) getSyncedCluster() (clustercache.ClusterCache, error) {
 	return clusterCache, nil
 }
 
-func (c *liveStateCache) Init() {
-	setting := c.loadCacheSettings()
+func (c *liveStateCache) Init() error {
+	setting, err := c.loadCacheSettings()
+	if err != nil {
+		return fmt.Errorf("error on init live state cache: %w", err)
+	}
 	c.cacheSettings = *setting
+	return nil
 }
 
-func (c *liveStateCache) loadCacheSettings() *cacheSettings {
+func (c *liveStateCache) loadCacheSettings() (*cacheSettings, error) {
 	ignoreResourceUpdatesEnabled := false
-	resourcesFilter := &NoopResourceFilter{}
+	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error on getting global config: %w", err)
+	}
+	includedResources, err := parseResourceFilter(globalConfig.IncludedResources)
+	if err != nil {
+		return nil, fmt.Errorf("error on parsing resource filter rules: %w", err)
+	}
+	resourcesFilter := &ResourceFilter{
+		includedResources: *includedResources,
+	}
 	clusterSettings := clustercache.Settings{
 		ResourcesFilter: resourcesFilter,
 	}
 
-	return &cacheSettings{clusterSettings, ignoreResourceUpdatesEnabled}
+	return &cacheSettings{clusterSettings, ignoreResourceUpdatesEnabled}, nil
+}
+
+// parseResourceFilter parse the given rules to generate the
+// included resource to be watched during caching. The rules are
+// delimited by ';', and each rule is composed by both 'group'
+// and 'kind' which can be empty. For example,
+// 'group=apps,kind=Deployment;group=,kind=ConfigMap'.
+func parseResourceFilter(rules string) (*[]ResourceType, error) {
+	filteredResources := make([]ResourceType, 0)
+	rulesArr := strings.Split(rules, ";")
+	err := fmt.Errorf("malformed resource filter rules %q", rules)
+	for _, rule := range rulesArr {
+		ruleArr := strings.Split(rule, ",")
+		if len(ruleArr) != 2 {
+			return nil, err
+		}
+		groupArr := strings.Split(ruleArr[0], "=")
+		kindArr := strings.Split(ruleArr[1], "=")
+		if !strings.EqualFold(groupArr[0], "group") || !strings.EqualFold(kindArr[0], "kind") {
+			return nil, err
+		}
+		filteredResource := ResourceType{
+			Group: groupArr[1],
+			Kind:  kindArr[1],
+		}
+		filteredResources = append(filteredResources, filteredResource)
+	}
+	return &filteredResources, nil
+
 }
 
 func (c *liveStateCache) GetClusterCache() (clustercache.ClusterCache, error) {
@@ -363,11 +407,26 @@ func NewNoopNormalizer() diff.Normalizer {
 	return &NoopNormalizer{}
 }
 
-// NoopResourceFilter a noop resource filter
-// TODO: add more meaningful resource filter
-type NoopResourceFilter struct {
+// ResourceFilter filter resources based on allowed Resource Types
+type ResourceFilter struct {
+	includedResources []ResourceType
 }
 
-func (n *NoopResourceFilter) IsExcludedResource(group, kind, cluster string) bool {
-	return false
+type ResourceType struct {
+	Group string
+	Kind  string
+}
+
+func (n *ResourceFilter) IsExcludedResource(group, kind, _ string) bool {
+	for _, resource := range n.includedResources {
+		// When Kind is empty, we only check if Group matches
+		if resource.Kind == "" {
+			if group == resource.Group {
+				return false
+			}
+		} else if group == resource.Group && kind == resource.Kind {
+			return false
+		}
+	}
+	return true
 }
