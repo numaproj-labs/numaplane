@@ -137,6 +137,10 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 	if !gitSync.DeletionTimestamp.IsZero() {
 		numaLogger.Info("Deleting", "GitSync", gitSync)
 		if r.syncer != nil {
+			err := sync.ProcessGitSyncDeletion(ctx, gitSync, r.syncer)
+			if err != nil {
+				return err
+			}
 			r.syncer.StopWatching(gitSyncKey)
 		}
 		if controllerutil.ContainsFinalizer(gitSync, finalizerName) {

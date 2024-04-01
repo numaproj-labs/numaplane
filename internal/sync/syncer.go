@@ -11,6 +11,7 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/diff"
 	gitopsSync "github.com/argoproj/gitops-engine/pkg/sync"
 	gitopsSyncCommon "github.com/argoproj/gitops-engine/pkg/sync/common"
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	kubeUtil "github.com/argoproj/gitops-engine/pkg/utils/kube"
 	log "github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -205,8 +206,12 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		return fmt.Errorf("failed to query GitSync object of key %q, %w", key, err)
 	}
 	if !gitSync.GetDeletionTimestamp().IsZero() {
-		s.StopWatching(key)
 		numaLogger.Debug("GitSync object being deleted.")
+		err := ProcessGitSyncDeletion(ctx, gitSync, s)
+		if err != nil {
+			return err
+		}
+		s.StopWatching(key)
 		return nil
 	}
 
@@ -241,7 +246,18 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		Namespace: gitSync.Namespace,
 		Name:      gitSync.Name,
 	}
-	return updateCommitStatus(ctx, s.client, &numaLogger, namespacedName, commitHash, synced, syncMessage)
+
+	if !gitSync.GetDeletionTimestamp().IsZero() {
+		log.Debug("GitSync object being deleted.")
+		err := ProcessGitSyncDeletion(ctx, gitSync, s)
+		if err != nil {
+			return err
+		}
+		s.StopWatching(key)
+		return nil
+	} else {
+		return updateCommitStatus(ctx, s.client, &numaLogger, namespacedName, commitHash, synced, syncMessage)
+	}
 }
 
 type resourceInfoProviderStub struct {
@@ -393,6 +409,46 @@ func updateCommitStatus(
 	if err := kubeClient.Status().Update(ctx, gitSync); err != nil {
 		numaLogger.Error(err, "Error Updating GitSync Status", "err")
 		return err
+	}
+	return nil
+}
+
+// GetLiveManagedObjects retrieves live managed objects from the provided cache for the given GitSync configuration.
+// It returns a map of Kubernetes resource keys to unstructured objects and an error if any.
+func GetLiveManagedObjects(cache LiveStateCache, gitSync *v1alpha1.GitSync) (map[kube.ResourceKey]*unstructured.Unstructured, error) {
+	var unstructuredObj []*unstructured.Unstructured
+	objs, err := cache.GetManagedLiveObjs(gitSync, unstructuredObj)
+	if err != nil {
+		return nil, err
+	}
+	return objs, nil
+}
+
+// CascadeDeletion performs cascading deletion of live managed objects using GitSync.
+// It utilizes the provided context, Kubernetes client, cache, and GitSync configuration.
+// Returns an error if the deletion process encounters any issues.
+func CascadeDeletion(ctx context.Context, k8sClient client.Client, cache LiveStateCache, gitSync *v1alpha1.GitSync) error {
+	numaLogger := logger.FromContext(ctx)
+	objects, err := GetLiveManagedObjects(cache, gitSync)
+	if err != nil {
+		numaLogger.Debug("Live managed objects not found")
+		return err
+	}
+	err = kubernetes.DeleteManagedObjects(ctx, k8sClient, objects)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ProcessGitSyncDeletion(ctx context.Context, gitSync *v1alpha1.GitSync, s *Syncer) error {
+	config, err := controllerConfig.GetConfigManagerInstance().GetConfig()
+	if err != nil {
+		return err
+	}
+	// if cascade deletion is enabled in the config ,Delete the linked resources to the GitSync
+	if config.CascadeDeletion {
+		return CascadeDeletion(ctx, s.client, s.stateCache, gitSync)
 	}
 	return nil
 }
