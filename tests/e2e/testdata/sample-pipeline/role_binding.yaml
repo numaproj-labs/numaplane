@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: controller-manager
+    app.kubernetes.io/name: numaflow-controller-manager
+    app.kubernetes.io/part-of: numaflow
+  name: numaflow-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: numaflow-role
+subjects:
+  - kind: ServiceAccount
+    name: numaflow-sa

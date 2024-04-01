@@ -1,0 +1,13 @@
+apiVersion: numaplane.numaproj.io/v1alpha1
+kind: GitSync
+metadata:
+  name: test-push-gitsync
+  namespace: numaplane-system
+spec:
+  path: sample-pipeline
+  repoUrl: http://localhost:8080/git/repo1.git
+  targetRevision: master
+  raw: {}
+  destination:
+    cluster: staging-usw2-k8s
+    namespace: numaflow-pipeline

@@ -19,10 +19,12 @@ package fixtures
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -83,7 +85,7 @@ func (w *When) DeleteGitSyncAndWait() *When {
 }
 
 // make git push to Git server pod
-func (w *When) PushToGitRepo(files []string) *When {
+func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
 
 	// open tmp path to cloned git server
 	repo, err := git.PlainOpen(tempPath)
@@ -97,9 +99,18 @@ func (w *When) PushToGitRepo(files []string) *When {
 		w.t.Fatal(err)
 	}
 
+	// dataPath points to commit directory with edited files
+	dataPath := filepath.Join("testdata", directory)
+	tmpPath := filepath.Join("tmp", w.gitSync.Spec.Path)
+
 	// iterate over files to be added and committed
-	for _, f := range files {
-		_, err = wt.Add(f)
+	for _, fileName := range fileNames {
+
+		err := CopyFile(filepath.Join(dataPath, fileName), filepath.Join(tmpPath, fileName))
+		if err != nil {
+			w.t.Fatal(err)
+		}
+		_, err = wt.Add(w.gitSync.Spec.Path)
 		if err != nil {
 			w.t.Fatal(err)
 		}
@@ -114,6 +125,7 @@ func (w *When) PushToGitRepo(files []string) *When {
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		Auth:       auth,
+		RefSpecs:   []config.RefSpec{"refs/heads/master:refs/heads/master"},
 	})
 	if err != nil {
 		w.t.Fatal(err)

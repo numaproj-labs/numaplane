@@ -82,6 +82,14 @@ func (s *E2ESuite) TearDownSuite() {
 	close(s.stopch)
 }
 
+// func (s *E2ESuite) BeforeTest() {}
+
+// func (s *E2ESuite) AfterTest(suiteName, testName string) {
+// 	// delete tmp directory after each test
+// 	err := os.RemoveAll("tmp")
+// 	s.CheckError(err)
+// }
+
 func (s *E2ESuite) CheckError(err error) {
 	s.T().Helper()
 	if err != nil {
