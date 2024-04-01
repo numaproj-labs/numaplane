@@ -96,9 +96,6 @@ func main() {
 	if err != nil {
 		numaLogger.Fatal(err, "Failed to get config")
 	}
-
-	numaLogger.SetLevel(config.LogLevel)
-
 	interval := config.AutoHealTimeIntervalMs
 	// If auto healing is not enabled, use the automated syncing
 	// interval instead.

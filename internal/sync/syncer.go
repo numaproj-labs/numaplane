@@ -214,9 +214,6 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err != nil {
 		numaLogger.Error(err, "error getting  the  global config")
 	}
-
-	numaLogger.SetLevel(globalConfig.LogLevel)
-
 	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to clone the repo of key %q, %w", key, err)

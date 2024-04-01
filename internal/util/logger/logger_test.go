@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -20,21 +19,16 @@ type LogJSON struct {
 	FieldB  string `json:"fieldB,omitempty"`
 }
 
-func mock(level *int) (NumaLogger, *bytes.Buffer) {
+func mock() (NumaLogger, *bytes.Buffer) {
 	var buf bytes.Buffer
 	w := io.Writer(&buf)
-
-	lvl := VerboseLevel
-	if level != nil {
-		lvl = *level
-	}
-
+	lvl := verboseLevel
 	return newNumaLogger(&w, &lvl), &buf
 }
 
 func TestWrappers(t *testing.T) {
 	t.Run("verbose", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		expected := LogJSON{
 			"verbose",
@@ -56,7 +50,7 @@ func TestWrappers(t *testing.T) {
 	})
 
 	t.Run("debug", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		expected := LogJSON{
 			"debug",
@@ -78,7 +72,7 @@ func TestWrappers(t *testing.T) {
 	})
 
 	t.Run("info", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		expected := LogJSON{
 			"info",
@@ -100,7 +94,7 @@ func TestWrappers(t *testing.T) {
 	})
 
 	t.Run("warn", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		expected := LogJSON{
 			"warn",
@@ -122,7 +116,7 @@ func TestWrappers(t *testing.T) {
 	})
 
 	t.Run("error", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		err := errors.New("test error")
 
@@ -148,7 +142,7 @@ func TestWrappers(t *testing.T) {
 
 func TestFWrappers(t *testing.T) {
 	t.Run("verbosef", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		expected := LogJSON{
 			"verbose",
@@ -170,7 +164,7 @@ func TestFWrappers(t *testing.T) {
 	})
 
 	t.Run("debugf", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		expected := LogJSON{
 			"debug",
@@ -192,7 +186,7 @@ func TestFWrappers(t *testing.T) {
 	})
 
 	t.Run("infof", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		expected := LogJSON{
 			"info",
@@ -214,7 +208,7 @@ func TestFWrappers(t *testing.T) {
 	})
 
 	t.Run("warnf", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		expected := LogJSON{
 			"warn",
@@ -236,7 +230,7 @@ func TestFWrappers(t *testing.T) {
 	})
 
 	t.Run("errorf", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		err := errors.New("test errorf")
 
@@ -262,7 +256,7 @@ func TestFWrappers(t *testing.T) {
 
 func TestWithClauses(t *testing.T) {
 	t.Run("withName", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		expected := LogJSON{
 			"info",
@@ -284,7 +278,7 @@ func TestWithClauses(t *testing.T) {
 	})
 
 	t.Run("withFields", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		expected := LogJSON{
 			"debug",
@@ -306,7 +300,7 @@ func TestWithClauses(t *testing.T) {
 	})
 
 	t.Run("withValues", func(t *testing.T) {
-		nl, buf := mock(nil)
+		nl, buf := mock()
 
 		expected := LogJSON{
 			"debug",
@@ -326,59 +320,4 @@ func TestWithClauses(t *testing.T) {
 			t.Errorf("\nActual:\n%+v\nExpected:\n%+v", actual, expected)
 		}
 	})
-}
-
-func TestLevelChanges(t *testing.T) {
-	lvl := DebugLevel
-	nl, buf := mock(&lvl)
-
-	expected := []LogJSON{{
-		"debug",
-		"debug msg 1",
-		"",
-		loggerDefaultName,
-		"",
-		"",
-	},
-		{
-			"info",
-			"info msg 1",
-			"",
-			loggerDefaultName,
-			"",
-			"",
-		},
-		{
-			"info",
-			"info msg 2",
-			"",
-			loggerDefaultName,
-			"",
-			"",
-		},
-	}
-
-	nl.Verbose("verbose msg 1")
-	nl.Debug("debug msg 1")
-	nl.Info("info msg 1")
-	nl.SetLevel(InfoLevel)
-	nl.Verbose("verbose msg 2")
-	nl.Debug("debug msg 2")
-	nl.Info("info msg 2")
-	nl.SetLevel(FatalLevel)
-	nl.Verbose("verbose msg 3")
-	nl.Debug("debug msg 3")
-	nl.Info("info msg 3")
-
-	scanner := bufio.NewScanner(buf)
-	var actual []LogJSON
-	for scanner.Scan() {
-		var curr LogJSON
-		_ = json.Unmarshal(scanner.Bytes(), &curr)
-		actual = append(actual, curr)
-	}
-
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("\nActual:\n%+v\nExpected:\n%+v", actual, expected)
-	}
 }

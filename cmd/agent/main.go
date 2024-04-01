@@ -50,12 +50,10 @@ func main() {
 	if err != nil {
 		numaLogger.Fatal(err, "Failed to get configuration file")
 	}
-
-	numaLogger.SetLevel(config.LogLevel)
-
 	numaLogger.Infof("config: %+v", config)
 
 	// create a new AgentSyncer
 	syncer := agent.NewAgentSyncer(&numaLogger)
 	syncer.Run(ctx)
+
 }

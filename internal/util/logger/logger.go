@@ -35,22 +35,22 @@ Log Level Mapping:
 */
 
 const (
-	FatalLevel   = 0
-	WarnLevel    = 1
-	InfoLevel    = 2
-	DebugLevel   = 3
-	VerboseLevel = 4
+	fatalLevel   = 0
+	warnLevel    = 1
+	infoLevel    = 2
+	debugLevel   = 3
+	verboseLevel = 4
 )
 
 var logrVerbosityToZerologLevelMap = map[int]zerolog.Level{
-	FatalLevel:   4,
-	WarnLevel:    2,
-	InfoLevel:    1,
-	DebugLevel:   0,
-	VerboseLevel: -2,
+	fatalLevel:   4,
+	warnLevel:    2,
+	infoLevel:    1,
+	debugLevel:   0,
+	verboseLevel: -2,
 }
 
-const defaultLevel = InfoLevel
+const defaultLevel = infoLevel
 
 type loggerKey struct{}
 
@@ -92,7 +92,7 @@ func newNumaLogger(writer *io.Writer, level *int) NumaLogger {
 	zerolog.CallerMarshalFunc = zerologCallerMarshalFunc
 
 	// Set zerolog global level to the most verbose level
-	zerolog.SetGlobalLevel(logrVerbosityToZerologLevelMap[VerboseLevel])
+	zerolog.SetGlobalLevel(logrVerbosityToZerologLevelMap[verboseLevel])
 
 	w := io.Writer(os.Stdout)
 	if writer != nil {
@@ -105,7 +105,7 @@ func newNumaLogger(writer *io.Writer, level *int) NumaLogger {
 	}
 
 	zl := zerolog.New(w)
-	zl = setLoggerLevel(&zl, lvl).
+	zl = setLoggerLevel(zl, lvl).
 		With().
 		Caller().
 		Timestamp().
@@ -168,7 +168,7 @@ func (nl NumaLogger) Errorf(err error, msg string, args ...any) {
 // Fatal logs an error with a message and optional key/value pairs. Then, exits with code 1.
 func (nl NumaLogger) Fatal(err error, msg string, keysAndValues ...any) {
 	keysAndValues = append(keysAndValues, "error", err)
-	nl.LogrLogger.V(FatalLevel).Info(msg, keysAndValues...)
+	nl.LogrLogger.V(fatalLevel).Info(msg, keysAndValues...)
 	os.Exit(1)
 }
 
@@ -179,7 +179,7 @@ func (nl NumaLogger) Fatalf(err error, msg string, args ...any) {
 
 // Warn logs a warning-level message with optional key/value pairs.
 func (nl NumaLogger) Warn(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(WarnLevel).Info(msg, keysAndValues...)
+	nl.LogrLogger.V(warnLevel).Info(msg, keysAndValues...)
 }
 
 // Warn logs a warning-level formatted message with args.
@@ -189,7 +189,7 @@ func (nl NumaLogger) Warnf(msg string, args ...any) {
 
 // Info logs an info-level message with optional key/value pairs.
 func (nl NumaLogger) Info(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(InfoLevel).Info(msg, keysAndValues...)
+	nl.LogrLogger.V(infoLevel).Info(msg, keysAndValues...)
 }
 
 // Infof logs an info-level formatted message with args.
@@ -199,7 +199,7 @@ func (nl NumaLogger) Infof(msg string, args ...any) {
 
 // Debug logs a debug-level message with optional key/value pairs.
 func (nl NumaLogger) Debug(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(DebugLevel).Info(msg, keysAndValues...)
+	nl.LogrLogger.V(debugLevel).Info(msg, keysAndValues...)
 }
 
 // Debugf logs a debug-level formatted message with args.
@@ -209,19 +209,12 @@ func (nl NumaLogger) Debugf(msg string, args ...any) {
 
 // Verbose logs a verbose-level message with optional key/value pairs.
 func (nl NumaLogger) Verbose(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(VerboseLevel).Info(msg, keysAndValues...)
+	nl.LogrLogger.V(verboseLevel).Info(msg, keysAndValues...)
 }
 
 // Verbosef logs a verbose-level formatted message with args.
 func (nl NumaLogger) Verbosef(msg string, args ...any) {
 	nl.WithCallDepth(1).Verbose(fmt.Sprintf(msg, args...))
-}
-
-// SetLevel sets/changes the log level.
-func (nl *NumaLogger) SetLevel(level int) {
-	sink := nl.LogrLogger.GetSink().(*LogSink)
-	zl := setLoggerLevel(sink.l, level)
-	sink.l = &zl
 }
 
 // Init receives optional information about the logr library
@@ -293,14 +286,14 @@ func (ls LogSink) WithCallDepth(depth int) logr.LogSink {
 }
 
 // setLoggerLevel sets the zerolog log level based on the given logr.Logger verbosity.
-func setLoggerLevel(logger *zerolog.Logger, level int) zerolog.Logger {
+func setLoggerLevel(logger zerolog.Logger, level int) zerolog.Logger {
 	return logger.Level(logrVerbosityToZerologLevelMap[level])
 }
 
 // zerologLevelFieldMarshalFunc adds a way to convert a custom zerolog.Level values to strings.
 func zerologLevelFieldMarshalFunc(lvl zerolog.Level) string {
 	switch lvl {
-	case logrVerbosityToZerologLevelMap[VerboseLevel]:
+	case logrVerbosityToZerologLevelMap[verboseLevel]:
 		return "verbose"
 	}
 	return lvl.String()
