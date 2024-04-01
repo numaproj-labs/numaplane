@@ -20,8 +20,9 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/zap"
+
 	kvsource "github.com/numaproj-labs/numaplane/internal/keyvaluegenerator"
-	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	//kubeutil "github.com/argoproj/gitops-engine/pkg/utils/kube"
 	//"k8s.io/client-go/rest"
@@ -29,7 +30,7 @@ import (
 )
 
 type AgentSyncer struct {
-	numaLogger *logger.NumaLogger
+	logger *zap.SugaredLogger
 
 	// the source where we watch manifests
 	gitSource *apiv1.CredentialedGitSource
@@ -53,9 +54,9 @@ type AgentSyncer struct {
 	*/
 }
 
-func NewAgentSyncer(numaLogger *logger.NumaLogger) *AgentSyncer {
+func NewAgentSyncer(logger *zap.SugaredLogger) *AgentSyncer {
 	return &AgentSyncer{
-		numaLogger:     numaLogger,
+		logger:         logger,
 		configRevision: -1, // setting this < 0 enables us to check it initially
 	}
 }
@@ -79,7 +80,7 @@ func (syncer *AgentSyncer) Run(ctx context.Context) {
 
 			time.Sleep(time.Duration(syncer.config.TimeIntervalSec) * time.Second)
 		case <-ctx.Done():
-			syncer.numaLogger.Info("context ended, terminating AgentSyncer watch")
+			syncer.logger.Info("context ended, terminating AgentSyncer watch")
 			return
 		}
 	}
@@ -96,7 +97,7 @@ func (syncer *AgentSyncer) checkConfigUpdate() bool {
 	if configManager.GetRevisionIndex() > syncer.configRevision {
 		syncer.config, newRevision, err = configManager.GetConfig()
 		if err != nil {
-			syncer.numaLogger.Error(err, "Error retrieving the configuration from config manager")
+			syncer.logger.Error(err)
 			return false
 		}
 		syncer.configRevision = newRevision
@@ -117,7 +118,7 @@ func (syncer *AgentSyncer) evaluateGitSource() {
 		// create a KVSource which will return a new set of key/value pairs
 		syncer.kvSource = createKVSource(syncer.config.Source.KeyValueGenerator)
 		generateNewGitSource = true
-		syncer.numaLogger.Infof("config update: syncer.kvSource=%+v", syncer.kvSource)
+		syncer.logger.Infof("config update: syncer.kvSource=%+v", syncer.kvSource)
 	}
 	if syncer.kvSource == nil {
 		// no KVSource defined, so just use the GitDefinition as is
@@ -133,12 +134,12 @@ func (syncer *AgentSyncer) evaluateGitSource() {
 	if generateNewGitSource {
 		gitSource, err := evaluateGitDefinition(&syncer.config.Source.GitDefinition, keysValues)
 		if err != nil {
-			syncer.numaLogger.Error(err, "Error evaluating source GitDefinition")
+			syncer.logger.Error(err)
 			syncer.gitSource = &syncer.config.Source.GitDefinition
 			return
 		} else {
 			syncer.gitSource = gitSource
-			syncer.numaLogger.Infof("keysValues modified: %+v; new gitSource value: %v", keysValues, syncer.gitSource)
+			syncer.logger.Infof("keysValues modified: %+v; new gitSource value: %v", keysValues, syncer.gitSource)
 			return
 		}
 	}

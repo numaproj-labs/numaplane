@@ -32,7 +32,7 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/sync"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/util/logger"
+	"github.com/numaproj-labs/numaplane/internal/util/logging"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
@@ -40,7 +40,7 @@ var (
 	// scheme is the runtime.Scheme to which all Numaplane API types are registered.
 	scheme = runtime.NewScheme()
 	// logger is the global logger for the controller-manager.
-	numaLogger = logger.New().WithName("controller-manager")
+	logger     = logging.NewLogger().Named("controller-manager")
 	configPath = "/etc/numaplane" // Path in the volume mounted in the pod where yaml is present
 )
 
@@ -80,21 +80,21 @@ func main() {
 		// LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
-		numaLogger.Fatal(err, "Unable to get a controller-runtime manager")
+		logger.Fatalw("Unable to get a controller-runtime manager", zap.Error(err))
 	}
 
 	// Load Config For the pod
 	configManager := config.GetConfigManagerInstance()
 	err = configManager.LoadConfig(func(err error) {
-		numaLogger.Error(err, "Failed to reload global configuration file")
+		logger.Errorw("Failed to reload global configuration file", zap.Error(err))
 	}, configPath, "config", "yaml")
 	if err != nil {
-		numaLogger.Fatal(err, "Failed to load config file")
+		logger.Fatalw("Failed to load config file", zap.Error(err))
 	}
 
 	config, err := configManager.GetConfig()
 	if err != nil {
-		numaLogger.Fatal(err, "Failed to get config")
+		logger.Fatalw("Failed to get config", zap.Error(err))
 	}
 	interval := config.AutoHealTimeIntervalMs
 	// If auto healing is not enabled, use the automated syncing
@@ -111,7 +111,7 @@ func main() {
 		sync.WithTaskInterval(interval))
 	// Add syncer runner
 	if err = mgr.Add(LeaderElectionRunner(syncer.Start)); err != nil {
-		numaLogger.Fatal(err, "Unable to add autoscaling runner")
+		logger.Fatalw("Unable to add autoscaling runner", zap.Error(err))
 	}
 	reconciler, err := controller.NewGitSyncReconciler(
 		mgr.GetClient(),
@@ -120,23 +120,23 @@ func main() {
 		syncer,
 	)
 	if err != nil {
-		numaLogger.Fatal(err, "Unable to create GitSync controller")
+		logger.Fatalw("Unable to create GitSync controller", zap.Error(err))
 	}
 
 	if err = reconciler.SetupWithManager(mgr); err != nil {
-		numaLogger.Fatal(err, "Unable to set up GitSync controller")
+		logger.Fatalw("Unable to set up GitSync controller", zap.Error(err))
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		numaLogger.Fatal(err, "Unable to set up health check")
+		logger.Fatalw("Unable to set up health check", zap.Error(err))
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		numaLogger.Fatal(err, "Unable to set up ready check")
+		logger.Fatalw("Unable to set up ready check", zap.Error(err))
 	}
 
-	numaLogger.Info("Starting manager")
+	logger.Info("Starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		numaLogger.Fatal(err, "Unable to start manager", zap.Error(err))
+		logger.Fatalw("Unable to start manager", zap.Error(err))
 	}
 }
 
