@@ -20,25 +20,29 @@ const (
 	loggerDefaultName    = "numaplane"
 	messageFieldName     = "msg"
 	timestampFieldName   = "ts"
+	defaultLevel         = InfoLevel
 )
+
+// infoLevelShift defines the value to shift by from the InfoLevel
+const infoLevelShift = 3
 
 /*
 Log Level Mapping:
 | NumaLogger semantic | logr verbosity  | zerolog        |
 | ------------------- | --------------- | -------------- |
-|    fatal            |    0            |    4           |
+|    fatal            |    1            |    4           |
 |    error            |    error (NA)   |    3           |
-|    warn             |    1            |    2           |
-|    info             |    2            |    1           |
-|    debug            |    3            |    0           |
-|    verbose          |    4            |    -2 (custom) |
+|    warn             |    2            |    2           |
+|    info             |    3            |    1           |
+|    debug            |    4            |    0           |
+|    verbose          |    5            |    -2 (custom) |
 */
 const (
-	FatalLevel   = 0
-	WarnLevel    = 1
-	InfoLevel    = 2
-	DebugLevel   = 3
-	VerboseLevel = 4
+	FatalLevel   = infoLevelShift - 2
+	WarnLevel    = infoLevelShift - 1
+	InfoLevel    = infoLevelShift
+	DebugLevel   = infoLevelShift + 1
+	VerboseLevel = infoLevelShift + 2
 )
 
 // The following map define the logr verbosity or NumaLogger semantic levels (constants above) mapping
@@ -53,8 +57,6 @@ var logrVerbosityToZerologLevelMap = map[int]zerolog.Level{
 	DebugLevel:   0,
 	VerboseLevel: -2,
 }
-
-const defaultLevel = InfoLevel
 
 type loggerKey struct{}
 
@@ -172,8 +174,8 @@ func (nl NumaLogger) Errorf(err error, msg string, args ...any) {
 // Fatal logs an error with a message and optional key/value pairs. Then, exits with code 1.
 func (nl NumaLogger) Fatal(err error, msg string, keysAndValues ...any) {
 	keysAndValues = append(keysAndValues, "error", err)
-	// NOTE: -2 is needed to offset the `level += 2` in the LogSink Info implementation
-	nl.LogrLogger.GetSink().Info(FatalLevel-2, msg, keysAndValues...)
+	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
+	nl.LogrLogger.GetSink().Info(FatalLevel-infoLevelShift, msg, keysAndValues...)
 	os.Exit(1)
 }
 
@@ -184,8 +186,8 @@ func (nl NumaLogger) Fatalf(err error, msg string, args ...any) {
 
 // Warn logs a warning-level message with optional key/value pairs.
 func (nl NumaLogger) Warn(msg string, keysAndValues ...any) {
-	// NOTE: -2 is needed to offset the `level += 2` in the LogSink Info implementation
-	nl.LogrLogger.GetSink().Info(WarnLevel-2, msg, keysAndValues...)
+	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
+	nl.LogrLogger.GetSink().Info(WarnLevel-infoLevelShift, msg, keysAndValues...)
 }
 
 // Warn logs a warning-level formatted message with args.
@@ -195,8 +197,8 @@ func (nl NumaLogger) Warnf(msg string, args ...any) {
 
 // Info logs an info-level message with optional key/value pairs.
 func (nl NumaLogger) Info(msg string, keysAndValues ...any) {
-	// NOTE: -2 is needed to offset the `level += 2` in the LogSink Info implementation
-	nl.LogrLogger.GetSink().Info(InfoLevel-2, msg, keysAndValues...)
+	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
+	nl.LogrLogger.GetSink().Info(InfoLevel-infoLevelShift, msg, keysAndValues...)
 }
 
 // Infof logs an info-level formatted message with args.
@@ -206,8 +208,8 @@ func (nl NumaLogger) Infof(msg string, args ...any) {
 
 // Debug logs a debug-level message with optional key/value pairs.
 func (nl NumaLogger) Debug(msg string, keysAndValues ...any) {
-	// NOTE: -2 is needed to offset the `level += 2` in the LogSink Info implementation
-	nl.LogrLogger.GetSink().Info(DebugLevel-2, msg, keysAndValues...)
+	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
+	nl.LogrLogger.GetSink().Info(DebugLevel-infoLevelShift, msg, keysAndValues...)
 }
 
 // Debugf logs a debug-level formatted message with args.
@@ -217,8 +219,8 @@ func (nl NumaLogger) Debugf(msg string, args ...any) {
 
 // Verbose logs a verbose-level message with optional key/value pairs.
 func (nl NumaLogger) Verbose(msg string, keysAndValues ...any) {
-	// NOTE: -2 is needed to offset the `level += 2` in the LogSink Info implementation
-	nl.LogrLogger.GetSink().Info(VerboseLevel-2, msg, keysAndValues...)
+	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
+	nl.LogrLogger.GetSink().Info(VerboseLevel-infoLevelShift, msg, keysAndValues...)
 }
 
 // Verbosef logs a verbose-level formatted message with args.
@@ -241,10 +243,12 @@ func (ls *LogSink) Init(ri logr.RuntimeInfo) {
 
 // Enabled tests whether this LogSink is enabled at the specified V-level and per-package.
 func (ls *LogSink) Enabled(level int) bool {
-	// Needed for direct calls to logr.Logger.Enabled to make the starting level be InfoLevel (2)
-	level += 2
+	// TODO: this function should return true, not only based on level settings (global, log level, etc.),
+	// but also based on caller package (per-module logging feature).
 
-	// TODO: this should return true based on level settings (global, log level, etc.) and also based on caller package (per-module logging feature)
+	// Needed for direct calls to logr.Logger.Enabled to make the starting level be InfoLevel (2)
+	level += infoLevelShift
+
 	zlLevel := getZerologLevelFromLogrVerbosity(level)
 	return zlLevel >= ls.l.GetLevel() && zlLevel >= zerolog.GlobalLevel()
 }
@@ -252,7 +256,7 @@ func (ls *LogSink) Enabled(level int) bool {
 // Info logs a non-error message (msg) with the given key/value pairs as context and the specified level.
 func (ls *LogSink) Info(level int, msg string, keysAndValues ...any) {
 	// Needed for direct calls to logr.Logger.Info to make the starting level be InfoLevel (2)
-	level += 2
+	level += infoLevelShift
 
 	zlEvent := ls.l.WithLevel(getZerologLevelFromLogrVerbosity(level))
 	ls.log(zlEvent, msg, keysAndValues)
@@ -314,6 +318,12 @@ func getZerologLevelFromLogrVerbosity(level int) zerolog.Level {
 
 // setLoggerLevel sets the zerolog log level based on the given logr.Logger verbosity.
 func setLoggerLevel(zl *zerolog.Logger, level int) zerolog.Logger {
+	// If the level is less than FatalLevel, use the default level instead.
+	// This could happen in case the level is coming from configmap but it was not set.
+	if level < FatalLevel {
+		level = defaultLevel
+	}
+
 	return zl.Level(getZerologLevelFromLogrVerbosity(level))
 }
 
