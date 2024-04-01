@@ -33,7 +33,6 @@ Log Level Mapping:
 |    debug            |    3            |    0           |
 |    verbose          |    4            |    -2 (custom) |
 */
-
 const (
 	FatalLevel   = 0
 	WarnLevel    = 1
@@ -42,6 +41,11 @@ const (
 	VerboseLevel = 4
 )
 
+// The following map define the logr verbosity or NumaLogger semantic levels (constants above) mapping
+// to the zerolog levels (https://github.com/rs/zerolog/blob/master/log.go#L129).
+// This conversion/mapping is due to the following relationship between zerolog levels and logr verbosity:
+// - zerolog(4=Fatal) = "always want to see" => zerolog(-1=Trace) = "only want to see rarely, ex: for debug purposes"
+// - logrVerbosity(0) = "always want to see" => logrVerbosity(10) = "only want to see rarely, ex: for debug purposes"
 var logrVerbosityToZerologLevelMap = map[int]zerolog.Level{
 	FatalLevel:   4,
 	WarnLevel:    2,
@@ -88,11 +92,11 @@ func newNumaLogger(writer *io.Writer, level *int) NumaLogger {
 	zerolog.MessageFieldName = messageFieldName
 	zerolog.TimestampFieldName = timestampFieldName
 	zerolog.TimeFieldFormat = time.RFC3339Nano
-	zerolog.LevelFieldMarshalFunc = zerologLevelFieldMarshalFunc
 	zerolog.CallerMarshalFunc = zerologCallerMarshalFunc
+	zerolog.LevelFieldMarshalFunc = zerologLevelFieldMarshalFunc
 
 	// Set zerolog global level to the most verbose level
-	zerolog.SetGlobalLevel(logrVerbosityToZerologLevelMap[VerboseLevel])
+	zerolog.SetGlobalLevel(getZerologLevelFromLogrVerbosity(VerboseLevel))
 
 	w := io.Writer(os.Stdout)
 	if writer != nil {
@@ -168,7 +172,8 @@ func (nl NumaLogger) Errorf(err error, msg string, args ...any) {
 // Fatal logs an error with a message and optional key/value pairs. Then, exits with code 1.
 func (nl NumaLogger) Fatal(err error, msg string, keysAndValues ...any) {
 	keysAndValues = append(keysAndValues, "error", err)
-	nl.LogrLogger.V(FatalLevel).Info(msg, keysAndValues...)
+	// NOTE: -2 is needed to offset the `level += 2` in the LogSink Info implementation
+	nl.LogrLogger.GetSink().Info(FatalLevel-2, msg, keysAndValues...)
 	os.Exit(1)
 }
 
@@ -179,7 +184,8 @@ func (nl NumaLogger) Fatalf(err error, msg string, args ...any) {
 
 // Warn logs a warning-level message with optional key/value pairs.
 func (nl NumaLogger) Warn(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(WarnLevel).Info(msg, keysAndValues...)
+	// NOTE: -2 is needed to offset the `level += 2` in the LogSink Info implementation
+	nl.LogrLogger.GetSink().Info(WarnLevel-2, msg, keysAndValues...)
 }
 
 // Warn logs a warning-level formatted message with args.
@@ -189,7 +195,8 @@ func (nl NumaLogger) Warnf(msg string, args ...any) {
 
 // Info logs an info-level message with optional key/value pairs.
 func (nl NumaLogger) Info(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(InfoLevel).Info(msg, keysAndValues...)
+	// NOTE: -2 is needed to offset the `level += 2` in the LogSink Info implementation
+	nl.LogrLogger.GetSink().Info(InfoLevel-2, msg, keysAndValues...)
 }
 
 // Infof logs an info-level formatted message with args.
@@ -199,7 +206,8 @@ func (nl NumaLogger) Infof(msg string, args ...any) {
 
 // Debug logs a debug-level message with optional key/value pairs.
 func (nl NumaLogger) Debug(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(DebugLevel).Info(msg, keysAndValues...)
+	// NOTE: -2 is needed to offset the `level += 2` in the LogSink Info implementation
+	nl.LogrLogger.GetSink().Info(DebugLevel-2, msg, keysAndValues...)
 }
 
 // Debugf logs a debug-level formatted message with args.
@@ -209,7 +217,8 @@ func (nl NumaLogger) Debugf(msg string, args ...any) {
 
 // Verbose logs a verbose-level message with optional key/value pairs.
 func (nl NumaLogger) Verbose(msg string, keysAndValues ...any) {
-	nl.LogrLogger.V(VerboseLevel).Info(msg, keysAndValues...)
+	// NOTE: -2 is needed to offset the `level += 2` in the LogSink Info implementation
+	nl.LogrLogger.GetSink().Info(VerboseLevel-2, msg, keysAndValues...)
 }
 
 // Verbosef logs a verbose-level formatted message with args.
@@ -232,14 +241,20 @@ func (ls *LogSink) Init(ri logr.RuntimeInfo) {
 
 // Enabled tests whether this LogSink is enabled at the specified V-level and per-package.
 func (ls *LogSink) Enabled(level int) bool {
+	// Needed for direct calls to logr.Logger.Enabled to make the starting level be InfoLevel (2)
+	level += 2
+
 	// TODO: this should return true based on level settings (global, log level, etc.) and also based on caller package (per-module logging feature)
-	zlLevel := logrVerbosityToZerologLevelMap[level]
+	zlLevel := getZerologLevelFromLogrVerbosity(level)
 	return zlLevel >= ls.l.GetLevel() && zlLevel >= zerolog.GlobalLevel()
 }
 
 // Info logs a non-error message (msg) with the given key/value pairs as context and the specified level.
 func (ls *LogSink) Info(level int, msg string, keysAndValues ...any) {
-	zlEvent := ls.l.WithLevel(logrVerbosityToZerologLevelMap[level])
+	// Needed for direct calls to logr.Logger.Info to make the starting level be InfoLevel (2)
+	level += 2
+
+	zlEvent := ls.l.WithLevel(getZerologLevelFromLogrVerbosity(level))
 	ls.log(zlEvent, msg, keysAndValues)
 }
 
@@ -292,15 +307,20 @@ func (ls LogSink) WithCallDepth(depth int) logr.LogSink {
 	return &ls
 }
 
+// getZerologLevelFromLogrVerbosity returns the zerolog level equivalent to the logr verbosity level.
+func getZerologLevelFromLogrVerbosity(level int) zerolog.Level {
+	return logrVerbosityToZerologLevelMap[level]
+}
+
 // setLoggerLevel sets the zerolog log level based on the given logr.Logger verbosity.
-func setLoggerLevel(logger *zerolog.Logger, level int) zerolog.Logger {
-	return logger.Level(logrVerbosityToZerologLevelMap[level])
+func setLoggerLevel(zl *zerolog.Logger, level int) zerolog.Logger {
+	return zl.Level(getZerologLevelFromLogrVerbosity(level))
 }
 
 // zerologLevelFieldMarshalFunc adds a way to convert a custom zerolog.Level values to strings.
 func zerologLevelFieldMarshalFunc(lvl zerolog.Level) string {
 	switch lvl {
-	case logrVerbosityToZerologLevelMap[VerboseLevel]:
+	case getZerologLevelFromLogrVerbosity(VerboseLevel):
 		return "verbose"
 	}
 	return lvl.String()
