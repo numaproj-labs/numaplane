@@ -16,6 +16,7 @@ spec:
       containers:
         - name: gitserver
           image: quay.io/numaio/numaplane-e2e-gitserver:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 22
             - containerPort: 80

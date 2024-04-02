@@ -20,19 +20,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
-	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
+
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
+	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 )
 
 var (
@@ -40,7 +43,7 @@ var (
 		Username: "root",
 		Password: "root",
 	}
-	tempPath = "./tmp"
+	localPath = "./local"
 )
 
 type Given struct {
@@ -108,22 +111,45 @@ func (g *Given) readResource(text string, v metav1.Object) {
 	}
 }
 
-// initialize git repo with all Numaflow files
-func (g *Given) CloneGitRepo() *Given {
-
+// initializes Git repo specified by GitSync's RepoURL by pushing initial commit files
+// these files should be located at testdata/<gitSync.Spec.Path>
+func (g *Given) InitializeGitRepo() *Given {
 	ctx := context.Background()
 
-	// open path to git server
-	// an example path would be http://localhost:8080/git/repo1.git
+	// Clone the repository
 	repo, err := g.cloneRepo(ctx)
 	if err != nil {
 		g.t.Fatal(err)
 	}
 
-	tmpPath := filepath.Join("tmp", g.gitSync.Spec.Path)
-	dataPath := filepath.Join("testdata", g.gitSync.Spec.Path)
+	// Get the worktree of the cloned repository
+	wt, err := repo.Worktree()
+	if err != nil {
+		g.t.Fatal(err)
+	}
 
-	// create dir for gitsync path
+	// Check out to a specific branch if necessary, assuming master/main here
+	// This step is important if your operations depend on being on a specific branch
+	err = wt.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName("master"),
+		Force:  true,
+	})
+	if err != nil {
+		g.t.Fatal(err)
+	}
+
+	// Pull the latest changes to ensure the local copy is up-to-date
+	err = wt.Pull(&git.PullOptions{
+		RemoteName:    "origin",
+		ReferenceName: plumbing.NewBranchReferenceName("master"),
+		Auth:          auth,
+	})
+	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+		log.Println(err)
+	}
+
+	tmpPath := filepath.Join(localPath, g.gitSync.Spec.Path)
+	dataPath := filepath.Join("testdata", g.gitSync.Spec.Path)
 	_ = os.Mkdir(tmpPath, 0777)
 
 	dir, err := os.ReadDir(dataPath)
@@ -131,8 +157,6 @@ func (g *Given) CloneGitRepo() *Given {
 		g.t.Fatal(err)
 	}
 
-	// assumes no nested directory for now
-	// TODO: account for nested directories
 	for _, file := range dir {
 		name := file.Name()
 		err := CopyFile(filepath.Join(dataPath, name), filepath.Join(tmpPath, name))
@@ -141,24 +165,22 @@ func (g *Given) CloneGitRepo() *Given {
 		}
 	}
 
-	wt, err := repo.Worktree()
+	// Add and commit local changes
+	_, err = wt.Add(".")
 	if err != nil {
 		g.t.Fatal(err)
 	}
 
-	_, err = wt.Add(g.gitSync.Spec.Path)
+	_, err = wt.Commit("Update with local changes", &git.CommitOptions{})
 	if err != nil {
 		g.t.Fatal(err)
 	}
 
-	_, err = wt.Commit("Initial commit", &git.CommitOptions{})
-	if err != nil {
-		g.t.Fatal(err)
-	}
-
+	// Push the updates to the remote repository
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		Auth:       auth,
+		Force:      true,
 	})
 	if err != nil {
 		g.t.Fatal(err)
@@ -172,9 +194,9 @@ func (g *Given) cloneRepo(ctx context.Context) (*git.Repository, error) {
 
 	cloneOpts := git.CloneOptions{URL: g.gitSync.Spec.RepoUrl, Auth: auth}
 
-	repo, err := git.PlainCloneContext(ctx, tempPath, false, &cloneOpts)
+	repo, err := git.PlainCloneContext(ctx, localPath, false, &cloneOpts)
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		existingRepo, openErr := git.PlainOpen(tempPath)
+		existingRepo, openErr := git.PlainOpen(localPath)
 		if openErr != nil {
 			return repo, fmt.Errorf("failed to open existing repo: %v", openErr)
 		}

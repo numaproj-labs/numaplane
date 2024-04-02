@@ -21,9 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
-	planeversiond "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned"
-	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
+	git "github.com/go-git/go-git/v5"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,6 +29,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
+	planeversiond "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned"
+	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 )
 
 const (
@@ -69,9 +71,9 @@ func (s *E2ESuite) SetupSuite() {
 		v1alpha1.GitSyncGroupVersionResource,
 	})
 
-	/* port forward git server pod */
-	// err = PodPortForward(s.restConfig, Namespace, "git-server-pod", 8443, 8443,s.stopch)
-	// s.CheckError(err)
+	// port forward git server pod
+	err = PodPortForward(s.restConfig, Namespace, "localgitserver-0", 8080, 80, s.stopch)
+	s.CheckError(err)
 
 }
 
@@ -80,6 +82,22 @@ func (s *E2ESuite) TearDownSuite() {
 		v1alpha1.GitSyncGroupVersionResource,
 	})
 	close(s.stopch)
+}
+
+func (s *E2ESuite) BeforeTest(suiteName, testName string) {
+	// ensure local repo has been deleted in case previous test run failed
+	err := os.RemoveAll(localPath)
+	s.CheckError(err)
+}
+
+func (s *E2ESuite) AfterTest(suiteName, testName string) {
+
+	err := resetRepo()
+	s.CheckError(err)
+
+	// delete local directory after each test
+	err = os.RemoveAll(localPath)
+	s.CheckError(err)
 }
 
 func (s *E2ESuite) CheckError(err error) {
@@ -142,4 +160,50 @@ func k8sRestConfig() (*rest.Config, error) {
 		restConfig, err = rest.InClusterConfig()
 	}
 	return restConfig, err
+}
+
+// helper function to reset test Git repo
+func resetRepo() error {
+	// open local path to cloned git server
+	repo, err := git.PlainOpen(localPath)
+	if err != nil {
+		return err
+	}
+
+	// open worktree
+	wt, err := repo.Worktree()
+	if err != nil {
+		return err
+	}
+
+	// find path to test repo in local
+	entries, err := os.ReadDir(localPath)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		// clean out repo of all changes
+		if entry.IsDir() {
+			_, err = wt.Remove(entry.Name())
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	_, err = wt.Commit("Cleaning out repo", &git.CommitOptions{})
+	if err != nil {
+		return err
+	}
+
+	// git push to remote
+	err = repo.Push(&git.PushOptions{
+		RemoteName: "origin",
+		Auth:       auth,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }

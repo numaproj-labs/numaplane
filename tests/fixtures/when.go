@@ -19,16 +19,18 @@ package fixtures
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
 	git "github.com/go-git/go-git/v5"
-	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
-	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
+	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 )
 
 type When struct {
@@ -83,10 +85,10 @@ func (w *When) DeleteGitSyncAndWait() *When {
 }
 
 // make git push to Git server pod
-func (w *When) PushToGitRepo(files []string) *When {
+func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
 
-	// open tmp path to cloned git server
-	repo, err := git.PlainOpen(tempPath)
+	// open local path to cloned git repo
+	repo, err := git.PlainOpen(localPath)
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -97,9 +99,18 @@ func (w *When) PushToGitRepo(files []string) *When {
 		w.t.Fatal(err)
 	}
 
+	// dataPath points to commit directory with edited files
+	dataPath := filepath.Join("testdata", directory)
+	tmpPath := filepath.Join(localPath, w.gitSync.Spec.Path)
+
 	// iterate over files to be added and committed
-	for _, f := range files {
-		_, err = wt.Add(f)
+	for _, fileName := range fileNames {
+
+		err := CopyFile(filepath.Join(dataPath, fileName), filepath.Join(tmpPath, fileName))
+		if err != nil {
+			w.t.Fatal(err)
+		}
+		_, err = wt.Add(w.gitSync.Spec.Path)
 		if err != nil {
 			w.t.Fatal(err)
 		}
@@ -114,6 +125,7 @@ func (w *When) PushToGitRepo(files []string) *When {
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		Auth:       auth,
+		RemoteURL:  w.gitSync.Spec.RepoUrl,
 	})
 	if err != nil {
 		w.t.Fatal(err)

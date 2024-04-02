@@ -41,6 +41,9 @@ RUN for i in $(seq 1 $REPO_COUNT); do \
     mkdir -p "/var/www/git/repo$i.git" && \
     git init --bare "/var/www/git/repo$i.git" && \
     chown -R www-data:www-data "/var/www/git/repo$i.git"; \
+    echo "#!/bin/sh" > "/var/www/git/repo$i.git/hooks/post-receive" && \
+    echo "chown -R www-data:www-data ." >> "/var/www/git/repo$i.git/hooks/post-receive" && \
+    chmod +x "/var/www/git/repo$i.git/hooks/post-receive"; \
     done
 
 # Setup Apache for Git HTTP and HTTPS access with Basic authentication

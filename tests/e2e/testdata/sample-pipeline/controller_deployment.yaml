@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: numaflow-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller-manager
+      app.kubernetes.io/name: controller-manager
+      app.kubernetes.io/part-of: numaflow
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: controller-manager
+        app.kubernetes.io/name: controller-manager
+        app.kubernetes.io/part-of: numaflow
+    spec:
+      containers:
+        - args:
+            - controller
+          env:
+            - name: NUMAFLOW_IMAGE
+              value: quay.io/numaproj/numaflow:latest
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NUMAFLOW_CONTROLLER_NAMESPACED
+              valueFrom:
+                configMapKeyRef:
+                  key: namespaced
+                  name: numaflow-cmd-params-config
+                  optional: true
+            - name: NUMAFLOW_CONTROLLER_MANAGED_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  key: managed.namespace
+                  name: numaflow-cmd-params-config
+                  optional: true
+            - name: NUMAFLOW_LEADER_ELECTION_DISABLED
+              valueFrom:
+                configMapKeyRef:
+                  key: controller.disable.leader.election
+                  name: numaflow-cmd-params-config
+                  optional: true
+          image: quay.io/numaproj/numaflow:latest
+          imagePullPolicy: Always
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          name: controller-manager
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          volumeMounts:
+            - mountPath: /etc/numaflow
+              name: controller-config-volume
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 9737
+      serviceAccountName: numaflow-sa
+      volumes:
+        - configMap:
+            name: numaflow-controller-config
+          name: controller-config-volume

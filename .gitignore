@@ -28,4 +28,4 @@ Dockerfile.cross
 **/.DS_Store
 
 # tmp directory built for e2e test
-tests/e2e/tmp
+tests/e2e/local

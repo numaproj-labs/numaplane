@@ -208,3 +208,10 @@ gitserver:
 		--platform $(PLATFORMS) \
 		-t $(GITSERVER_IMAGE) \
 		--push .
+
+test-e2e:
+test-%:
+	kubectl delete -n numaplane-system -k ./tests/e2e-gitserver --ignore-not-found=true
+	kubectl apply -n numaplane-system -k ./tests/e2e-gitserver
+	go generate $(shell find ./tests/$* -name '*.go')
+	go test -v -timeout 15m -count 1 --tags test -p 1 ./tests/$*
