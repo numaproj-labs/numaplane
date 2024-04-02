@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	git "github.com/go-git/go-git/v5"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -85,16 +86,56 @@ func (s *E2ESuite) TearDownSuite() {
 
 func (s *E2ESuite) BeforeTest(suiteName, testName string) {
 	// ensure local repo has been deleted incase previous test run failed
-	err := os.RemoveAll("local")
+	err := os.RemoveAll(tempPath)
 	s.CheckError(err)
 }
 
 func (s *E2ESuite) AfterTest(suiteName, testName string) {
 
-	// TODO: git commit to remove all files in repo
+	// open tmp path to cloned git server
+	repo, err := git.PlainOpen(tempPath)
+	if err != nil {
+		s.CheckError(err)
+	}
+
+	// open worktree
+	wt, err := repo.Worktree()
+	if err != nil {
+		s.CheckError(err)
+	}
+
+	// find path to test repo in local
+	entries, err := os.ReadDir(tempPath)
+	if err != nil {
+		s.CheckError(err)
+	}
+
+	for _, entry := range entries {
+		// clean out repo of all changes
+		if entry.IsDir() {
+			_, err = wt.Remove(entry.Name())
+			if err != nil {
+				s.CheckError(err)
+			}
+		}
+	}
+
+	_, err = wt.Commit("Cleaning out repo", &git.CommitOptions{})
+	if err != nil {
+		s.CheckError(err)
+	}
+
+	// git push to remote
+	err = repo.Push(&git.PushOptions{
+		RemoteName: "origin",
+		Auth:       auth,
+	})
+	if err != nil {
+		s.CheckError(err)
+	}
 
 	// delete tmp directory after each test
-	err := os.RemoveAll("local")
+	err = os.RemoveAll(tempPath)
 	s.CheckError(err)
 }
 
