@@ -11,9 +11,9 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/diff"
 	gitopsSync "github.com/argoproj/gitops-engine/pkg/sync"
 	gitopsSyncCommon "github.com/argoproj/gitops-engine/pkg/sync/common"
+	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	kubeUtil "github.com/argoproj/gitops-engine/pkg/utils/kube"
 	log "github.com/sirupsen/logrus"
-	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,7 +26,7 @@ import (
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
-	"github.com/numaproj-labs/numaplane/internal/util/logging"
+	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
@@ -114,10 +114,11 @@ func (s *Syncer) StopWatching(key string) {
 // Start function starts the synchronizer worker group.
 // Each worker keeps picking up tasks (which contains GitSync keys) to sync the resources.
 func (s *Syncer) Start(ctx context.Context) error {
-	log := logging.FromContext(ctx).Named("synchronizer")
-	log.Info("Starting synchronizer...")
+	numaLogger := logger.FromContext(ctx).WithName("synchronizer")
+	numaLogger.Info("Starting synchronizer...")
+
 	keyCh := make(chan string)
-	ctx, cancel := context.WithCancel(logging.WithLogger(ctx, log))
+	ctx, cancel := context.WithCancel(logger.WithLogger(ctx, numaLogger))
 	defer cancel()
 
 	s.stateCache.Init()
@@ -170,16 +171,16 @@ func (s *Syncer) Start(ctx context.Context) error {
 // Function run() defines each worker's job.
 // It waits for keys in the channel, and starts a synchronization job
 func (s *Syncer) run(ctx context.Context, id int, keyCh <-chan string) {
-	log := logging.FromContext(ctx)
-	log.Infof("Started synchronizer worker %v", id)
+	numaLogger := logger.FromContext(ctx)
+	numaLogger.Infof("Started synchronizer worker %v", id)
 	for {
 		select {
 		case <-ctx.Done():
-			log.Infof("Stopped synchronizer worker %v", id)
+			numaLogger.Infof("Stopped synchronizer worker %v", id)
 			return
 		case key := <-keyCh:
 			if err := s.runOnce(ctx, key, id); err != nil {
-				log.Errorw("Failed to execute a task", zap.String("gitSyncKey", key), zap.Error(err))
+				numaLogger.Error(err, "Failed to execute a task", "gitSyncKey", key)
 			}
 		}
 	}
@@ -187,8 +188,8 @@ func (s *Syncer) run(ctx context.Context, id int, keyCh <-chan string) {
 
 // Function runOnce implements the logic of each synchronization.
 func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
-	log := logging.FromContext(ctx).With("worker", fmt.Sprint(worker)).With("gitSyncKey", key)
-	log.Debugf("Working on key: %s.", key)
+	numaLogger := logger.FromContext(ctx).WithValues("worker", worker, "gitSyncKey", key)
+	numaLogger.Debugf("Working on key: %s.", key)
 	strs := strings.Split(key, "/")
 	if len(strs) != 2 {
 		return fmt.Errorf("invalid key %q", key)
@@ -199,21 +200,28 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err := s.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: gitSyncName}, gitSync); err != nil {
 		if apierrors.IsNotFound(err) {
 			s.StopWatching(key)
-			log.Info("No corresponding GitSync found, stopped watching.")
+			numaLogger.Info("No corresponding GitSync found, stopped watching.")
 			return nil
 		}
 		return fmt.Errorf("failed to query GitSync object of key %q, %w", key, err)
 	}
 	if !gitSync.GetDeletionTimestamp().IsZero() {
+		numaLogger.Debug("GitSync object being deleted.")
+		err := ProcessGitSyncDeletion(ctx, gitSync, s)
+		if err != nil {
+			return err
+		}
 		s.StopWatching(key)
-		log.Debug("GitSync object being deleted.")
 		return nil
 	}
 
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
-		log.Errorw("error getting  the  global config", zap.Error(err))
+		numaLogger.Error(err, "error getting  the  global config")
 	}
+
+	numaLogger.SetLevel(globalConfig.LogLevel)
+
 	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to clone the repo of key %q, %w", key, err)
@@ -228,17 +236,28 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	}
 
 	synced := false
-	syncState, syncMessage := s.sync(gitSync, uns, log)
+	syncState, syncMessage := s.sync(gitSync, uns, &numaLogger)
 	if syncState.Successful() {
 		synced = true
-		log.Info("GitSync object is successfully synced.")
+		numaLogger.Info("GitSync object is successfully synced.")
 	}
 
 	namespacedName := types.NamespacedName{
 		Namespace: gitSync.Namespace,
 		Name:      gitSync.Name,
 	}
-	return updateCommitStatus(ctx, s.client, log, namespacedName, commitHash, synced, syncMessage)
+
+	if !gitSync.GetDeletionTimestamp().IsZero() {
+		log.Debug("GitSync object being deleted.")
+		err := ProcessGitSyncDeletion(ctx, gitSync, s)
+		if err != nil {
+			return err
+		}
+		s.StopWatching(key)
+		return nil
+	} else {
+		return updateCommitStatus(ctx, s.client, &numaLogger, namespacedName, commitHash, synced, syncMessage)
+	}
 }
 
 type resourceInfoProviderStub struct {
@@ -254,24 +273,22 @@ func (r *resourceInfoProviderStub) IsNamespaced(_ schema.GroupKind) (bool, error
 func (s *Syncer) sync(
 	gitSync *v1alpha1.GitSync,
 	targetObjs []*unstructured.Unstructured,
-	logger *zap.SugaredLogger,
+	numaLogger *logger.NumaLogger,
 ) (gitopsSyncCommon.OperationPhase, string) {
-	logEntry := log.WithFields(log.Fields{"gitsync": gitSync})
-
 	reconciliationResult, modified, err := s.compareState(gitSync, targetObjs)
 	if err != nil {
-		logger.Errorw("Error on comparing git sync state", zap.Error(err))
+		numaLogger.Error(err, "Error on comparing git sync state")
 		return gitopsSyncCommon.OperationError, err.Error()
 	}
 
 	// If the live state matches the target state, then skip the syncing.
 	if !modified {
-		logger.Info("GitSync object is already synced, skip the syncing.")
+		numaLogger.Info("GitSync object is already synced, skip the syncing.")
 		return gitopsSyncCommon.OperationSucceeded, ""
 	}
 
 	opts := []gitopsSync.SyncOpt{
-		gitopsSync.WithLogr(logging.NewLogrusLogger(logEntry)),
+		gitopsSync.WithLogr(*numaLogger.WithValues("gitsync", gitSync).LogrLogger),
 		gitopsSync.WithOperationSettings(false, true, false, false),
 		gitopsSync.WithManifestValidation(true),
 		gitopsSync.WithPruneLast(true),
@@ -282,7 +299,7 @@ func (s *Syncer) sync(
 
 	cluster, err := s.stateCache.GetClusterCache()
 	if err != nil {
-		logger.Errorw("Error on getting the cluster cache", zap.Error(err))
+		numaLogger.Error(err, "Error on getting the cluster cache")
 		return gitopsSyncCommon.OperationError, err.Error()
 	}
 	openAPISchema := cluster.GetOpenAPISchema()
@@ -299,7 +316,7 @@ func (s *Syncer) sync(
 	)
 	defer cleanup()
 	if err != nil {
-		logger.Errorw("Error on creating syncing context", zap.Error(err))
+		numaLogger.Error(err, "Error on creating syncing context")
 		return gitopsSyncCommon.OperationError, err.Error()
 	}
 
@@ -328,10 +345,8 @@ func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructu
 			IgnoreDifferences: OverrideIgnoreDiff{JSONPointers: []string{"/status"}}},
 	}
 
-	logEntry := log.WithFields(log.Fields{"gitsync": gitSync})
-
 	diffOpts := []diff.Option{
-		diff.WithLogr(logging.NewLogrusLogger(logEntry)),
+		diff.WithLogr(*logger.New().WithValues("gitsync", gitSync).LogrLogger),
 	}
 
 	modified, err := StateDiffs(reconciliationResult.Target, reconciliationResult.Live, overrides, diffOpts)
@@ -360,7 +375,7 @@ func applyAnnotation(manifests []*unstructured.Unstructured, gitSyncName string)
 func updateCommitStatus(
 	ctx context.Context,
 	kubeClient client.Client,
-	logger *zap.SugaredLogger,
+	numaLogger *logger.NumaLogger,
 	namespacedName types.NamespacedName,
 	hash string,
 	synced bool,
@@ -379,7 +394,7 @@ func updateCommitStatus(
 		if apierrors.IsNotFound(err) {
 			return nil
 		} else {
-			logger.Errorw("Unable to get GitSync", "err", err)
+			numaLogger.Error(err, "Unable to get GitSync", "err")
 			return err
 		}
 	}
@@ -392,8 +407,48 @@ func updateCommitStatus(
 	}
 	gitSync.Status.CommitStatus = &commitStatus
 	if err := kubeClient.Status().Update(ctx, gitSync); err != nil {
-		logger.Errorw("Error Updating GitSync Status", "err", err)
+		numaLogger.Error(err, "Error Updating GitSync Status", "err")
 		return err
+	}
+	return nil
+}
+
+// GetLiveManagedObjects retrieves live managed objects from the provided cache for the given GitSync configuration.
+// It returns a map of Kubernetes resource keys to unstructured objects and an error if any.
+func GetLiveManagedObjects(cache LiveStateCache, gitSync *v1alpha1.GitSync) (map[kube.ResourceKey]*unstructured.Unstructured, error) {
+	var unstructuredObj []*unstructured.Unstructured
+	objs, err := cache.GetManagedLiveObjs(gitSync, unstructuredObj)
+	if err != nil {
+		return nil, err
+	}
+	return objs, nil
+}
+
+// CascadeDeletion performs cascading deletion of live managed objects using GitSync.
+// It utilizes the provided context, Kubernetes client, cache, and GitSync configuration.
+// Returns an error if the deletion process encounters any issues.
+func CascadeDeletion(ctx context.Context, k8sClient client.Client, cache LiveStateCache, gitSync *v1alpha1.GitSync) error {
+	numaLogger := logger.FromContext(ctx)
+	objects, err := GetLiveManagedObjects(cache, gitSync)
+	if err != nil {
+		numaLogger.Debug("Live managed objects not found")
+		return err
+	}
+	err = kubernetes.DeleteManagedObjects(ctx, k8sClient, objects)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ProcessGitSyncDeletion(ctx context.Context, gitSync *v1alpha1.GitSync, s *Syncer) error {
+	config, err := controllerConfig.GetConfigManagerInstance().GetConfig()
+	if err != nil {
+		return err
+	}
+	// if cascade deletion is enabled in the config ,Delete the linked resources to the GitSync
+	if config.CascadeDeletion {
+		return CascadeDeletion(ctx, s.client, s.stateCache, gitSync)
 	}
 	return nil
 }

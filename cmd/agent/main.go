@@ -20,12 +20,12 @@ import (
 	"context"
 
 	"github.com/numaproj-labs/numaplane/internal/agent"
-	"github.com/numaproj-labs/numaplane/internal/util/logging"
+	"github.com/numaproj-labs/numaplane/internal/util/logger"
 )
 
 var (
 	// logger is the global logger for the numaplane-agent
-	logger     = logging.NewLogger().Named("numaplane-agent")
+	numaLogger = logger.New().WithName("numaplane-agent")
 	configPath = "/etc/agent" // Path in the volume mounted in the pod where yaml is present
 )
 
@@ -39,21 +39,23 @@ func main() {
 	// Create a ConfigManager to manage our config file, watching for changes
 	configManager := agent.GetConfigManagerInstance()
 	err = configManager.LoadConfig(func(err error) {
-		logger.Errorw("Failed to reload configuration file", err)
+		numaLogger.Error(err, "Failed to reload configuration file")
 	}, configPath, "config", "yaml")
 	if err != nil {
-		logger.Fatalw("Failed to load configuration file", err)
+		numaLogger.Fatal(err, "Failed to load configuration file")
 	}
 
 	// Get initial Config so we can log it
 	config, _, err := configManager.GetConfig()
 	if err != nil {
-		logger.Fatalw("Failed to get configuration file", err)
+		numaLogger.Fatal(err, "Failed to get configuration file")
 	}
-	logger.Infof("config: %+v", config)
+
+	numaLogger.SetLevel(config.LogLevel)
+
+	numaLogger.Infof("config: %+v", config)
 
 	// create a new AgentSyncer
-	syncer := agent.NewAgentSyncer(logger)
+	syncer := agent.NewAgentSyncer(&numaLogger)
 	syncer.Run(ctx)
-
 }

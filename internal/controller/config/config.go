@@ -6,8 +6,9 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	"github.com/spf13/viper"
+
+	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 type ConfigManager struct {
@@ -35,9 +36,11 @@ func GetConfigManagerInstance() *ConfigManager {
 type GlobalConfig struct {
 	ClusterName            string `json:"clusterName" mapstructure:"clusterName"`
 	SyncTimeIntervalMs     int    `json:"syncTimeIntervalMs" mapstructure:"syncTimeIntervalMs"`
+	CascadeDeletion        bool   `json:"cascadeDeletion" mapstructure:"cascadeDeletion"`
 	AutoHealTimeIntervalMs int    `json:"autoHealTimeIntervalMs" mapstructure:"autoHealTimeIntervalMs"`
 	// RepoCredentials maps each Git Repository Path prefix to the corresponding credentials that are needed for it
 	RepoCredentials []apiv1.RepoCredential `json:"repoCredentials" mapstructure:"repoCredentials"`
+	LogLevel        int                    `json:"logLevel" mapstructure:"logLevel"`
 }
 
 func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {
