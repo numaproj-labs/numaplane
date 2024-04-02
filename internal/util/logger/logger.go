@@ -47,9 +47,9 @@ const (
 
 // The following map define the logr verbosity or NumaLogger semantic levels (constants above) mapping
 // to the zerolog levels (https://github.com/rs/zerolog/blob/master/log.go#L129).
-// This conversion/mapping is due to the following relationship between zerolog levels and logr verbosity:
-// - zerolog(4=Fatal) = "always want to see" => zerolog(-1=Trace) = "only want to see rarely, ex: for debug purposes"
-// - logrVerbosity(0) = "always want to see" => logrVerbosity(10) = "only want to see rarely, ex: for debug purposes"
+// This conversion/mapping is due to the following inverse relationship between zerolog levels and logr verbosity:
+// - zerolog(4=Fatal) = "always want to see" => zerolog(-2=Verbose) = "only want to see rarely, ex: for debug purposes"
+// - logrVerbosity(1) = "always want to see" => logrVerbosity(5) = "only want to see rarely, ex: for debug purposes"
 var logrVerbosityToZerologLevelMap = map[int]zerolog.Level{
 	FatalLevel:   4,
 	WarnLevel:    2,
