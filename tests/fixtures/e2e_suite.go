@@ -92,47 +92,8 @@ func (s *E2ESuite) BeforeTest(suiteName, testName string) {
 
 func (s *E2ESuite) AfterTest(suiteName, testName string) {
 
-	// open local path to cloned git server
-	repo, err := git.PlainOpen(localPath)
-	if err != nil {
-		s.CheckError(err)
-	}
-
-	// open worktree
-	wt, err := repo.Worktree()
-	if err != nil {
-		s.CheckError(err)
-	}
-
-	// find path to test repo in local
-	entries, err := os.ReadDir(localPath)
-	if err != nil {
-		s.CheckError(err)
-	}
-
-	for _, entry := range entries {
-		// clean out repo of all changes
-		if entry.IsDir() {
-			_, err = wt.Remove(entry.Name())
-			if err != nil {
-				s.CheckError(err)
-			}
-		}
-	}
-
-	_, err = wt.Commit("Cleaning out repo", &git.CommitOptions{})
-	if err != nil {
-		s.CheckError(err)
-	}
-
-	// git push to remote
-	err = repo.Push(&git.PushOptions{
-		RemoteName: "origin",
-		Auth:       auth,
-	})
-	if err != nil {
-		s.CheckError(err)
-	}
+	err := resetRepo()
+	s.CheckError(err)
 
 	// delete local directory after each test
 	err = os.RemoveAll(localPath)
@@ -199,4 +160,50 @@ func k8sRestConfig() (*rest.Config, error) {
 		restConfig, err = rest.InClusterConfig()
 	}
 	return restConfig, err
+}
+
+// helper function to reset test Git repo
+func resetRepo() error {
+	// open local path to cloned git server
+	repo, err := git.PlainOpen(localPath)
+	if err != nil {
+		return err
+	}
+
+	// open worktree
+	wt, err := repo.Worktree()
+	if err != nil {
+		return err
+	}
+
+	// find path to test repo in local
+	entries, err := os.ReadDir(localPath)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		// clean out repo of all changes
+		if entry.IsDir() {
+			_, err = wt.Remove(entry.Name())
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	_, err = wt.Commit("Cleaning out repo", &git.CommitOptions{})
+	if err != nil {
+		return err
+	}
+
+	// git push to remote
+	err = repo.Push(&git.PushOptions{
+		RemoteName: "origin",
+		Auth:       auth,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
