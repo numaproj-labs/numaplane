@@ -85,7 +85,7 @@ func (s *E2ESuite) TearDownSuite() {
 }
 
 func (s *E2ESuite) BeforeTest(suiteName, testName string) {
-	// ensure local repo has been deleted incase previous test run failed
+	// ensure local repo has been deleted in case previous test run failed
 	err := os.RemoveAll(localPath)
 	s.CheckError(err)
 }
