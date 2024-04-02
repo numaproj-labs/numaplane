@@ -86,14 +86,14 @@ func (s *E2ESuite) TearDownSuite() {
 
 func (s *E2ESuite) BeforeTest(suiteName, testName string) {
 	// ensure local repo has been deleted incase previous test run failed
-	err := os.RemoveAll(tempPath)
+	err := os.RemoveAll(localPath)
 	s.CheckError(err)
 }
 
 func (s *E2ESuite) AfterTest(suiteName, testName string) {
 
-	// open tmp path to cloned git server
-	repo, err := git.PlainOpen(tempPath)
+	// open local path to cloned git server
+	repo, err := git.PlainOpen(localPath)
 	if err != nil {
 		s.CheckError(err)
 	}
@@ -105,7 +105,7 @@ func (s *E2ESuite) AfterTest(suiteName, testName string) {
 	}
 
 	// find path to test repo in local
-	entries, err := os.ReadDir(tempPath)
+	entries, err := os.ReadDir(localPath)
 	if err != nil {
 		s.CheckError(err)
 	}
@@ -134,8 +134,8 @@ func (s *E2ESuite) AfterTest(suiteName, testName string) {
 		s.CheckError(err)
 	}
 
-	// delete tmp directory after each test
-	err = os.RemoveAll(tempPath)
+	// delete local directory after each test
+	err = os.RemoveAll(localPath)
 	s.CheckError(err)
 }
 

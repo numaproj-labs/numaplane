@@ -43,7 +43,7 @@ var (
 		Username: "root",
 		Password: "root",
 	}
-	tempPath = "./local"
+	localPath = "./local"
 )
 
 type Given struct {
@@ -147,7 +147,7 @@ func (g *Given) CloneGitRepo() *Given {
 		log.Println(err)
 	}
 
-	tmpPath := filepath.Join("local", g.gitSync.Spec.Path)
+	tmpPath := filepath.Join(localPath, g.gitSync.Spec.Path)
 	dataPath := filepath.Join("testdata", g.gitSync.Spec.Path)
 	_ = os.Mkdir(tmpPath, 0777)
 
@@ -193,9 +193,9 @@ func (g *Given) cloneRepo(ctx context.Context) (*git.Repository, error) {
 
 	cloneOpts := git.CloneOptions{URL: g.gitSync.Spec.RepoUrl, Auth: auth}
 
-	repo, err := git.PlainCloneContext(ctx, tempPath, false, &cloneOpts)
+	repo, err := git.PlainCloneContext(ctx, localPath, false, &cloneOpts)
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		existingRepo, openErr := git.PlainOpen(tempPath)
+		existingRepo, openErr := git.PlainOpen(localPath)
 		if openErr != nil {
 			return repo, fmt.Errorf("failed to open existing repo: %v", openErr)
 		}

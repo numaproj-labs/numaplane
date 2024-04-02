@@ -87,8 +87,8 @@ func (w *When) DeleteGitSyncAndWait() *When {
 // make git push to Git server pod
 func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
 
-	// open tmp path to cloned git server
-	repo, err := git.PlainOpen(tempPath)
+	// open local path to cloned git repo
+	repo, err := git.PlainOpen(localPath)
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
 
 	// dataPath points to commit directory with edited files
 	dataPath := filepath.Join("testdata", directory)
-	tmpPath := filepath.Join("local", w.gitSync.Spec.Path)
+	tmpPath := filepath.Join(localPath, w.gitSync.Spec.Path)
 
 	// iterate over files to be added and committed
 	for _, fileName := range fileNames {
