@@ -21,8 +21,9 @@ package e2e
 import (
 	"testing"
 
-	. "github.com/numaproj-labs/numaplane/tests/fixtures"
 	"github.com/stretchr/testify/suite"
+
+	. "github.com/numaproj-labs/numaplane/tests/fixtures"
 )
 
 type FunctionalSuite struct {

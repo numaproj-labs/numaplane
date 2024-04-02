@@ -24,13 +24,13 @@ import (
 	"time"
 
 	git "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
-	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
+	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 )
 
 type When struct {
@@ -101,7 +101,7 @@ func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
 
 	// dataPath points to commit directory with edited files
 	dataPath := filepath.Join("testdata", directory)
-	tmpPath := filepath.Join("tmp", w.gitSync.Spec.Path)
+	tmpPath := filepath.Join("local", w.gitSync.Spec.Path)
 
 	// iterate over files to be added and committed
 	for _, fileName := range fileNames {
@@ -125,7 +125,7 @@ func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		Auth:       auth,
-		RefSpecs:   []config.RefSpec{"refs/heads/master:refs/heads/master"},
+		RemoteURL:  w.gitSync.Spec.RepoUrl,
 	})
 	if err != nil {
 		w.t.Fatal(err)
