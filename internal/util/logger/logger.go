@@ -279,7 +279,7 @@ func (ls *LogSink) log(zlEvent *zerolog.Event, msg string, keysAndValues []any) 
 	}
 
 	zlEvent.Fields(keysAndValues).
-		CallerSkipFrame(ls.depth + 1).
+		CallerSkipFrame(ls.depth).
 		Msg(msg)
 }
 
