@@ -66,12 +66,9 @@ func (s *E2ESuite) SetupSuite() {
 	s.gitSyncClient = planeversiond.NewForConfigOrDie(s.restConfig).NumaplaneV1alpha1().GitSyncs(Namespace)
 
 	// resource cleanup
-	/*
-		s.deleteResources([]schema.GroupVersionResource{
-			v1alpha1.GitSyncGroupVersionResource,
-		})
-
-	*/
+	s.deleteResources([]schema.GroupVersionResource{
+		v1alpha1.GitSyncGroupVersionResource,
+	})
 
 	// port forward git server pod
 	err = PodPortForward(s.restConfig, Namespace, "localgitserver-0", 8080, 80, s.stopch)

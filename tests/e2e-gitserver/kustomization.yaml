@@ -6,10 +6,8 @@ commonLabels:
 
 configMapGenerator:
   - name: git-ssh-config
-    namespace: numaplane-system
     files:
       - authorized_keys=authorized_keys
   - name: git-http-config
-    namespace: numaplane-system
     files:
       - htpasswd=.htpasswd

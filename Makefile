@@ -212,6 +212,6 @@ gitserver:
 test-e2e:
 test-%:
 	kubectl -n numaplane-system delete pod localgitserver-0 --ignore-not-found=true
-	kubectl apply -k ./tests/e2e-gitserver
+	kubectl apply -n numaplane-system -k ./tests/e2e-gitserver
 	go generate $(shell find ./tests/$* -name '*.go')
 	go test -v -timeout 15m -count 1 --tags test -p 1 ./tests/$*

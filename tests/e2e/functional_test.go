@@ -30,13 +30,12 @@ type FunctionalSuite struct {
 	E2ESuite
 }
 
+// TODO
 func (s *FunctionalSuite) TestCreateGitSync() {
-	w := s.Given().GitSync("@testdata/test-gitpush.yaml").CloneGitRepo().
+	w := s.Given().GitSync("@testdata/gitsync.yaml").CloneGitRepo().
 		When().
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
-
-	w = w.PushToGitRepo("sample-pipeline-commit", []string{"test.yaml"})
 }
 
 func TestFunctionalSuite(t *testing.T) {

@@ -5,7 +5,7 @@ metadata:
   namespace: numaplane-system
 spec:
   path: sample-pipeline
-  repoUrl: https://github.com/xdevxy/numaflow-example-pipelines.git
+  repoUrl: http://localhost8080/git/repo1.git
   targetRevision: main
   raw: {}
   destination:
