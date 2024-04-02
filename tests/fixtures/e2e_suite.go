@@ -83,9 +83,16 @@ func (s *E2ESuite) TearDownSuite() {
 	close(s.stopch)
 }
 
-func (s *E2ESuite) BeforeTest() {}
+func (s *E2ESuite) BeforeTest(suiteName, testName string) {
+	// ensure local repo has been deleted incase previous test run failed
+	err := os.RemoveAll("local")
+	s.CheckError(err)
+}
 
 func (s *E2ESuite) AfterTest(suiteName, testName string) {
+
+	// TODO: git commit to remove all files in repo
+
 	// delete tmp directory after each test
 	err := os.RemoveAll("local")
 	s.CheckError(err)
