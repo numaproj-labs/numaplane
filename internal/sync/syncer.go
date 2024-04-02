@@ -288,7 +288,7 @@ func (s *Syncer) sync(
 	}
 
 	opts := []gitopsSync.SyncOpt{
-		gitopsSync.WithLogr(*numaLogger.WithValues("gitsync", gitSync).LogrLogger),
+		gitopsSync.WithLogr(*numaLogger.WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name)).LogrLogger),
 		gitopsSync.WithOperationSettings(false, true, false, false),
 		gitopsSync.WithManifestValidation(true),
 		gitopsSync.WithPruneLast(true),
@@ -346,7 +346,7 @@ func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructu
 	}
 
 	diffOpts := []diff.Option{
-		diff.WithLogr(*logger.New().WithValues("gitsync", gitSync).LogrLogger),
+		diff.WithLogr(*logger.New().WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name)).LogrLogger),
 	}
 
 	modified, err := StateDiffs(reconciliationResult.Target, reconciliationResult.Live, overrides, diffOpts)

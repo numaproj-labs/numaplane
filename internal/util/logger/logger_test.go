@@ -382,3 +382,51 @@ func TestLevelChanges(t *testing.T) {
 		t.Errorf("\nActual:\n%+v\nExpected:\n%+v", actual, expected)
 	}
 }
+
+func TestLogrDirectly(t *testing.T) {
+	t.Run("infoOnly", func(t *testing.T) {
+		lvl := InfoLevel
+		nl, buf := mock(&lvl)
+
+		expected := LogJSON{
+			"info",
+			"info msg 1",
+			"",
+			loggerDefaultName,
+			"",
+			"",
+		}
+
+		nl.LogrLogger.Info("info msg 1")
+
+		var actual LogJSON
+		_ = json.Unmarshal(buf.Bytes(), &actual)
+
+		if !reflect.DeepEqual(actual, expected) {
+			t.Errorf("\nActual:\n%+v\nExpected:\n%+v", actual, expected)
+		}
+	})
+
+	t.Run("withVerbosity", func(t *testing.T) {
+		lvl := VerboseLevel
+		nl, buf := mock(&lvl)
+
+		expected := LogJSON{
+			"verbose",
+			"verbose msg 1",
+			"",
+			loggerDefaultName,
+			"",
+			"",
+		}
+
+		nl.LogrLogger.V(2).Info("verbose msg 1")
+
+		var actual LogJSON
+		_ = json.Unmarshal(buf.Bytes(), &actual)
+
+		if !reflect.DeepEqual(actual, expected) {
+			t.Errorf("\nActual:\n%+v\nExpected:\n%+v", actual, expected)
+		}
+	})
+}
