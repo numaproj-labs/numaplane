@@ -31,7 +31,8 @@ import (
 	"k8s.io/client-go/transport/spdy"
 )
 
-func PodPortForward(config *rest.Config, namespace, podName string, localPort, remotePort int, stopCh <-chan struct{}) error {
+func PodPortForward(config *rest.Config, namespace, podName string,
+	localPort, remotePort int, stopCh <-chan struct{}) error {
 	ctx := context.Background()
 	readyCh := make(chan struct{})
 
@@ -50,8 +51,10 @@ func PodPortForward(config *rest.Config, namespace, podName string, localPort, r
 		scheme = "http"
 		host = strings.TrimPrefix(config.Host, "http://")
 	}
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, &url.URL{Scheme: scheme, Path: path, Host: host})
-	fw, err := portforward.New(dialer, []string{fmt.Sprintf("%d:%d", localPort, remotePort)}, stopCh, readyCh, os.Stdout, os.Stderr)
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport},
+		http.MethodPost, &url.URL{Scheme: scheme, Path: path, Host: host})
+	fw, err := portforward.New(dialer, []string{fmt.Sprintf("%d:%d", localPort, remotePort)},
+		stopCh, readyCh, os.Stdout, os.Stderr)
 	if err != nil {
 		return err
 	}

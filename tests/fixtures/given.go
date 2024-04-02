@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing"
 	"log"
 	"os"
 	"path/filepath"
@@ -28,6 +27,7 @@ import (
 	"testing"
 
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
