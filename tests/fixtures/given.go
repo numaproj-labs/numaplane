@@ -111,8 +111,9 @@ func (g *Given) readResource(text string, v metav1.Object) {
 	}
 }
 
-// initialize git repo with all Numaflow files
-func (g *Given) CloneGitRepo() *Given {
+// initializes Git repo specified by GitSync's RepoURL by pushing initial commit files
+// these files should be located at testdata/<gitSync.Spec.Path>
+func (g *Given) InitializeGitRepo() *Given {
 	ctx := context.Background()
 
 	// Clone the repository

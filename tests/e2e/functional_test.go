@@ -32,7 +32,7 @@ type FunctionalSuite struct {
 
 // TODO
 func (s *FunctionalSuite) TestCreateGitSync() {
-	w := s.Given().GitSync("@testdata/gitsync.yaml").CloneGitRepo().
+	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo().
 		When().
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
