@@ -121,7 +121,10 @@ func (s *Syncer) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(logger.WithLogger(ctx, numaLogger))
 	defer cancel()
 
-	s.stateCache.Init()
+	err := s.stateCache.Init()
+	if err != nil {
+		return err
+	}
 
 	// Worker group
 	for i := 1; i <= s.options.workers; i++ {
@@ -217,7 +220,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
-		numaLogger.Error(err, "error getting  the  global config")
+		numaLogger.Error(err, "error getting the global config")
 	}
 
 	numaLogger.SetLevel(globalConfig.LogLevel)

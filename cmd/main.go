@@ -114,7 +114,7 @@ func main() {
 		sync.WithTaskInterval(interval))
 	// Add syncer runner
 	if err = mgr.Add(LeaderElectionRunner(syncer.Start)); err != nil {
-		numaLogger.Fatal(err, "Unable to add autoscaling runner")
+		numaLogger.Fatal(err, "Unable to add syncer runner")
 	}
 	reconciler, err := controller.NewGitSyncReconciler(
 		mgr.GetClient(),

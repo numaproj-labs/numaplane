@@ -38,6 +38,7 @@ type GlobalConfig struct {
 	SyncTimeIntervalMs     int    `json:"syncTimeIntervalMs" mapstructure:"syncTimeIntervalMs"`
 	CascadeDeletion        bool   `json:"cascadeDeletion" mapstructure:"cascadeDeletion"`
 	AutoHealTimeIntervalMs int    `json:"autoHealTimeIntervalMs" mapstructure:"autoHealTimeIntervalMs"`
+	IncludedResources      string `json:"includedResources" mapstructure:"includedResources"`
 	// RepoCredentials maps each Git Repository Path prefix to the corresponding credentials that are needed for it
 	RepoCredentials []apiv1.RepoCredential `json:"repoCredentials" mapstructure:"repoCredentials"`
 	LogLevel        int                    `json:"logLevel" mapstructure:"logLevel"`
