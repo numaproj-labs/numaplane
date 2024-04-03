@@ -166,7 +166,7 @@ func (c *liveStateCache) getCluster() clustercache.ClusterCache {
 		}
 
 		// TODO: when switch to change event triggering for sync tasking, notify
-		//       the GitSync managing the includedResources that there are changes happen
+		//       the GitSync managing the resources that there are changes happen
 	})
 
 	c.cluster = clusterCache

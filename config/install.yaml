@@ -346,9 +346,37 @@ metadata:
   name: numaplane-role
 rules:
 - apiGroups:
-  - '*'
+  - numaflow.numaproj.io
   resources:
   - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - numaplane.numaproj.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - serviceaccounts
+  - namespaces
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  resources:
+  - deployments
   verbs:
   - '*'
 ---
