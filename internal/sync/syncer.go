@@ -121,7 +121,7 @@ func (s *Syncer) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(logger.WithLogger(ctx, numaLogger))
 	defer cancel()
 
-	err := s.stateCache.Init()
+	err := s.stateCache.Init(&numaLogger)
 	if err != nil {
 		return err
 	}

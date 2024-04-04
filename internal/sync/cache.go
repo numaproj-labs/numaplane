@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os/exec"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,7 +18,6 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/cespare/xxhash/v2"
-	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -79,7 +79,7 @@ type LiveStateCache interface {
 	// GetManagedLiveObjs returns state of live nodes which correspond to target nodes of specified gitsync.
 	GetManagedLiveObjs(gitsync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (map[kube.ResourceKey]*unstructured.Unstructured, error)
 	// Init must be executed before cache can be used
-	Init() error
+	Init(numaLogger *logger.NumaLogger) error
 	// PopulateResourceInfo is called by the cache to update ResourceInfo struct for a managed resource
 	PopulateResourceInfo(un *unstructured.Unstructured, isRoot bool) (interface{}, bool)
 }
@@ -95,7 +95,7 @@ type ObjectUpdatedHandler = func(managedByGitSync map[string]bool, ref v1.Object
 
 type liveStateCache struct {
 	clusterCacheConfig *rest.Config
-	logger             *zap.SugaredLogger
+	logger             *logger.NumaLogger
 	// TODO: utilize `onObjectUpdated` when switch to change event triggering for sync tasking
 	// onObjectUpdated ObjectUpdatedHandler
 
@@ -120,7 +120,36 @@ func NewLiveStateCache(
 	}
 }
 
+func (c *liveStateCache) invalidate(cacheSettings cacheSettings) {
+	c.logger.Info("invalidating live state cache")
+	c.lock.Lock()
+	c.cacheSettings = cacheSettings
+	cluster := c.cluster
+	c.lock.Unlock()
+
+	cluster.Invalidate(clustercache.SetSettings(cacheSettings.clusterSettings))
+
+	c.logger.Info("live state cache invalidated")
+}
+
 func (c *liveStateCache) getCluster() clustercache.ClusterCache {
+	// Load the cache setting to see if it changed
+	nextCacheSettings, err := c.loadCacheSettings()
+	if err != nil {
+		c.logger.Error(err, "failed to read cache settings")
+	}
+
+	c.lock.Lock()
+	needInvalidate := false
+	if !reflect.DeepEqual(c.cacheSettings, *nextCacheSettings) {
+		c.cacheSettings = *nextCacheSettings
+		needInvalidate = true
+	}
+	c.lock.Unlock()
+	if needInvalidate {
+		c.invalidate(*nextCacheSettings)
+	}
+
 	c.lock.RLock()
 	cluster := c.cluster
 	cacheSettings := c.cacheSettings
@@ -192,7 +221,7 @@ func (c *liveStateCache) PopulateResourceInfo(un *unstructured.Unstructured, isR
 	if settings.ignoreResourceUpdatesEnabled && shouldHashManifest(gitSyncName, gvk) {
 		hash, err := generateManifestHash(un)
 		if err != nil {
-			c.logger.Errorf("Failed to generate manifest hash: %v", err)
+			c.logger.Errorf(err, "failed to generate manifest hash")
 		} else {
 			res.manifestHash = hash
 		}
@@ -323,7 +352,8 @@ func (c *liveStateCache) getSyncedCluster() (clustercache.ClusterCache, error) {
 	return clusterCache, nil
 }
 
-func (c *liveStateCache) Init() error {
+func (c *liveStateCache) Init(numaLogger *logger.NumaLogger) error {
+	c.logger = numaLogger
 	setting, err := c.loadCacheSettings()
 	if err != nil {
 		return fmt.Errorf("error on init live state cache: %w", err)
