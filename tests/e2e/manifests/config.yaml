@@ -1,0 +1,31 @@
+clusterName: "staging-usw2-k8s"
+syncTimeIntervalMs: 60000
+autoHealTimeIntervalMs: 30000
+cascadeDeletion: false
+includedResources: "group=apps,kind=Deployment;\
+group=,kind=ConfigMap;group=,kind=Secret;group=,kind=ServiceAccount;group=,kind=Namespace;\
+group=numaflow.numaproj.io,kind=;\
+group=numaflow.numaproj.io,kind=;\
+group=rbac.authorization.k8s.io,kind=RoleBinding;group=rbac.authorization.k8s.io,kind=Role"
+repoCredentials:
+- url: "localgitserver-service.numaplane-system.svc.cluster.local/git"
+  httpCredential:
+    username: "exampleUser"
+    password:
+      name: "http-creds"
+      key: "password"
+- url: "localgitserver-0.numaplane-system.svc.cluster.local/git"
+  sshCredential:
+    SSHKey:
+      name: "ssh-creds"
+      key: "sshKey"
+  tls:
+    insecureSkipVerify: true
+- url: "localgitserver-0.numaplane-system.svc.cluster.local/git"
+  httpCredential:
+    username: "exampleuser3"
+    password:
+      name: "http-creds"
+      key: "password"
+  tls:
+    insecureSkipVerify: true
