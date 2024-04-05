@@ -18,6 +18,7 @@ package fixtures
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -36,34 +37,33 @@ type Expect struct {
 	gitSyncClient planepkg.GitSyncInterface
 }
 
-// check that resources are created
+// check that resources are created / exist
 func (e *Expect) ResourcesExist(resourceType string, resources []string) *Expect {
 
 	e.t.Helper()
-	ctx := context.Background()
+	e.t.Log("Verifying that resources exist..")
+
 	for _, r := range resources {
-		result := e.kubeClient.CoreV1().RESTClient().Get().
-			Timeout(defaultTimeout).
-			Namespace(TargetNamespace).
-			Resource(resourceType).
-			Name(r).
-			Do(ctx)
-		if result.Error() != nil {
-			e.t.Fatalf("Resource %s does not exist", r)
+		if !e.doesExist(resourceType, r) {
+			e.t.Fatalf("Resource %s/%s does not exist", resourceType, r)
 		}
+		e.t.Logf("Resource %s/%s exists", resourceType, r)
 	}
 
 	return e
 }
 
-// check that resources are deleted
+// check that resources have been deleted
 func (e *Expect) ResourcesDontExist(resourceType string, resources []string) *Expect {
 
 	e.t.Helper()
+	e.t.Log("Verifying that resources no longer exist..")
+
 	for _, r := range resources {
 		if !e.isDeleted(resourceType, r) {
-			e.t.Fatalf("Resource %s not deleted", r)
+			e.t.Fatalf("Resource %s/%s not deleted", resourceType, r)
 		}
+		e.t.Logf("Resource %s/%s doesn't exist", resourceType, r)
 	}
 
 	return e
@@ -90,11 +90,11 @@ func (e *Expect) isDeleted(resourceType, resource string) bool {
 			return false
 		default:
 		}
-		result := e.kubeClient.CoreV1().RESTClient().Get().
-			Namespace(TargetNamespace).
-			Resource(resourceType).
-			Name(resource).
-			Do(ctx)
+		result := e.kubeClient.CoreV1().RESTClient().Get().AbsPath(
+			fmt.Sprintf("/apis/numaflow.numaproj.io/v1alpha1/namespaces/%s/%s/%s",
+				TargetNamespace,
+				resourceType,
+				resource)).Do(ctx)
 		if result.Error() != nil {
 			if errors.IsNotFound(result.Error()) {
 				return true
@@ -102,6 +102,30 @@ func (e *Expect) isDeleted(resourceType, resource string) bool {
 				e.t.Logf("Network error %v occurred", result.Error())
 				return false
 			}
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+}
+
+func (e *Expect) doesExist(resourceType, resource string) bool {
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			e.t.Logf("Timeout verifying that resource %s exists", resource)
+			return false
+		default:
+		}
+		result := e.kubeClient.CoreV1().RESTClient().Get().AbsPath(
+			fmt.Sprintf("/apis/numaflow.numaproj.io/v1alpha1/namespaces/%s/%s/%s",
+				TargetNamespace,
+				resourceType,
+				resource)).Do(ctx)
+		if result.Error() == nil {
+			return true
 		}
 		time.Sleep(2 * time.Second)
 	}
