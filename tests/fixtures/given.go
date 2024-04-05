@@ -43,7 +43,8 @@ var (
 		Username: "root",
 		Password: "root",
 	}
-	localPath = "./local"
+	localPath   = "./local"
+	localGitUrl = "http://localhost:8080/git/repo1.git" // Localgit url is different what gitSync url inside controller should be
 )
 
 type Given struct {
@@ -128,16 +129,6 @@ func (g *Given) InitializeGitRepo() *Given {
 		g.t.Fatal(err)
 	}
 
-	// Check out to a specific branch if necessary, assuming master/main here
-	// This step is important if your operations depend on being on a specific branch
-	err = wt.Checkout(&git.CheckoutOptions{
-		Branch: plumbing.NewBranchReferenceName("master"),
-		Force:  true,
-	})
-	if err != nil {
-		g.t.Fatal(err)
-	}
-
 	// Pull the latest changes to ensure the local copy is up-to-date
 	err = wt.Pull(&git.PullOptions{
 		RemoteName:    "origin",
@@ -192,7 +183,7 @@ func (g *Given) InitializeGitRepo() *Given {
 // clone repository unless it's already been cloned
 func (g *Given) cloneRepo(ctx context.Context) (*git.Repository, error) {
 
-	cloneOpts := git.CloneOptions{URL: g.gitSync.Spec.RepoUrl, Auth: auth}
+	cloneOpts := git.CloneOptions{URL: localGitUrl, Auth: auth}
 
 	repo, err := git.PlainCloneContext(ctx, localPath, false, &cloneOpts)
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {

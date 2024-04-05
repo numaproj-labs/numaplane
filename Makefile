@@ -209,9 +209,21 @@ gitserver:
 		-t $(GITSERVER_IMAGE) \
 		--push .
 
+.PHONY: e2e-test-clean
+e2e-test-clean:
+	$(KUBECTL) delete -k tests/e2e/manifests --ignore-not-found=true
+	$(KUBECTL) delete -f tests/e2e/manifests/numaplane-ns.yaml --ignore-not-found=true
+
+.PHONY: e2e-test-start
+e2e-test-start: e2e-test-clean image
+	$(KUBECTL) apply -f tests/e2e/manifests/numaplane-ns.yaml
+	$(KUBECTL) kustomize tests/e2e/manifests | sed 's/CLUSTER_NAME_VALUE/$(CLUSTER_NAME)/g' | sed 's@quay.io/numaproj/@$(IMAGE_NAMESPACE)/@' | sed 's/$(IMG):$(BASE_VERSION)/$(IMG):$(VERSION)/' | $(KUBECTL) apply -f -
+
 test-e2e:
-test-%:
+test-%: e2e-test-start
 	kubectl delete -n numaplane-system -k ./tests/e2e-gitserver --ignore-not-found=true
 	kubectl apply -n numaplane-system -k ./tests/e2e-gitserver
 	go generate $(shell find ./tests/$* -name '*.go')
 	go test -v -timeout 15m -count 1 --tags test -p 1 ./tests/$*
+	$(MAKE) e2e-test-clean
+
