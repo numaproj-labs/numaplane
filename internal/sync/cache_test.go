@@ -208,6 +208,12 @@ func TestParseResourceFilter(t *testing.T) {
 		hasErr            bool
 	}{
 		{
+			name:              "valid empty rule",
+			rules:             "",
+			expectedResources: []ResourceType{},
+			hasErr:            false,
+		},
+		{
 			name:  "valid rules",
 			rules: "group=apps,kind=Deployment;group=rbac.authorization.k8s.io,kind=RoleBinding",
 			expectedResources: []ResourceType{

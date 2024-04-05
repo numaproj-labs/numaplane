@@ -107,8 +107,10 @@ type liveStateCache struct {
 func newLiveStateCache(
 	cluster clustercache.ClusterCache,
 ) LiveStateCache {
+	numaLogger := logger.New().WithName("live state cache")
 	return &liveStateCache{
 		cluster: cluster,
+		logger:  &numaLogger,
 	}
 }
 
@@ -386,9 +388,13 @@ func (c *liveStateCache) loadCacheSettings() (*cacheSettings, error) {
 // included resource to be watched during caching. The rules are
 // delimited by ';', and each rule is composed by both 'group'
 // and 'kind' which can be empty. For example,
-// 'group=apps,kind=Deployment;group=,kind=ConfigMap'.
+// 'group=apps,kind=Deployment;group=,kind=ConfigMap'. Note that
+// empty rule is valid.
 func parseResourceFilter(rules string) (*[]ResourceType, error) {
 	filteredResources := make([]ResourceType, 0)
+	if rules == "" {
+		return &filteredResources, nil
+	}
 	rulesArr := strings.Split(rules, ";")
 	err := fmt.Errorf("malformed resource filter rules %q", rules)
 	for _, rule := range rulesArr {
