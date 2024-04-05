@@ -32,11 +32,30 @@ type FunctionalSuite struct {
 
 // TODO
 func (s *FunctionalSuite) TestCreateGitSync() {
-	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo().
+	w := s.Given().GitSync("@testdata/gitsync.yaml").
 		When().
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
+
+	w.Expect().ResourcesExist("pipelines", []string{"simple-pipeline"})
 }
+
+// potentially this can all be in one case
+
+func (s *FunctionalSuite) TestDeleteGitSyncAndResources() {
+	w := s.Given().GitSync("@testdata/gitsync.yaml").
+		When().
+		CreateGitSyncAndWait()
+
+	// verify that all resources are deleted when GitSync is deleted
+	w.DeleteGitSyncAndWait().
+		Expect().
+		ResourcesDontExist("pipelines", []string{"simple-pipeline"})
+}
+
+// func (s *FunctionalSuite) TestSelfHealing() {
+
+// }
 
 func TestFunctionalSuite(t *testing.T) {
 	suite.Run(t, new(FunctionalSuite))
