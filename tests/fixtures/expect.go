@@ -24,7 +24,9 @@ import (
 
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -35,16 +37,17 @@ type Expect struct {
 	kubeClient    kubernetes.Interface
 	gitSync       *v1alpha1.GitSync
 	gitSyncClient planepkg.GitSyncInterface
+	currentCommit string
 }
 
 // check that resources are created / exist
-func (e *Expect) ResourcesExist(resourceType string, resources []string) *Expect {
+func (e *Expect) ResourcesExist(apiVersion, resourceType string, resources []string) *Expect {
 
 	e.t.Helper()
 	e.t.Log("Verifying that resources exist..")
 
 	for _, r := range resources {
-		if !e.doesExist(resourceType, r) {
+		if !e.doesExist(apiVersion, resourceType, r) {
 			e.t.Fatalf("Resource %s/%s does not exist", resourceType, r)
 		}
 		e.t.Logf("Resource %s/%s exists", resourceType, r)
@@ -53,18 +56,83 @@ func (e *Expect) ResourcesExist(resourceType string, resources []string) *Expect
 	return e
 }
 
-// check that resources have been deleted
-func (e *Expect) ResourcesDontExist(resourceType string, resources []string) *Expect {
+// check that resources have been deleted or never existed
+func (e *Expect) ResourcesDontExist(apiVersion, resourceType string, resources []string) *Expect {
 
 	e.t.Helper()
 	e.t.Log("Verifying that resources no longer exist..")
 
 	for _, r := range resources {
-		if !e.isDeleted(resourceType, r) {
+		if !e.doesNotExist(apiVersion, resourceType, r) {
 			e.t.Fatalf("Resource %s/%s not deleted", resourceType, r)
 		}
 		e.t.Logf("Resource %s/%s doesn't exist", resourceType, r)
 	}
+
+	return e
+}
+
+// verify value of resource spec to determine if change occurred or not as expected
+func (e *Expect) VerifyResourceSpec(apiVersion, resourceType, resource, key string, value interface{}) *Expect {
+
+	e.t.Helper()
+	e.t.Log("Verifying resource spec is as expected..")
+
+	if !e.doesExist(apiVersion, resourceType, resource) {
+		e.t.Fatalf("Resource %s/%s does not exist", resourceType, resource)
+	}
+
+	ctx := context.Background()
+
+	body, err := e.kubeClient.CoreV1().RESTClient().Get().AbsPath(
+		fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
+			apiVersion,
+			TargetNamespace,
+			resourceType,
+			resource)).DoRaw(ctx)
+
+	if err != nil {
+		e.t.Fatalf("Failed to verify resource %s/%s spec", resourceType, resource)
+	}
+
+	object := make(map[string]interface{})
+	err = yaml.Unmarshal(body, object)
+	if err != nil {
+		e.t.Fatalf("Failed to verify resource %s/%s spec", resourceType, resource)
+	}
+
+	for k, v := range object["spec"].(map[interface{}]interface{}) {
+		if k == key {
+			if v != value {
+				e.t.Fatalf("Resource %s/%s spec is not as expected", resourceType, resource)
+			}
+		}
+	}
+
+	e.t.Log("Resource spec is as expected")
+
+	return e
+}
+
+// verify that GitSync's commitStatus is as expected:
+// synced = true
+// hash is equal to the last commit to the Git server
+func (e *Expect) CheckCommitStatus() *Expect {
+
+	e.t.Helper()
+	e.t.Log("Verifying GitSync's commitStatus is as expected..")
+
+	// gitSync commit status will be nil if reconcilation has not finished
+	commitStatus, err := e.getCommitStatus()
+	if err != nil {
+		e.t.Fatalf("Can't find GitSync %s", e.gitSync.Name)
+	}
+
+	if commitStatus.Hash != e.currentCommit {
+		e.t.Fatalf("GitSync %s is not synced to the most recent commit", e.gitSync.Name)
+	}
+
+	e.t.Logf("GitSync %s is synced to current commit", e.gitSync.Name)
 
 	return e
 }
@@ -76,10 +144,34 @@ func (e *Expect) When() *When {
 		restConfig:    e.restConfig,
 		kubeClient:    e.kubeClient,
 		gitSyncClient: e.gitSyncClient,
+		currentCommit: e.currentCommit,
 	}
 }
 
-func (e *Expect) isDeleted(resourceType, resource string) bool {
+func (e *Expect) getCommitStatus() (*v1alpha1.CommitStatus, error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			e.t.Logf("Timeout verifying that GitSync %s is synced", e.gitSync.Name)
+		default:
+		}
+		gitSync, err := e.gitSyncClient.Get(ctx, e.gitSync.Name, v1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		if gitSync.Status.CommitStatus != nil && gitSync.Status.CommitStatus.Synced {
+			return gitSync.Status.CommitStatus, nil
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+}
+
+// doesnt exist
+func (e *Expect) doesNotExist(apiVersion, resourceType, resource string) bool {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -91,7 +183,8 @@ func (e *Expect) isDeleted(resourceType, resource string) bool {
 		default:
 		}
 		result := e.kubeClient.CoreV1().RESTClient().Get().AbsPath(
-			fmt.Sprintf("/apis/numaflow.numaproj.io/v1alpha1/namespaces/%s/%s/%s",
+			fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
+				apiVersion,
 				TargetNamespace,
 				resourceType,
 				resource)).Do(ctx)
@@ -108,7 +201,7 @@ func (e *Expect) isDeleted(resourceType, resource string) bool {
 
 }
 
-func (e *Expect) doesExist(resourceType, resource string) bool {
+func (e *Expect) doesExist(apiVersion, resourceType, resource string) bool {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -120,7 +213,8 @@ func (e *Expect) doesExist(resourceType, resource string) bool {
 		default:
 		}
 		result := e.kubeClient.CoreV1().RESTClient().Get().AbsPath(
-			fmt.Sprintf("/apis/numaflow.numaproj.io/v1alpha1/namespaces/%s/%s/%s",
+			fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
+				apiVersion,
 				TargetNamespace,
 				resourceType,
 				resource)).Do(ctx)
