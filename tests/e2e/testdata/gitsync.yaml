@@ -10,4 +10,4 @@ spec:
   raw: {}
   destination:
     cluster: staging-usw2-k8s
-    namespace: numaflow-pipeline
+    namespace: numaplane-e2e

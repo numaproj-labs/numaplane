@@ -38,7 +38,7 @@ import (
 const (
 	/* resource names */
 	Namespace       = "numaplane-system"
-	TargetNamespace = "numaflow-pipeline"
+	TargetNamespace = "numaplane-e2e"
 	E2ELabel        = "numaplane-e2e"
 	E2ELabelValue   = "true"
 	defaultTimeout  = 60 * time.Second
@@ -98,6 +98,10 @@ func (s *E2ESuite) AfterTest(suiteName, testName string) {
 	// delete local directory after each test
 	err = os.RemoveAll(localPath)
 	s.CheckError(err)
+
+	// reset namespace by deleting all resources on it
+	// err = s.resetNamespace()
+	// s.CheckError(err)
 }
 
 func (s *E2ESuite) CheckError(err error) {
@@ -205,5 +209,10 @@ func resetRepo() error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (s *E2ESuite) resetNamespace() error {
+
 	return nil
 }
