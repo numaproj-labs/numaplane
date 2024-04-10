@@ -39,6 +39,7 @@ type When struct {
 	kubeClient    kubernetes.Interface
 	gitSync       *v1alpha1.GitSync
 	gitSyncClient planepkg.GitSyncInterface
+	currentCommit string
 }
 
 func (w *When) CreateGitSyncAndWait() *When {
@@ -85,7 +86,9 @@ func (w *When) DeleteGitSyncAndWait() *When {
 }
 
 // make git push to Git server pod
-func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
+func (w *When) PushToGitRepo(directory string, fileNames []string, remove bool) *When {
+
+	w.t.Log("Adding files to commit to repo..")
 
 	// open local path to cloned git repo
 	repo, err := git.PlainOpen(localPath)
@@ -106,17 +109,25 @@ func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
 	// iterate over files to be added and committed
 	for _, fileName := range fileNames {
 
-		err := CopyFile(filepath.Join(dataPath, fileName), filepath.Join(tmpPath, fileName))
-		if err != nil {
-			w.t.Fatal(err)
+		if remove {
+			_, err = wt.Remove(filepath.Join(w.gitSync.Spec.Path, fileName))
+			if err != nil {
+				w.t.Fatal(err)
+			}
+		} else {
+			err := CopyFile(filepath.Join(dataPath, fileName), filepath.Join(tmpPath, fileName))
+			if err != nil {
+				w.t.Fatal(err)
+			}
+			_, err = wt.Add(w.gitSync.Spec.Path)
+			if err != nil {
+				w.t.Fatal(err)
+			}
 		}
-		_, err = wt.Add(w.gitSync.Spec.Path)
-		if err != nil {
-			w.t.Fatal(err)
-		}
+
 	}
 
-	_, err = wt.Commit("Committing to git server", &git.CommitOptions{})
+	hash, err := wt.Commit("Committing to git server", &git.CommitOptions{})
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -125,12 +136,24 @@ func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		Auth:       auth,
-		RemoteURL:  w.gitSync.Spec.RepoUrl,
 	})
 	if err != nil {
 		w.t.Fatal(err)
 	}
 
+	// store commit hash
+	w.currentCommit = hash.String()
+
+	w.t.Log("Files successfully pushed to repo")
+
+	return w
+}
+
+func (w *When) Wait(timeout time.Duration) *When {
+	w.t.Helper()
+	w.t.Log("Waiting for", timeout.String())
+	time.Sleep(timeout)
+	w.t.Log("Done waiting")
 	return w
 }
 
@@ -141,6 +164,7 @@ func (w *When) Given() *Given {
 		restConfig:    w.restConfig,
 		kubeClient:    w.kubeClient,
 		gitSyncClient: w.gitSyncClient,
+		currentCommit: w.currentCommit,
 	}
 }
 
@@ -151,6 +175,7 @@ func (w *When) Expect() *Expect {
 		restConfig:    w.restConfig,
 		kubeClient:    w.kubeClient,
 		gitSyncClient: w.gitSyncClient,
+		currentCommit: w.currentCommit,
 	}
 }
 

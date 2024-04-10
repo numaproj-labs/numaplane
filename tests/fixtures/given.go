@@ -56,6 +56,7 @@ type Given struct {
 	kubeClient    kubernetes.Interface
 	gitSyncClient planepkg.GitSyncInterface
 	gitSync       *v1alpha1.GitSync
+	currentCommit string
 }
 
 // create GitSync using raw YAML or @filename
@@ -116,9 +117,12 @@ func (g *Given) readResource(text string, v metav1.Object) {
 }
 
 // initializes Git repo specified by GitSync's RepoURL by pushing initial commit files
-// these files should be located at testdata/<gitSync.Spec.Path>
-func (g *Given) InitializeGitRepo() *Given {
+// these files should be located at testdata/<directory>
+// directory name does not need to match gitSync.Spec.Path
+func (g *Given) InitializeGitRepo(directory string) *Given {
 	ctx := context.Background()
+
+	g.t.Log("Initializing Git repo..")
 
 	// Clone the repository
 	repo, err := g.cloneRepo(ctx)
@@ -143,7 +147,7 @@ func (g *Given) InitializeGitRepo() *Given {
 	}
 
 	tmpPath := filepath.Join(localPath, g.gitSync.Spec.Path)
-	dataPath := filepath.Join("testdata", g.gitSync.Spec.Path)
+	dataPath := filepath.Join("testdata", directory)
 	_ = os.Mkdir(tmpPath, 0777)
 
 	dir, err := os.ReadDir(dataPath)
@@ -160,12 +164,12 @@ func (g *Given) InitializeGitRepo() *Given {
 	}
 
 	// Add and commit local changes
-	_, err = wt.Add(".")
+	_, err = wt.Add(g.gitSync.Spec.Path)
 	if err != nil {
 		g.t.Fatal(err)
 	}
 
-	_, err = wt.Commit("Update with local changes", &git.CommitOptions{})
+	hash, err := wt.Commit("Initial commit", &git.CommitOptions{})
 	if err != nil {
 		g.t.Fatal(err)
 	}
@@ -179,6 +183,11 @@ func (g *Given) InitializeGitRepo() *Given {
 	if err != nil {
 		g.t.Fatal(err)
 	}
+
+	// store commit hash
+	g.currentCommit = hash.String()
+
+	g.t.Log("Files successfully pushed to repo")
 
 	return g
 }
@@ -208,5 +217,6 @@ func (g *Given) When() *When {
 		restConfig:    g.restConfig,
 		kubeClient:    g.kubeClient,
 		gitSyncClient: g.gitSyncClient,
+		currentCommit: g.currentCommit,
 	}
 }
