@@ -89,6 +89,13 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, ku
 	if err != nil {
 		return nil, fmt.Errorf("invalid repository URL: %w", err)
 	}
+
+	if repoCred == nil {
+		return &git.CloneOptions{
+			URL: endpoint.String(),
+		}, nil
+	}
+
 	method, skipTls, err := GetAuthMethod(ctx, repoCred, kubeClient, repoUrl)
 	if err != nil {
 		return nil, err

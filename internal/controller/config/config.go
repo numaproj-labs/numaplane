@@ -42,6 +42,7 @@ type GlobalConfig struct {
 	// RepoCredentials maps each Git Repository Path prefix to the corresponding credentials that are needed for it
 	RepoCredentials []apiv1.RepoCredential `json:"repoCredentials" mapstructure:"repoCredentials"`
 	LogLevel        int                    `json:"logLevel" mapstructure:"logLevel"`
+	GitHubProxyUrl  string                 `json:"githubProxyUrl" mapstructure:"githubProxyUrl"`
 }
 
 func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {

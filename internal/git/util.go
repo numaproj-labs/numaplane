@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	argoGit "github.com/argoproj/argo-cd/v2/util/git"
 	"github.com/argoproj/argo-cd/v2/util/helm"
@@ -32,11 +34,21 @@ func CloneRepo(
 	gitSync *v1alpha1.GitSync,
 	globalConfig controllerConfig.GlobalConfig,
 ) (*git.Repository, error) {
-	gitCredentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
+	proxified, err := Proxify(globalConfig.GitHubProxyUrl, gitSync)
+	if err != nil {
+		return nil, fmt.Errorf("error cloning repo: %v", err)
+	}
+
+	var gitCredentials *v1alpha1.RepoCredential
+	if !proxified {
+		gitCredentials = gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
+	}
+
 	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)
 	if err != nil {
 		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
 	}
+
 	return cloneRepo(ctx, gitSync, cloneOptions)
 }
 
@@ -50,6 +62,9 @@ func GetLatestManifests(
 	client k8sClient.Client,
 	gitSync *v1alpha1.GitSync,
 ) (string, []*unstructured.Unstructured, error) {
+	// NOTE: since GetLatestManifests gets called only in syncer.go after a call to CloneRepo,
+	// there is no need to re-proxify the GitSync repo URL (it has already been done).
+
 	numaLogger := logger.FromContext(ctx).WithValues("GitSync name", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
 
 	// Fetch all remote branches
@@ -94,6 +109,24 @@ func GetLatestManifests(
 	}
 
 	return hash.String(), targetObjs, nil
+}
+
+// Proxify will modify the GitSync repoUrl string by using the given proxyUrl prefix (if set).
+// If the proxyUrl string is not set or empty, the GitSync repoUrl will not be changed.
+// The function returns true if the URL was proxified, false otherwise.
+func Proxify(proxyUrl string, gitSync *v1alpha1.GitSync) (bool, error) {
+	if strings.TrimSpace(proxyUrl) == "" {
+		return false, nil
+	}
+
+	repoUrl, err := url.Parse(gitSync.Spec.RepoUrl)
+	if err != nil {
+		return false, fmt.Errorf("error while proxifying the GitSync repo URL: %v", err)
+	}
+
+	gitSync.Spec.RepoUrl = fmt.Sprintf("%s%s", proxyUrl, repoUrl.Path)
+
+	return true, nil
 }
 
 // helmTemplate will return the list of unstructured objects after templating the helm chart.

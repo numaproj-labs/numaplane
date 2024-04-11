@@ -181,6 +181,8 @@ func (r *GitSyncReconciler) validate(gitSync *apiv1.GitSync) error {
 	specs := gitSync.Spec
 	destination := gitSync.Spec.Destination
 
+	fmt.Println("TONY DEBUG: the repoUrl should not be proxified here, EVER: ", specs.RepoUrl, gitSync.Spec.RepoUrl)
+
 	// Validate the repositoryPath
 	if ok := gitshared.CheckGitURL(specs.RepoUrl); !ok {
 		return fmt.Errorf("invalid remote repository url %s", specs.RepoUrl)
