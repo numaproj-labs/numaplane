@@ -122,7 +122,7 @@ func (e *Expect) CheckCommitStatus() *Expect {
 	e.t.Helper()
 	e.t.Log("Verifying GitSync's commitStatus is as expected..")
 
-	// gitSync commit status will be nil if reconcilation has not finished
+	// gitSync commit status will be nil if reconciliation has not finished
 	commitStatus, err := e.getCommitStatus()
 	if err != nil {
 		e.t.Fatalf("Can't find GitSync %s", e.gitSync.Name)
