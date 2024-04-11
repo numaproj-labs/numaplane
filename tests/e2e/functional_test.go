@@ -91,6 +91,26 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 
 }
 
+// GitSync self healing occurs when resource does not match manifest in repo
+func (s *FunctionalSuite) TestSelfHealing() {
+
+	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"nginx-deployment"})
+	w.Expect().CheckCommitStatus()
+
+	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "nginx-deployment", "replicas", 3)
+
+	// apply patch to resource
+	w.ModifyResource("apps/v1", "deployments", "nginx-deployment", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
+
+	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "nginx-deployment", "replicas", 3)
+
+}
+
 func TestFunctionalSuite(t *testing.T) {
 	suite.Run(t, new(FunctionalSuite))
 }

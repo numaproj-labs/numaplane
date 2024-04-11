@@ -26,6 +26,7 @@ import (
 	git "github.com/go-git/go-git/v5"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -169,6 +170,29 @@ func (w *When) PushToGitRepo(directory string, fileNames []string, remove bool) 
 	w.currentCommit = hash.String()
 
 	w.t.Log("Files successfully pushed to repo")
+
+	return w
+}
+
+// kubectl apply resource for self healing test
+func (w *When) ModifyResource(apiVersion, resourceType, resource, patch string) *When {
+
+	ctx := context.Background()
+
+	w.t.Log("Patching resource..")
+
+	result := w.kubeClient.CoreV1().RESTClient().Patch(types.MergePatchType).AbsPath(
+		fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
+			apiVersion,
+			TargetNamespace,
+			resourceType,
+			resource)).Body([]byte(patch)).Do(ctx)
+
+	if result.Error() != nil {
+		w.t.Fatal(result.Error())
+	}
+
+	w.t.Log("Resource successfully patched")
 
 	return w
 }
