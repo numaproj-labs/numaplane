@@ -20,7 +20,6 @@ import (
 	"context"
 	"flag"
 
-	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -139,7 +138,7 @@ func main() {
 
 	numaLogger.Info("Starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		numaLogger.Fatal(err, "Unable to start manager", zap.Error(err))
+		numaLogger.Fatal(err, "Unable to start manager")
 	}
 }
 
