@@ -40,14 +40,15 @@ import (
 
 // localGitUrl is set for local development/testing,
 // the GitSync controller uses a different URL configured in GitSync yaml.
-const localGitUrl = "http://localhost:8080/git/repo1.git"
+// const localGitUrl = "http://localhost:8080/git/repo1.git"
 
 var (
 	auth = &http.BasicAuth{
 		Username: "root",
 		Password: "root",
 	}
-	localPath = "./local"
+	localPath   = "./local"
+	localGitUrl = "http://localhost:8080/git/repo1.git"
 )
 
 type Given struct {

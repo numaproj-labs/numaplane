@@ -42,6 +42,7 @@ type When struct {
 	currentCommit string
 }
 
+// create new GitSync
 func (w *When) CreateGitSyncAndWait() *When {
 
 	w.t.Helper()
@@ -61,8 +62,31 @@ func (w *When) CreateGitSyncAndWait() *When {
 		w.t.Fatal(err)
 	}
 	return w
-
 }
+
+// update existing GitSync
+func (w *When) UpdateGitSyncAndWait() *When {
+
+	w.t.Helper()
+	if w.gitSync == nil {
+		w.t.Fatal("No GitSync to create")
+	}
+	w.t.Log("Updating GitSync", w.gitSync.Name)
+	ctx := context.Background()
+	i, err := w.gitSyncClient.Update(ctx, w.gitSync, metav1.UpdateOptions{})
+	if err != nil {
+		w.t.Fatal(err)
+	} else {
+		w.gitSync = i
+	}
+	// wait for GitSync to run
+	if err := w.waitForGitSyncRunning(ctx, w.gitSyncClient, w.gitSync.Name, defaultTimeout); err != nil {
+		w.t.Fatal(err)
+	}
+	return w
+}
+
+// delete existing GitSync
 func (w *When) DeleteGitSyncAndWait() *When {
 
 	w.t.Helper()

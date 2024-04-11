@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 
@@ -30,32 +31,65 @@ type FunctionalSuite struct {
 	E2ESuite
 }
 
-// TODO
-func (s *FunctionalSuite) TestCreateGitSync() {
-	w := s.Given().GitSync("@testdata/gitsync.yaml").
+// GitSync testing for Numaflow with raw manifests
+func (s *FunctionalSuite) TestSimpleNumaflowGitSync() {
+
+	// create GitSync and initialize Git repo with initial manifest files
+	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("numaflow/initial-commit").
 		When().
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
 
-	w.Expect().ResourcesExist("pipelines", []string{"simple-pipeline"})
+	// verify Numaflow installation and pipeline creation
+	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "interstepbufferservices", []string{"default"})
+	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
+
+	// verify that the CommitStatus of GitSync is currently synced with initial commit
+	w.Expect().CheckCommitStatus()
+
+	// pushing new pipeline file to repo
+	// wait currently necessary as controller takes time to reconcile and sync properly
+	w.PushToGitRepo("numaflow/modified", []string{"http-pipeline.yaml"}, false).Wait(30 * time.Second)
+
+	// verify that new pipeline has been created and GitSync is synced to newest commit
+	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"http-pipeline"})
+	w.Expect().CheckCommitStatus()
+
+	// edit existing pipeline in repo to have additional vertex
+	w.PushToGitRepo("numaflow/modified", []string{"sample_pipeline.yaml"}, false).Wait(45 * time.Second)
+
+	// verify that spec of simple-pipeline was updated with new vertex
+	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
+	// w.Expect().VerifyResourceSpec("numaflow.numaproj.io/v1alpha1", "pipelines", "simple-pipeline", "vertices", "")
+	w.Expect().CheckCommitStatus()
+
+	// edit existing pipeline back to initial state
+	w.PushToGitRepo("numaflow/initial-commit", []string{"sample_pipeline.yaml"}, false).Wait(30 * time.Second)
+
+	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
+	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "vertices", []string{"simple-pipeline-another-out"})
+	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "vertices", []string{"simple-pipeline-in", "simple-pipeline-cat", "simple-pipeline-out"})
+
 }
 
-// potentially this can all be in one case
+// GitSync testing with basic k8s objects
+func (s *FunctionalSuite) TestBasicGitSync() {
 
-func (s *FunctionalSuite) TestDeleteGitSyncAndResources() {
-	w := s.Given().GitSync("@testdata/gitsync.yaml").
+	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
 		When().
 		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
 
-	// verify that all resources are deleted when GitSync is deleted
-	w.DeleteGitSyncAndWait().
-		Expect().
-		ResourcesDontExist("pipelines", []string{"simple-pipeline"})
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"nginx-deployment"})
+	w.Expect().CheckCommitStatus()
+
+	w.PushToGitRepo("basic-resources/modified", []string{"test.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"nginx-deployment"})
+	w.Expect().CheckCommitStatus()
+
+	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "nginx-deployment", "replicas", 5)
+
 }
-
-// func (s *FunctionalSuite) TestSelfHealing() {
-
-// }
 
 func TestFunctionalSuite(t *testing.T) {
 	suite.Run(t, new(FunctionalSuite))
