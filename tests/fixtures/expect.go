@@ -25,6 +25,7 @@ import (
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -181,8 +182,10 @@ func (e *Expect) doesNotExist(apiVersion, resourceType, resource string) bool {
 			return false
 		default:
 		}
-		if e.getResource(apiVersion, resourceType, resource, ctx) == nil {
-			return true
+		if err := e.getResource(apiVersion, resourceType, resource, ctx); err != nil {
+			if errors.IsNotFound(err) {
+				return true
+			}
 		}
 		time.Sleep(2 * time.Second)
 	}
@@ -227,7 +230,7 @@ func (e *Expect) getResource(apiVersion, resourceType, resource string, ctx cont
 				TargetNamespace,
 				resourceType,
 				resource)).Do(ctx)
-		if result.Error() == nil {
+		if result.Error() != nil {
 			return result.Error()
 		}
 	}
