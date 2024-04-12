@@ -73,10 +73,15 @@ func (e *Expect) ResourcesDontExist(apiVersion, resourceType string, resources [
 }
 
 // verify value of resource spec to determine if change occurred or not as expected
-func (e *Expect) VerifyResourceSpec(apiVersion, resourceType, resource, key string, value interface{}) *Expect {
+func (e *Expect) VerifyResourceState(apiVersion, resourceType, resource, field, key string, value interface{}) *Expect {
 
 	e.t.Helper()
-	e.t.Log("Verifying resource spec is as expected..")
+	e.t.Log("Verifying resource state is as expected..")
+
+	var (
+		err  error
+		body []byte
+	)
 
 	if !e.doesExist(apiVersion, resourceType, resource) {
 		e.t.Fatalf("Resource %s/%s does not exist", resourceType, resource)
@@ -84,32 +89,41 @@ func (e *Expect) VerifyResourceSpec(apiVersion, resourceType, resource, key stri
 
 	ctx := context.Background()
 
-	body, err := e.kubeClient.CoreV1().RESTClient().Get().AbsPath(
-		fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
-			apiVersion,
-			TargetNamespace,
-			resourceType,
-			resource)).DoRaw(ctx)
+	if apiVersion == "v1" {
+		body, err = e.kubeClient.CoreV1().RESTClient().
+			Get().
+			Namespace(TargetNamespace).
+			Resource(resourceType).
+			Name(resource).
+			DoRaw(ctx)
+	} else {
+		body, err = e.kubeClient.CoreV1().RESTClient().Get().AbsPath(
+			fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
+				apiVersion,
+				TargetNamespace,
+				resourceType,
+				resource)).DoRaw(ctx)
+	}
 
 	if err != nil {
-		e.t.Fatalf("Failed to verify resource %s/%s spec", resourceType, resource)
+		e.t.Fatalf("Failed to verify resource %s/%s state", resourceType, resource)
 	}
 
 	object := make(map[string]interface{})
 	err = yaml.Unmarshal(body, object)
 	if err != nil {
-		e.t.Fatalf("Failed to verify resource %s/%s spec", resourceType, resource)
+		e.t.Fatalf("Failed to verify resource %s/%s state", resourceType, resource)
 	}
 
-	for k, v := range object["spec"].(map[interface{}]interface{}) {
+	for k, v := range object[field].(map[interface{}]interface{}) {
 		if k == key {
 			if v != value {
-				e.t.Fatalf("Resource %s/%s spec is not as expected", resourceType, resource)
+				e.t.Fatalf("Resource %s/%s state is not as expected", resourceType, resource)
 			}
 		}
 	}
 
-	e.t.Log("Resource spec is as expected")
+	e.t.Log("Resource state is as expected")
 
 	return e
 }

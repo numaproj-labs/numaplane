@@ -213,6 +213,7 @@ gitserver:
 e2e-test-clean:
 	$(KUBECTL) delete -n numaplane-e2e isbsvc --all
 	$(KUBECTL) delete -n numaplane-e2e pipelines --all
+	$(KUBECTL) delete -n numaplane-e2e cm --all
 	$(KUBECTL) delete -n numaplane-e2e all --all
 	$(KUBECTL) delete -n numaplane-system pod localgitserver-0 --ignore-not-found=true
 

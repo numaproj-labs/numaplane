@@ -99,7 +99,9 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 	w.Expect().CheckCommitStatus()
 
 	// verify that resource has received changed
-	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "test-deploy", "replicas", 5)
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 5)
+
+	w.Expect().VerifyResourceState("v1", "configmaps", "test-config", "data", "clusterName", "staging-usw2-k8s")
 
 }
 
@@ -115,13 +117,13 @@ func (s *FunctionalSuite) TestSelfHealing() {
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().CheckCommitStatus()
 
-	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "test-deploy", "replicas", 3)
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 3)
 
 	// apply patch to resource
 	w.ModifyResource("apps/v1", "deployments", "test-deploy", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
 
 	// verify that resource has been "healed" by resetting replica count to 3
-	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "test-deploy", "replicas", 3)
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 3)
 
 }
 
