@@ -278,23 +278,18 @@ func (s *Syncer) sync(
 	targetObjs []*unstructured.Unstructured,
 	numaLogger *logger.NumaLogger,
 ) (gitopsSyncCommon.OperationPhase, string) {
-	reconciliationResult, modified, err := s.compareState(gitSync, targetObjs)
+	reconciliationResult, diffResults, err := s.compareState(gitSync, targetObjs)
 	if err != nil {
 		numaLogger.Error(err, "Error on comparing git sync state")
 		return gitopsSyncCommon.OperationError, err.Error()
-	}
-
-	// If the live state matches the target state, then skip the syncing.
-	if !modified {
-		numaLogger.Info("GitSync object is already synced, skip the syncing.")
-		return gitopsSyncCommon.OperationSucceeded, ""
 	}
 
 	opts := []gitopsSync.SyncOpt{
 		gitopsSync.WithLogr(*numaLogger.WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name)).LogrLogger),
 		gitopsSync.WithOperationSettings(false, true, false, false),
 		gitopsSync.WithManifestValidation(true),
-		gitopsSync.WithPruneLast(true),
+		gitopsSync.WithPruneLast(false),
+		gitopsSync.WithResourceModificationChecker(true, diffResults),
 		gitopsSync.WithReplace(false),
 		gitopsSync.WithServerSideApply(true),
 		gitopsSync.WithServerSideApplyManager(common.SSAManager),
@@ -329,7 +324,7 @@ func (s *Syncer) sync(
 	return phase, message
 }
 
-func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (gitopsSync.ReconciliationResult, bool, error) {
+func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (gitopsSync.ReconciliationResult, *diff.DiffResultList, error) {
 	var infoProvider kubeUtil.ResourceInfoProvider
 	infoProvider, err := s.stateCache.GetClusterCache()
 	if err != nil {
@@ -337,7 +332,7 @@ func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructu
 	}
 	liveObjByKey, err := s.stateCache.GetManagedLiveObjs(gitSync, targetObjs)
 	if err != nil {
-		return gitopsSync.ReconciliationResult{}, false, err
+		return gitopsSync.ReconciliationResult{}, nil, err
 	}
 	reconciliationResult := gitopsSync.Reconcile(targetObjs, liveObjByKey, gitSync.Spec.Destination.Namespace, infoProvider)
 
@@ -352,12 +347,12 @@ func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructu
 		diff.WithLogr(*logger.New().WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name)).LogrLogger),
 	}
 
-	modified, err := StateDiffs(reconciliationResult.Target, reconciliationResult.Live, overrides, diffOpts)
+	diffResults, err := StateDiffs(reconciliationResult.Target, reconciliationResult.Live, overrides, diffOpts)
 	if err != nil {
-		return reconciliationResult, false, err
+		return reconciliationResult, nil, err
 	}
 
-	return reconciliationResult, modified.Modified, nil
+	return reconciliationResult, diffResults, nil
 }
 
 func applyAnnotation(manifests []*unstructured.Unstructured, gitSyncName string) ([]*unstructured.Unstructured, error) {
@@ -388,7 +383,10 @@ func updateCommitStatus(
 		Hash:     hash,
 		Synced:   synced,
 		SyncTime: metav1.NewTime(time.Now()),
-		Error:    errMsg,
+	}
+
+	if !synced {
+		commitStatus.Error = errMsg
 	}
 
 	gitSync := &v1alpha1.GitSync{}
