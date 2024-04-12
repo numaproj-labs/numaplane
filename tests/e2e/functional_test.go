@@ -70,6 +70,13 @@ func (s *FunctionalSuite) TestSimpleNumaflowGitSync() {
 	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "vertices", []string{"simple-pipeline-another-out"})
 	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "vertices", []string{"simple-pipeline-in", "simple-pipeline-cat", "simple-pipeline-out"})
 
+	// remove pipeline manifest from repo
+	w.PushToGitRepo("numaflow/modified", []string{"http-pipeline.yaml"}, true).Wait(30 * time.Second)
+
+	// verify that the pipeline has been deleted by GitSync and synced to current commit
+	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"http-pipeline"})
+	w.Expect().CheckCommitStatus()
+
 }
 
 // GitSync testing with basic k8s objects
@@ -80,14 +87,19 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
 
-	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"nginx-deployment"})
+	// verify basics resources are created
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
 	w.Expect().CheckCommitStatus()
 
-	w.PushToGitRepo("basic-resources/modified", []string{"test.yaml"}, false).Wait(30 * time.Second)
-	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"nginx-deployment"})
+	// update deployment manifest with {replicas: 5}
+	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().CheckCommitStatus()
 
-	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "nginx-deployment", "replicas", 5)
+	// verify that resource has received changed
+	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "test-deploy", "replicas", 5)
 
 }
 
@@ -99,15 +111,17 @@ func (s *FunctionalSuite) TestSelfHealing() {
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
 
-	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"nginx-deployment"})
+	// verify that test deployment is created with {replicas: 3} in spec
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().CheckCommitStatus()
 
-	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "nginx-deployment", "replicas", 3)
+	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "test-deploy", "replicas", 3)
 
 	// apply patch to resource
-	w.ModifyResource("apps/v1", "deployments", "nginx-deployment", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
+	w.ModifyResource("apps/v1", "deployments", "test-deploy", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
 
-	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "nginx-deployment", "replicas", 3)
+	// verify that resource has been "healed" by resetting replica count to 3
+	w.Expect().VerifyResourceSpec("apps/v1", "deployments", "test-deploy", "replicas", 3)
 
 }
 

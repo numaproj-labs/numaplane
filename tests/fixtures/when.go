@@ -181,15 +181,27 @@ func (w *When) ModifyResource(apiVersion, resourceType, resource, patch string) 
 
 	w.t.Log("Patching resource..")
 
-	result := w.kubeClient.CoreV1().RESTClient().Patch(types.MergePatchType).AbsPath(
-		fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
-			apiVersion,
-			TargetNamespace,
-			resourceType,
-			resource)).Body([]byte(patch)).Do(ctx)
-
-	if result.Error() != nil {
-		w.t.Fatal(result.Error())
+	if apiVersion == "v1" {
+		result := w.kubeClient.CoreV1().RESTClient().
+			Patch(types.MergePatchType).
+			Namespace(TargetNamespace).
+			Resource(resourceType).
+			Name(resource).
+			Body([]byte(patch)).
+			Do(ctx)
+		if result.Error() != nil {
+			w.t.Fatalf("Failed to patch resource %s/%s", resourceType, resource)
+		}
+	} else {
+		result := w.kubeClient.CoreV1().RESTClient().Patch(types.MergePatchType).AbsPath(
+			fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
+				apiVersion,
+				TargetNamespace,
+				resourceType,
+				resource)).Body([]byte(patch)).Do(ctx)
+		if result.Error() != nil {
+			w.t.Fatalf("Failed to patch resource %s/%s", resourceType, resource)
+		}
 	}
 
 	w.t.Log("Resource successfully patched")

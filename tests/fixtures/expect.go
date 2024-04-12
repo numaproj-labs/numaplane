@@ -25,7 +25,6 @@ import (
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	"gopkg.in/yaml.v2"
-	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -182,19 +181,8 @@ func (e *Expect) doesNotExist(apiVersion, resourceType, resource string) bool {
 			return false
 		default:
 		}
-		result := e.kubeClient.CoreV1().RESTClient().Get().AbsPath(
-			fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
-				apiVersion,
-				TargetNamespace,
-				resourceType,
-				resource)).Do(ctx)
-		if result.Error() != nil {
-			if errors.IsNotFound(result.Error()) {
-				return true
-			} else {
-				e.t.Logf("Network error %v occurred", result.Error())
-				return false
-			}
+		if e.getResource(apiVersion, resourceType, resource, ctx) == nil {
+			return true
 		}
 		time.Sleep(2 * time.Second)
 	}
@@ -212,6 +200,27 @@ func (e *Expect) doesExist(apiVersion, resourceType, resource string) bool {
 			return false
 		default:
 		}
+		if e.getResource(apiVersion, resourceType, resource, ctx) == nil {
+			return true
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+}
+
+func (e *Expect) getResource(apiVersion, resourceType, resource string, ctx context.Context) error {
+
+	if apiVersion == "v1" {
+		result := e.kubeClient.CoreV1().RESTClient().
+			Get().
+			Namespace(TargetNamespace).
+			Resource(resourceType).
+			Name(resource).
+			Do(ctx)
+		if result.Error() != nil {
+			return result.Error()
+		}
+	} else {
 		result := e.kubeClient.CoreV1().RESTClient().Get().AbsPath(
 			fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
 				apiVersion,
@@ -219,9 +228,9 @@ func (e *Expect) doesExist(apiVersion, resourceType, resource string) bool {
 				resourceType,
 				resource)).Do(ctx)
 		if result.Error() == nil {
-			return true
+			return result.Error()
 		}
-		time.Sleep(2 * time.Second)
 	}
 
+	return nil
 }
