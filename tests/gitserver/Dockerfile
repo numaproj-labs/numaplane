@@ -114,7 +114,7 @@ RUN for i in $(seq 1 $REPO_COUNT); do \
     git init && \
     git config --global user.email "you@example.com" && \
     git config --global user.name "Your Name" && \
-    echo "apiVersion: apps/v1\n kind: Deployment\n metadata:\n name: nginx-deployment\n spec:\n selector:\n matchLabels:\n app: nginx\n replicas: 2\n template:\n metadata:\n labels:\n app: nginx\n spec:\n containers:\n - name: nginx\n image: nginx:1.14.2\n ports:\n - containerPort: 80" > data.yaml && \
+    echo "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: nginx-deployment\nspec:\n  selector:\n    matchLabels:\n      app: nginx\n  replicas: 2\n  template:\n    metadata:\n      labels:\n        app: nginx\n    spec:\n      containers:\n      - name: nginx\n        image: nginx:1.14.2\n        ports:\n        - containerPort: 80" > data.yaml && \
     git add data.yaml && \
     git commit -m "Initial commit" && \
     git push /var/www/git/repo$i.git master;\
@@ -130,7 +130,7 @@ RUN for i in $(seq 1 $REPO_COUNT); do \
     git init && \
     git config --global user.email "you@example.com" && \
     git config --global user.name "Your Name" && \
-    echo "apiVersion: apps/v1\n kind: Deployment\n metadata:\n name: nginx-deployment\n spec:\n selector:\n matchLabels:\n app: nginx\n replicas: 2\n template:\n metadata:\n labels:\n app: nginx\n spec:\n containers:\n - name: nginx\n image: nginx:1.14.2\n ports:\n - containerPort: 80" > data.yaml && \
+    echo "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: nginx-deployment\nspec:\n  selector:\n    matchLabels:\n      app: nginx\n  replicas: 2\n  template:\n    metadata:\n      labels:\n        app: nginx\n    spec:\n      containers:\n      - name: nginx\n        image: nginx:1.14.2\n        ports:\n        - containerPort: 80" > data.yaml && \
     git add data.yaml && \
     git commit -m "Initial commit" && \
     git push /var/www/gitopen/repo$i.git master;\
