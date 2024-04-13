@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: repo-two-config
+data:
+  clusterName: "staging-usw2-k8s"
+
+  

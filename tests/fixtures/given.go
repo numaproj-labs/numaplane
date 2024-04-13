@@ -48,7 +48,7 @@ var (
 		Password: "root",
 	}
 	localPath   = "./local"
-	localGitUrl = "http://localhost:8080/git/repo1.git"
+	localGitUrl = "http://localhost:8080/git/%s"
 )
 
 type Given struct {
@@ -147,7 +147,9 @@ func (g *Given) InitializeGitRepo(directory string) *Given {
 		log.Println(err)
 	}
 
-	tmpPath := filepath.Join(localPath, g.gitSync.Spec.Path)
+	// local/repo1.git/path
+	repoNum := TrimRepoUrl(g.gitSync.Spec.RepoUrl)
+	tmpPath := filepath.Join(localPath, repoNum, g.gitSync.Spec.Path)
 	dataPath := filepath.Join("testdata", directory)
 	_ = os.Mkdir(tmpPath, 0777)
 
@@ -196,11 +198,16 @@ func (g *Given) InitializeGitRepo(directory string) *Given {
 // clone repository unless it's already been cloned
 func (g *Given) cloneRepo(ctx context.Context) (*git.Repository, error) {
 
-	cloneOpts := git.CloneOptions{URL: localGitUrl, Auth: auth}
+	repoNum := TrimRepoUrl(g.gitSync.Spec.RepoUrl)
 
-	repo, err := git.PlainCloneContext(ctx, localPath, false, &cloneOpts)
+	cloneOpts := git.CloneOptions{URL: fmt.Sprintf(localGitUrl, repoNum), Auth: auth}
+
+	// local/repo(num).git/(path)
+	localPathToRepo := filepath.Join(localPath, repoNum)
+
+	repo, err := git.PlainCloneContext(ctx, localPathToRepo, false, &cloneOpts)
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		existingRepo, openErr := git.PlainOpen(localPath)
+		existingRepo, openErr := git.PlainOpen(localPathToRepo)
 		if openErr != nil {
 			return repo, fmt.Errorf("failed to open existing repo: %v", openErr)
 		}

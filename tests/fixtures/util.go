@@ -19,6 +19,7 @@ package fixtures
 import (
 	"io"
 	"os"
+	"strings"
 )
 
 func CopyFile(src, dst string) error {
@@ -55,4 +56,11 @@ func CopyFile(src, dst string) error {
 	}
 
 	return nil
+}
+
+// TODO: extend to trim URLs for ssh/https
+func TrimRepoUrl(repoUrl string) string {
+
+	return strings.TrimPrefix(repoUrl, "http://localgitserver-service.numaplane-system.svc.cluster.local/git/")
+
 }

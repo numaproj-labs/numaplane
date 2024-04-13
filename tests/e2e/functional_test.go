@@ -127,6 +127,29 @@ func (s *FunctionalSuite) TestSelfHealing() {
 
 }
 
+func (s *FunctionalSuite) TestChangeRepoUrl() {
+
+	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
+	w.Expect().CheckCommitStatus()
+
+	w = s.Given().GitSync("@testdata/revised-gitsync.yaml").InitializeGitRepo("basic-resources/second-repo").
+		When().
+		UpdateGitSyncAndWait()
+
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"repo-two-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"repo-two-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"repo-two-secret"})
+	w.Expect().CheckCommitStatus()
+
+}
+
 func TestFunctionalSuite(t *testing.T) {
 	suite.Run(t, new(FunctionalSuite))
 }

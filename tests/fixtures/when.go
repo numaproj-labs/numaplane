@@ -74,6 +74,11 @@ func (w *When) UpdateGitSyncAndWait() *When {
 	}
 	w.t.Log("Updating GitSync", w.gitSync.Name)
 	ctx := context.Background()
+	oldGitSync, err := w.gitSyncClient.Get(ctx, w.gitSync.Name, metav1.GetOptions{})
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	w.gitSync.SetResourceVersion(oldGitSync.GetResourceVersion())
 	i, err := w.gitSyncClient.Update(ctx, w.gitSync, metav1.UpdateOptions{})
 	if err != nil {
 		w.t.Fatal(err)
@@ -115,8 +120,11 @@ func (w *When) PushToGitRepo(directory string, fileNames []string, remove bool) 
 
 	w.t.Log("Adding files to commit to repo..")
 
+	repoNum := TrimRepoUrl(w.gitSync.Spec.RepoUrl)
+	localPathToRepo := filepath.Join(localPath, repoNum)
+
 	// open local path to cloned git repo
-	repo, err := git.PlainOpen(localPath)
+	repo, err := git.PlainOpen(localPathToRepo)
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -129,7 +137,7 @@ func (w *When) PushToGitRepo(directory string, fileNames []string, remove bool) 
 
 	// dataPath points to commit directory with edited files
 	dataPath := filepath.Join("testdata", directory)
-	tmpPath := filepath.Join(localPath, w.gitSync.Spec.Path)
+	tmpPath := filepath.Join(localPathToRepo, w.gitSync.Spec.Path)
 
 	// iterate over files to be added and committed
 	for _, fileName := range fileNames {
