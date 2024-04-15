@@ -4,7 +4,7 @@ metadata:
   name: gitsync-example
   namespace: numaplane-system
 spec:
-  path: "sample-pipeline"
+  path: "sample-manifests"
   repoUrl: http://localgitserver-service.numaplane-system.svc.cluster.local/git/repo1.git
   targetRevision: master
   raw: {}

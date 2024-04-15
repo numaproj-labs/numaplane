@@ -56,7 +56,7 @@ func (s *FunctionalSuite) TestSimpleNumaflowGitSync() {
 	w.Expect().CheckCommitStatus()
 
 	// edit existing pipeline in repo to have additional vertex
-	w.PushToGitRepo("numaflow/modified", []string{"sample_pipeline.yaml"}, false).Wait(45 * time.Second)
+	w.PushToGitRepo("numaflow/modified", []string{"sample_pipeline.yaml"}, false).Wait(30 * time.Second)
 
 	// verify that spec of simple-pipeline was updated with new vertex
 	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
@@ -98,10 +98,20 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().CheckCommitStatus()
 
-	// verify that resource has received changed
+	// verify that resource has received changed and others have not been modified
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 5)
-
 	w.Expect().VerifyResourceState("v1", "configmaps", "test-config", "data", "clusterName", "staging-usw2-k8s")
+
+	// file containing spec for deployment and configmap
+	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
+	w.Expect().CheckCommitStatus()
+
+	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, true).Wait(30 * time.Second)
+	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"multi-deploy"})
+	w.Expect().ResourcesDontExist("v1", "configmaps", []string{"multi-config"})
+	w.Expect().CheckCommitStatus()
 
 }
 
@@ -127,9 +137,41 @@ func (s *FunctionalSuite) TestSelfHealing() {
 
 }
 
+// test behavior when changing the repoUrl of a GitSync
 func (s *FunctionalSuite) TestChangeRepoUrl() {
 
 	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	// first repo's manifests should be applied
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
+	w.Expect().CheckCommitStatus()
+
+	// changing repoUrl to point to repo2.git
+	w = s.Given().GitSync("@testdata/revised-gitsync.yaml").InitializeGitRepo("basic-resources/second-repo").
+		When().
+		UpdateGitSyncAndWait()
+
+	// verify that resources in new repository are created
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"repo-two-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"repo-two-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"repo-two-secret"})
+	w.Expect().CheckCommitStatus()
+
+	// old resources are deleted as their manifests do not exist in new repository
+	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"test-deploy"})
+	w.Expect().ResourcesDontExist("v1", "configmaps", []string{"test-config"})
+	w.Expect().ResourcesDontExist("v1", "secrets", []string{"test-secret"})
+
+}
+
+func (s *FunctionalSuite) TestKustomize() {
+
+	w := s.Given().GitSync("@testdata/kustomize-gitsync.yaml").InitializeGitRepo("kustomize/initial-commit").
 		When().
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
@@ -139,14 +181,11 @@ func (s *FunctionalSuite) TestChangeRepoUrl() {
 	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
 	w.Expect().CheckCommitStatus()
 
-	w = s.Given().GitSync("@testdata/revised-gitsync.yaml").InitializeGitRepo("basic-resources/second-repo").
-		When().
-		UpdateGitSyncAndWait()
+	// w.PushToGitRepo("kustomize/initial-commit", []string{"deployment.yaml"}, true)
+	// w.PushToGitRepo("kustomize/modified", []string{"kustomization.yaml"}, false).Wait(30 * time.Second)
 
-	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"repo-two-deploy"})
-	w.Expect().ResourcesExist("v1", "configmaps", []string{"repo-two-config"})
-	w.Expect().ResourcesExist("v1", "secrets", []string{"repo-two-secret"})
-	w.Expect().CheckCommitStatus()
+	// w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"test-deploy"})
+	// w.Expect().CheckCommitStatus()
 
 }
 
