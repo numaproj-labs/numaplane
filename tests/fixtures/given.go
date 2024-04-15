@@ -158,11 +158,25 @@ func (g *Given) InitializeGitRepo(directory string) *Given {
 		g.t.Fatal(err)
 	}
 
-	for _, file := range dir {
-		name := file.Name()
-		err := CopyFile(filepath.Join(dataPath, name), filepath.Join(tmpPath, name))
-		if err != nil {
-			g.t.Fatal(err)
+	for _, entry := range dir {
+		name := entry.Name()
+		if entry.IsDir() {
+			_ = os.Mkdir(filepath.Join(tmpPath, name), 0777)
+			innerDir, err := os.ReadDir(filepath.Join(dataPath, name))
+			if err != nil {
+				g.t.Fatal(err)
+			}
+			for _, dirFile := range innerDir {
+				err := CopyFile(filepath.Join(dataPath, name, dirFile.Name()), filepath.Join(tmpPath, name, dirFile.Name()))
+				if err != nil {
+					g.t.Fatal(err)
+				}
+			}
+		} else {
+			err := CopyFile(filepath.Join(dataPath, name), filepath.Join(tmpPath, name))
+			if err != nil {
+				g.t.Fatal(err)
+			}
 		}
 	}
 
