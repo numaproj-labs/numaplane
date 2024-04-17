@@ -233,7 +233,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
 	}
-	uns, err := applyAnnotation(manifests, gitSyncName)
+	uns, err := applyAnnotationAndNamespace(manifests, gitSyncName, gitSync.Spec.Destination.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to parse the manifest of key %q, %w", key, err)
 	}
@@ -326,7 +326,8 @@ func (s *Syncer) sync(
 
 func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (gitopsSync.ReconciliationResult, *diff.DiffResultList, error) {
 	var infoProvider kubeUtil.ResourceInfoProvider
-	infoProvider, err := s.stateCache.GetClusterCache()
+	clusterCache, err := s.stateCache.GetClusterCache()
+	infoProvider = clusterCache
 	if err != nil {
 		infoProvider = &resourceInfoProviderStub{}
 	}
@@ -343,8 +344,18 @@ func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructu
 			IgnoreDifferences: OverrideIgnoreDiff{JSONPointers: []string{"/status"}}},
 	}
 
+	resourceOps, cleanup, err := s.getResourceOperations()
+	if err != nil {
+		log.Errorf("CompareAppState error getting resource operations: %s", err)
+	}
+	defer cleanup()
+
 	diffOpts := []diff.Option{
 		diff.WithLogr(*logger.New().WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name)).LogrLogger),
+		diff.WithServerSideDiff(true),
+		diff.WithServerSideDryRunner(diff.NewK8sServerSideDryRunner(resourceOps)),
+		diff.WithManager(common.SSAManager),
+		diff.WithGVKParser(clusterCache.GetGVKParser()),
 	}
 
 	diffResults, err := StateDiffs(reconciliationResult.Target, reconciliationResult.Live, overrides, diffOpts)
@@ -355,13 +366,31 @@ func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructu
 	return reconciliationResult, diffResults, nil
 }
 
-func applyAnnotation(manifests []*unstructured.Unstructured, gitSyncName string) ([]*unstructured.Unstructured, error) {
+// getResourceOperations will return the kubectl implementation of the ResourceOperations
+// interface that provides functionality to manage kubernetes resources. Returns a
+// cleanup function that must be called to remove the generated kube config for this
+// server.
+func (s *Syncer) getResourceOperations() (kube.ResourceOperations, func(), error) {
+	clusterCache, err := s.stateCache.GetClusterCache()
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting cluster cache: %w", err)
+	}
+
+	ops, cleanup, err := s.kubectl.ManageResources(s.config, clusterCache.GetOpenAPISchema())
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating kubectl ResourceOperations: %w", err)
+	}
+	return ops, cleanup, nil
+}
+
+func applyAnnotationAndNamespace(manifests []*unstructured.Unstructured, gitSyncName, destinationNamespace string) ([]*unstructured.Unstructured, error) {
 	uns := make([]*unstructured.Unstructured, 0)
 	for _, m := range manifests {
 		err := kubernetes.SetGitSyncInstanceAnnotation(m, common.AnnotationKeyGitSyncInstance, gitSyncName)
 		if err != nil {
 			return nil, err
 		}
+		m.SetNamespace(destinationNamespace)
 		uns = append(uns, m)
 	}
 	return uns, nil
