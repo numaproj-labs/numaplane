@@ -118,7 +118,11 @@ func (w *When) DeleteGitSyncAndWait() *When {
 // make git push to Git server pod
 func (w *When) PushToGitRepo(directory string, fileNames []string, remove bool) *When {
 
-	w.t.Log("Adding files to commit to repo..")
+	if remove {
+		w.t.Log("Adding files to remove from repo..")
+	} else {
+		w.t.Log("Adding files to commit to repo..")
+	}
 
 	repoNum := TrimRepoUrl(w.gitSync.Spec.RepoUrl)
 	localPathToRepo := filepath.Join(localPath, repoNum)
@@ -177,7 +181,11 @@ func (w *When) PushToGitRepo(directory string, fileNames []string, remove bool) 
 	// store commit hash
 	w.currentCommit = hash.String()
 
-	w.t.Log("Files successfully pushed to repo")
+	if remove {
+		w.t.Log("Files successfully removed from repo")
+	} else {
+		w.t.Log("Files successfully pushed to repo")
+	}
 
 	return w
 }
