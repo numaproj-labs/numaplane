@@ -136,19 +136,27 @@ func (e *Expect) CheckCommitStatus() *Expect {
 	e.t.Helper()
 	e.t.Log("Verifying GitSync's commitStatus is as expected..")
 
-	// gitSync commit status will be nil if reconciliation has not finished
-	commitStatus, err := e.getCommitStatus()
-	if err != nil {
-		e.t.Fatalf("Can't find GitSync %s", e.gitSync.Name)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			e.t.Logf("Timeout verifying that GitSync %s is synced", e.gitSync.Name)
+			e.t.Fatalf("GitSync %s is not synced to the most recent commit", e.gitSync.Name)
+		default:
+		}
+		gitSync, err := e.gitSyncClient.Get(ctx, e.gitSync.Name, v1.GetOptions{})
+		if err != nil {
+			e.t.Fatalf("Can't find GitSync %s", e.gitSync.Name)
+		}
+		if gitSync.Status.CommitStatus != nil {
+			if gitSync.Status.CommitStatus.Synced && gitSync.Status.CommitStatus.Hash == e.currentCommit {
+				e.t.Logf("GitSync %s is synced to current commit", e.gitSync.Name)
+				return e
+			}
+		}
+		time.Sleep(2 * time.Second)
 	}
-
-	if commitStatus.Hash != e.currentCommit {
-		e.t.Fatalf("GitSync %s is not synced to the most recent commit", e.gitSync.Name)
-	}
-
-	e.t.Logf("GitSync %s is synced to current commit", e.gitSync.Name)
-
-	return e
 }
 
 func (e *Expect) When() *When {
@@ -162,27 +170,27 @@ func (e *Expect) When() *When {
 	}
 }
 
-func (e *Expect) getCommitStatus() (*v1alpha1.CommitStatus, error) {
+// func (e *Expect) getCommitStatus() (*v1alpha1.CommitStatus, error) {
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
-	for {
-		select {
-		case <-ctx.Done():
-			e.t.Logf("Timeout verifying that GitSync %s is synced", e.gitSync.Name)
-		default:
-		}
-		gitSync, err := e.gitSyncClient.Get(ctx, e.gitSync.Name, v1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-		if gitSync.Status.CommitStatus != nil && gitSync.Status.CommitStatus.Synced {
-			return gitSync.Status.CommitStatus, nil
-		}
-		time.Sleep(2 * time.Second)
-	}
+// 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+// 	defer cancel()
+// 	for {
+// 		select {
+// 		case <-ctx.Done():
+// 			e.t.Logf("Timeout verifying that GitSync %s is synced", e.gitSync.Name)
+// 		default:
+// 		}
+// 		gitSync, err := e.gitSyncClient.Get(ctx, e.gitSync.Name, v1.GetOptions{})
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		if gitSync.Status.CommitStatus != nil && gitSync.Status.CommitStatus.Synced {
+// 			return gitSync.Status.CommitStatus, nil
+// 		}
+// 		time.Sleep(2 * time.Second)
+// 	}
 
-}
+// }
 
 // doesnt exist
 func (e *Expect) doesNotExist(apiVersion, resourceType, resource string) bool {
