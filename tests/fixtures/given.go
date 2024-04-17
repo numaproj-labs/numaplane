@@ -36,6 +36,7 @@ import (
 
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
+	cp "github.com/otiai10/copy"
 )
 
 var (
@@ -158,23 +159,10 @@ func (g *Given) InitializeGitRepo(directory string) *Given {
 
 	for _, entry := range dir {
 		name := entry.Name()
-		if entry.IsDir() {
-			_ = os.Mkdir(filepath.Join(tmpPath, name), 0777)
-			innerDir, err := os.ReadDir(filepath.Join(dataPath, name))
-			if err != nil {
-				g.t.Fatal(err)
-			}
-			for _, dirFile := range innerDir {
-				err := CopyFile(filepath.Join(dataPath, name, dirFile.Name()), filepath.Join(tmpPath, name, dirFile.Name()))
-				if err != nil {
-					g.t.Fatal(err)
-				}
-			}
-		} else {
-			err := CopyFile(filepath.Join(dataPath, name), filepath.Join(tmpPath, name))
-			if err != nil {
-				g.t.Fatal(err)
-			}
+		// can copy whole directories - needed for kustomize/helm tests
+		err := cp.Copy(filepath.Join(dataPath, name), filepath.Join(tmpPath, name))
+		if err != nil {
+			g.t.Fatal(err)
 		}
 	}
 

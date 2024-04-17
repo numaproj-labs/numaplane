@@ -32,6 +32,7 @@ import (
 
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
+	cp "github.com/otiai10/copy"
 )
 
 type When struct {
@@ -152,7 +153,7 @@ func (w *When) PushToGitRepo(directory string, fileNames []string, remove bool) 
 				w.t.Fatal(err)
 			}
 		} else {
-			err := CopyFile(filepath.Join(dataPath, fileName), filepath.Join(tmpPath, fileName))
+			err := cp.Copy(filepath.Join(dataPath, fileName), filepath.Join(tmpPath, fileName))
 			if err != nil {
 				w.t.Fatal(err)
 			}
