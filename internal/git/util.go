@@ -33,7 +33,7 @@ func CloneRepo(
 	globalConfig controllerConfig.GlobalConfig,
 ) (*git.Repository, error) {
 	gitCredentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
-	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl, gitSync.Spec.TargetRevision)
+	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)
 	if err != nil {
 		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
 	}
@@ -212,7 +212,7 @@ func getLocalRepoPath(gitSync *v1alpha1.GitSync) string {
 	}
 }
 
-// fetchUpdates fetches the target remote branch and updates the local changes, returning nil if already up-to-date or an error otherwise.
+// fetchUpdates fetches the remote branch and updates the local changes, returning nil if already up-to-date or an error otherwise.
 func fetchUpdates(ctx context.Context,
 	client k8sClient.Client,
 	gitSync *v1alpha1.GitSync, repo *git.Repository) error {
@@ -224,7 +224,7 @@ func fetchUpdates(ctx context.Context,
 
 	credentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
 
-	pullOptions, err := gitShared.GetRepoPullOptions(ctx, credentials, client, gitSync.Spec.RepoUrl, gitSync.Spec.TargetRevision)
+	pullOptions, err := gitShared.GetRepoPullOptions(ctx, credentials, client, gitSync.Spec.RepoUrl)
 	if err != nil {
 		return err
 	}

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
@@ -83,7 +82,7 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 }
 
 // GetRepoCloneOptions creates git.CloneOptions for cloning a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
-func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl, targetRevision string) (*git.CloneOptions, error) {
+func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (*git.CloneOptions, error) {
 	endpoint, err := transport.NewEndpoint(repoUrl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid repository URL: %w", err)
@@ -94,7 +93,6 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, ku
 	}
 
 	cloneOptions := &git.CloneOptions{
-		ReferenceName:   plumbing.ReferenceName("refs/heads/" + targetRevision),
 		URL:             endpoint.String(),
 		Auth:            method,
 		InsecureSkipTLS: skipTls,
@@ -103,7 +101,7 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, ku
 }
 
 // GetRepoPullOptions creates git.PullOptions for pull updates from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
-func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl, targetRevision string) (*git.PullOptions, error) {
+func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (*git.PullOptions, error) {
 	// check to ensure proper repository url is passed
 	_, err := transport.NewEndpoint(repoUrl)
 	if err != nil {
@@ -118,7 +116,6 @@ func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kub
 		Auth:            method,
 		InsecureSkipTLS: skipTls,
 		RemoteName:      "origin",
-		ReferenceName:   plumbing.ReferenceName("refs/heads/" + targetRevision),
 	}, nil
 }
 
