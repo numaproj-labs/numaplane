@@ -74,7 +74,7 @@ func (e *Expect) ResourcesDontExist(apiVersion, resourceType string, resources [
 }
 
 // verify value of resource spec to determine if field is set
-// TODO: this method currently only handles fields that are 2 levels down from root 
+// TODO: this method currently only handles fields that are 2 levels down from root
 // (i.e. "field.key"), and should be modified to support keys at any level, like:
 // - "spec.metadata.labels.instance"
 // - "spec.template.containers[0].name"
