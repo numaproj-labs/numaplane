@@ -124,11 +124,17 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 	w.Expect().ResourcesExist("v1", "secrets", []string{"multi-secret"})
 	w.Expect().CheckCommitStatus()
 
+	// removing secret from multiple-resources file should cause it to be deleted
+	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
+	w.Expect().ResourcesDontExist("v1", "secrets", []string{"multi-secret"})
+	w.Expect().CheckCommitStatus()
+
 	// deleting file with multiple resources will delete all resources in it
-	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, true).Wait(30 * time.Second)
+	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, true).Wait(30 * time.Second)
 	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"multi-deploy"})
 	w.Expect().ResourcesDontExist("v1", "configmaps", []string{"multi-config"})
-	w.Expect().ResourcesDontExist("v1", "secrets", []string{"multi-secret"})
 	w.Expect().CheckCommitStatus()
 
 }
