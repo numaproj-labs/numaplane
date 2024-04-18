@@ -99,11 +99,6 @@ func (s *E2ESuite) AfterTest(suiteName, testName string) {
 	// delete local directory after each test
 	err = os.RemoveAll(localPath)
 	s.CheckError(err)
-
-	// s.Given().gitSync
-	// reset namespace by deleting all resources on it
-	// err = s.resetNamespace()
-	// s.CheckError(err)
 }
 
 func (s *E2ESuite) CheckError(err error) {
@@ -228,8 +223,3 @@ func resetRepo() error {
 
 	return nil
 }
-
-// func (s *E2ESuite) resetNamespace() error {
-
-// 	return nil
-// }
