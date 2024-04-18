@@ -31,8 +31,20 @@ type FunctionalSuite struct {
 	E2ESuite
 }
 
+var (
+	initialEdges = []interface{}{
+		map[interface{}]interface{}{"from": "in", "to": "cat"},
+		map[interface{}]interface{}{"from": "cat", "to": "out"},
+	}
+	modifiedEdges = []interface{}{
+		map[interface{}]interface{}{"from": "in", "to": "cat"},
+		map[interface{}]interface{}{"from": "cat", "to": "out"},
+		map[interface{}]interface{}{"from": "cat", "to": "another-out"},
+	}
+)
+
 // GitSync testing for Numaflow with raw manifests
-func (s *FunctionalSuite) TestSimpleNumaflowGitSync() {
+func (s *FunctionalSuite) TestNumaflowGitSync() {
 
 	// create GitSync and initialize Git repo with initial manifest files
 	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("numaflow/initial-commit").
@@ -40,7 +52,7 @@ func (s *FunctionalSuite) TestSimpleNumaflowGitSync() {
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
 
-	// verify Numaflow installation and pipeline creation
+	// verify ISBSVC and pipeline creation
 	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "interstepbufferservices", []string{"default"})
 	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
 
@@ -48,27 +60,26 @@ func (s *FunctionalSuite) TestSimpleNumaflowGitSync() {
 	w.Expect().CheckCommitStatus()
 
 	// pushing new pipeline file to repo
-	// wait currently necessary as controller takes time to reconcile and sync properly
+	// wait is necessary as controller takes time to reconcile and sync properly
 	w.PushToGitRepo("numaflow/modified", []string{"http-pipeline.yaml"}, false).Wait(30 * time.Second)
 
 	// verify that new pipeline has been created and GitSync is synced to newest commit
 	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"http-pipeline"})
 	w.Expect().CheckCommitStatus()
 
-	// edit existing pipeline in repo to have additional vertex
+	// edit existing pipeline in repo to have additional vertex and edge
 	w.PushToGitRepo("numaflow/modified", []string{"sample_pipeline.yaml"}, false).Wait(30 * time.Second)
 
-	// verify that spec of simple-pipeline was updated with new vertex
+	// verify that spec of simple-pipeline was updated with new edge
 	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
-	// w.Expect().VerifyResourceSpec("numaflow.numaproj.io/v1alpha1", "pipelines", "simple-pipeline", "vertices", "")
+	w.Expect().VerifyResourceState("numaflow.numaproj.io/v1alpha1", "pipelines", "simple-pipeline", "spec", "edges", modifiedEdges)
 	w.Expect().CheckCommitStatus()
 
 	// edit existing pipeline back to initial state
 	w.PushToGitRepo("numaflow/initial-commit", []string{"sample_pipeline.yaml"}, false).Wait(30 * time.Second)
 
 	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
-	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "vertices", []string{"simple-pipeline-another-out"})
-	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "vertices", []string{"simple-pipeline-in", "simple-pipeline-cat", "simple-pipeline-out"})
+	w.Expect().VerifyResourceState("numaflow.numaproj.io/v1alpha1", "pipelines", "simple-pipeline", "spec", "edge", initialEdges)
 
 	// remove pipeline manifest from repo
 	w.PushToGitRepo("numaflow/modified", []string{"http-pipeline.yaml"}, true).Wait(30 * time.Second)
@@ -91,6 +102,10 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
+	// these resources are defined in the same file
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
+
 	w.Expect().CheckCommitStatus()
 
 	// update deployment manifest with {replicas: 5}
@@ -102,15 +117,18 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 5)
 	w.Expect().VerifyResourceState("v1", "configmaps", "test-config", "data", "clusterName", "staging-usw2-k8s")
 
-	// file containing spec for deployment and configmap
+	// add another resource to multiple-resources file
 	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"multi-secret"})
 	w.Expect().CheckCommitStatus()
 
+	// deleting file with multiple resources will delete all resources in it
 	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, true).Wait(30 * time.Second)
 	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"multi-deploy"})
 	w.Expect().ResourcesDontExist("v1", "configmaps", []string{"multi-config"})
+	w.Expect().ResourcesDontExist("v1", "secrets", []string{"multi-secret"})
 	w.Expect().CheckCommitStatus()
 
 }
@@ -169,23 +187,28 @@ func (s *FunctionalSuite) TestChangeRepoUrl() {
 
 }
 
+// // GitSync testing with kustomize manifests
 func (s *FunctionalSuite) TestKustomize() {
 
+	// create repo containing kustomize manifests
 	w := s.Given().GitSync("@testdata/kustomize-gitsync.yaml").InitializeGitRepo("kustomize/initial-commit").
 		When().
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
 
+	// verify all resources defined in kustomization file are created
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
 	w.Expect().CheckCommitStatus()
 
-	// w.PushToGitRepo("kustomize/initial-commit", []string{"deployment.yaml"}, true)
-	// w.PushToGitRepo("kustomize/modified", []string{"kustomization.yaml"}, false).Wait(30 * time.Second)
-
-	// w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"test-deploy"})
-	// w.Expect().CheckCommitStatus()
+	// remove deployment resource from kustomization file
+	w.PushToGitRepo("kustomize/modified", []string{"kustomization.yaml"}, false).Wait(30 * time.Second)
+	// verify that deployment should be deleted while other resources remain
+	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"test-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
+	w.Expect().CheckCommitStatus()
 
 }
 

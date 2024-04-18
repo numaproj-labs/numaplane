@@ -26,11 +26,3 @@ metadata:
   name: multi-config
 data:
   clusterName: "staging-usw2-k8s"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: multi-secret
-type: Opaque
-data:
-  password: cm9vdA==

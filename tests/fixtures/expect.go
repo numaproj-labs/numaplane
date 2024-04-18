@@ -19,6 +19,7 @@ package fixtures
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -40,7 +41,7 @@ type Expect struct {
 	currentCommit string
 }
 
-// check that resources are created / exist
+// check that resources are created or exists
 func (e *Expect) ResourcesExist(apiVersion, resourceType string, resources []string) *Expect {
 
 	e.t.Helper()
@@ -72,7 +73,7 @@ func (e *Expect) ResourcesDontExist(apiVersion, resourceType string, resources [
 	return e
 }
 
-// verify value of resource spec to determine if change occurred or not as expected
+// verify value of resource spec to determine if field is set
 func (e *Expect) VerifyResourceState(apiVersion, resourceType, resource, field, key string, value interface{}) *Expect {
 
 	e.t.Helper()
@@ -117,13 +118,13 @@ func (e *Expect) VerifyResourceState(apiVersion, resourceType, resource, field, 
 
 	for k, v := range object[field].(map[interface{}]interface{}) {
 		if k == key {
-			if v != value {
+			if !reflect.DeepEqual(v, value) {
 				e.t.Fatalf("Resource %s/%s state is not as expected", resourceType, resource)
 			}
 		}
 	}
 
-	e.t.Log("Resource state is as expected")
+	e.t.Logf("Resource %s/%s state is as expected", resourceType, resource)
 
 	return e
 }
@@ -170,29 +171,6 @@ func (e *Expect) When() *When {
 	}
 }
 
-// func (e *Expect) getCommitStatus() (*v1alpha1.CommitStatus, error) {
-
-// 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-// 	defer cancel()
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			e.t.Logf("Timeout verifying that GitSync %s is synced", e.gitSync.Name)
-// 		default:
-// 		}
-// 		gitSync, err := e.gitSyncClient.Get(ctx, e.gitSync.Name, v1.GetOptions{})
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		if gitSync.Status.CommitStatus != nil && gitSync.Status.CommitStatus.Synced {
-// 			return gitSync.Status.CommitStatus, nil
-// 		}
-// 		time.Sleep(2 * time.Second)
-// 	}
-
-// }
-
-// doesnt exist
 func (e *Expect) doesNotExist(apiVersion, resourceType, resource string) bool {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
