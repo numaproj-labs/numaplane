@@ -192,12 +192,12 @@ func GetFakeKubernetesClient() (k8sClient.Client, error) {
 	return fakeClient, nil
 }
 
-// Testing the case when GitSync CRD has repository path but the RepoCredential Doesn't have the entry for it
+// Testing the case when GitSync CRD has a repository path but the RepoCredential Doesn't have the entry for it
 func TestGetRepoCloneOptionsPrefixNotFound(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
 	// repoCred will be nil in this case
-	cloneOptions, err := GetRepoCloneOptions(context.Background(), nil, client, "https://github.com/numaproj-labs/numaplane.git")
+	cloneOptions, err := GetRepoCloneOptions(context.Background(), nil, client, "https://github.com/numaproj-labs/numaplane.git", "main")
 	assert.NoError(t, err)
 	assert.NotNil(t, cloneOptions)
 }
@@ -206,7 +206,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNilHttp(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
 	cred := &apiv1.RepoCredential{}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git", "main")
 	assert.NoError(t, err)
 	assert.Equal(t, options.URL, "https://github.com/numaproj-labs/numaplane.git")
 	// In this case only auth method would be nil as it is asssumed that its public repository and doesn't require auth
@@ -217,14 +217,14 @@ func TestGetRepoCloneOptionsPrefixFoundCredNilSSh(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
 	cred := &apiv1.RepoCredential{}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git", "main")
 	assert.NoError(t, err)
 	assert.Equal(t, options.URL, "ssh://git@github.com/numaproj-labs/numaplane.git") // go git transport.endPoint appends the protocol ssh
 	// In this case only auth method would be nil as it is asssumed that its public repository and doesn't require auth
 	assert.Nil(t, options.Auth)
 }
 
-// Testing case when the  SSH credentials are provided but both are empty
+// Testing case when the SSH credentials are provided but both are empty
 func TestGetRepoCloneOptionsPrefixFoundCredEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
@@ -235,12 +235,12 @@ func TestGetRepoCloneOptionsPrefixFoundCredEmptySSH(t *testing.T) {
 			Optional:        nil,
 		}},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
 
-// Testing case when the  SSH credentials are provided but  Name is empty
+// Testing case when the SSH credentials are provided but the Name is empty
 func TestGetRepoCloneOptionsPrefixFoundCredNameEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
@@ -251,12 +251,12 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptySSH(t *testing.T) {
 			Optional:        nil,
 		}},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
 
-// Testing case when the  SSH credentials are provided but  Namespace is empty
+// Testing case when the SSH credentials are provided but Namespace is empty
 func TestGetRepoCloneOptionsPrefixFoundCredNameSpaceEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
@@ -267,12 +267,12 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameSpaceEmptySSH(t *testing.T) {
 			Optional:        nil,
 		}},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
 
-// Testing case when the  SSH credentials are provided but  Key  is empty
+// Testing case when the SSH credentials are provided but the Key is empty
 func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
@@ -283,12 +283,12 @@ func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptySSH(t *testing.T) {
 			Optional:        nil,
 		}},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
 
-// Testing case when the  HTTP credentials are provided but  Name is empty
+// Testing case when the HTTP credentials are provided but Name is empty
 func TestGetRepoCloneOptionsPrefixFoundCredNameEmptyHTTP(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
@@ -302,12 +302,12 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptyHTTP(t *testing.T) {
 			},
 		},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
 
-// Testing case when the  HTTP credentials are provided but  Key  is empty
+// Testing case when the HTTP credentials are provided but the Key is empty
 func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptyHTTP(t *testing.T) {
 
 	client, err := GetFakeKubernetesClient()
@@ -322,7 +322,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptyHTTP(t *testing.T) {
 			},
 		},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
