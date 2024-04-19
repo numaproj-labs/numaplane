@@ -483,6 +483,7 @@ spec:
         volumeMounts:
         - mountPath: /etc/numaplane
           name: config-volume
+      initContainers: []
       serviceAccountName: numaplane-sa
       terminationGracePeriodSeconds: 10
       volumes:
