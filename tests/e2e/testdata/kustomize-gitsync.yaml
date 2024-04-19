@@ -5,9 +5,9 @@ metadata:
   namespace: numaplane-system
 spec:
   path: "sample-manifests"
-  repoUrl: http://localgitserver-service.numaplane-system.svc.cluster.local/git/repo1.git
+  repoUrl: http://localgitserver-service.numaplane-system.svc.cluster.local/git/repo3.git
   targetRevision: master
-  raw: {}
+  kustomize: {}
   destination:
     cluster: staging-usw2-k8s
     namespace: numaplane-e2e

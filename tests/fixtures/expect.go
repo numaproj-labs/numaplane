@@ -18,12 +18,16 @@ package fixtures
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -34,39 +38,130 @@ type Expect struct {
 	kubeClient    kubernetes.Interface
 	gitSync       *v1alpha1.GitSync
 	gitSyncClient planepkg.GitSyncInterface
+	currentCommit string
 }
 
-// check that resources are created
-func (e *Expect) ResourcesExist(resourceType string, resources []string) *Expect {
+// check that resources are created or exists
+func (e *Expect) ResourcesExist(apiVersion, resourceType string, resources []string) *Expect {
 
 	e.t.Helper()
-	ctx := context.Background()
+	e.t.Log("Verifying that resources exist..")
+
 	for _, r := range resources {
-		result := e.kubeClient.CoreV1().RESTClient().Get().
-			Timeout(defaultTimeout).
+		if !e.doesExist(apiVersion, resourceType, r) {
+			e.t.Fatalf("Resource %s/%s does not exist", resourceType, r)
+		}
+		e.t.Logf("Resource %s/%s exists", resourceType, r)
+	}
+
+	return e
+}
+
+// check that resources have been deleted or never existed
+func (e *Expect) ResourcesDontExist(apiVersion, resourceType string, resources []string) *Expect {
+
+	e.t.Helper()
+	e.t.Log("Verifying that resources no longer exist..")
+
+	for _, r := range resources {
+		if !e.doesNotExist(apiVersion, resourceType, r) {
+			e.t.Fatalf("Resource %s/%s not deleted", resourceType, r)
+		}
+		e.t.Logf("Resource %s/%s doesn't exist", resourceType, r)
+	}
+
+	return e
+}
+
+// verify value of resource spec to determine if field is set
+// TODO: this method currently only handles fields that are 2 levels down from root
+// (i.e. "field.key"), and should be modified to support keys at any level, like:
+// - "spec.metadata.labels.instance"
+// - "spec.template.containers[0].name"
+func (e *Expect) VerifyResourceState(apiVersion, resourceType, resource, field, key string, value interface{}) *Expect {
+
+	e.t.Helper()
+	e.t.Log("Verifying resource state is as expected..")
+
+	var (
+		err  error
+		body []byte
+	)
+
+	if !e.doesExist(apiVersion, resourceType, resource) {
+		e.t.Fatalf("Resource %s/%s does not exist", resourceType, resource)
+	}
+
+	ctx := context.Background()
+
+	if apiVersion == "v1" {
+		body, err = e.kubeClient.CoreV1().RESTClient().
+			Get().
 			Namespace(TargetNamespace).
 			Resource(resourceType).
-			Name(r).
-			Do(ctx)
-		if result.Error() != nil {
-			e.t.Fatalf("Resource %s does not exist", r)
+			Name(resource).
+			DoRaw(ctx)
+	} else {
+		body, err = e.kubeClient.CoreV1().RESTClient().Get().AbsPath(
+			fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
+				apiVersion,
+				TargetNamespace,
+				resourceType,
+				resource)).DoRaw(ctx)
+	}
+
+	if err != nil {
+		e.t.Fatalf("Failed to verify resource %s/%s state", resourceType, resource)
+	}
+
+	object := make(map[string]interface{})
+	err = yaml.Unmarshal(body, object)
+	if err != nil {
+		e.t.Fatalf("Failed to verify resource %s/%s state", resourceType, resource)
+	}
+
+	for k, v := range object[field].(map[interface{}]interface{}) {
+		if k == key {
+			if !reflect.DeepEqual(v, value) {
+				e.t.Fatalf("Resource %s/%s state is not as expected", resourceType, resource)
+			}
 		}
 	}
+
+	e.t.Logf("Resource %s/%s state is as expected", resourceType, resource)
 
 	return e
 }
 
-// check that resources are deleted
-func (e *Expect) ResourcesDontExist(resourceType string, resources []string) *Expect {
+// verify that GitSync's commitStatus is as expected:
+// synced = true
+// hash is equal to the last commit to the Git server
+func (e *Expect) CheckCommitStatus() *Expect {
 
 	e.t.Helper()
-	for _, r := range resources {
-		if !e.isDeleted(resourceType, r) {
-			e.t.Fatalf("Resource %s not deleted", r)
-		}
-	}
+	e.t.Log("Verifying GitSync's commitStatus is as expected..")
 
-	return e
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			e.t.Logf("Timeout verifying that GitSync %s is synced", e.gitSync.Name)
+			e.t.Fatalf("GitSync %s is not synced to the most recent commit", e.gitSync.Name)
+		default:
+		}
+		gitSync, err := e.gitSyncClient.Get(ctx, e.gitSync.Name, v1.GetOptions{})
+		if err != nil {
+			e.t.Fatalf("Can't find GitSync %s", e.gitSync.Name)
+		}
+		if gitSync.Status.CommitStatus != nil {
+			if gitSync.Status.CommitStatus.Synced && gitSync.Status.CommitStatus.Hash == e.currentCommit {
+				e.t.Logf("GitSync %s is synced to current commit", e.gitSync.Name)
+				return e
+			}
+		}
+		time.Sleep(2 * time.Second)
+	}
 }
 
 func (e *Expect) When() *When {
@@ -76,10 +171,11 @@ func (e *Expect) When() *When {
 		restConfig:    e.restConfig,
 		kubeClient:    e.kubeClient,
 		gitSyncClient: e.gitSyncClient,
+		currentCommit: e.currentCommit,
 	}
 }
 
-func (e *Expect) isDeleted(resourceType, resource string) bool {
+func (e *Expect) doesNotExist(apiVersion, resourceType, resource string) bool {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -90,20 +186,58 @@ func (e *Expect) isDeleted(resourceType, resource string) bool {
 			return false
 		default:
 		}
-		result := e.kubeClient.CoreV1().RESTClient().Get().
-			Namespace(TargetNamespace).
-			Resource(resourceType).
-			Name(resource).
-			Do(ctx)
-		if result.Error() != nil {
-			if errors.IsNotFound(result.Error()) {
+		if err := e.getResource(apiVersion, resourceType, resource, ctx); err != nil {
+			if errors.IsNotFound(err) {
 				return true
-			} else {
-				e.t.Logf("Network error %v occurred", result.Error())
-				return false
 			}
 		}
 		time.Sleep(2 * time.Second)
 	}
 
+}
+
+func (e *Expect) doesExist(apiVersion, resourceType, resource string) bool {
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			e.t.Logf("Timeout verifying that resource %s exists", resource)
+			return false
+		default:
+		}
+		if e.getResource(apiVersion, resourceType, resource, ctx) == nil {
+			return true
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+}
+
+func (e *Expect) getResource(apiVersion, resourceType, resource string, ctx context.Context) error {
+
+	if apiVersion == "v1" {
+		result := e.kubeClient.CoreV1().RESTClient().
+			Get().
+			Namespace(TargetNamespace).
+			Resource(resourceType).
+			Name(resource).
+			Do(ctx)
+		if result.Error() != nil {
+			return result.Error()
+		}
+	} else {
+		result := e.kubeClient.CoreV1().RESTClient().Get().AbsPath(
+			fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
+				apiVersion,
+				TargetNamespace,
+				resourceType,
+				resource)).Do(ctx)
+		if result.Error() != nil {
+			return result.Error()
+		}
+	}
+
+	return nil
 }

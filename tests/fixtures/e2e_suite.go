@@ -19,6 +19,7 @@ package fixtures
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"time"
 
 	git "github.com/go-git/go-git/v5"
@@ -38,7 +39,7 @@ import (
 const (
 	/* resource names */
 	Namespace       = "numaplane-system"
-	TargetNamespace = "numaflow-pipeline"
+	TargetNamespace = "numaplane-e2e"
 	E2ELabel        = "numaplane-e2e"
 	E2ELabelValue   = "true"
 	defaultTimeout  = 60 * time.Second
@@ -162,21 +163,10 @@ func k8sRestConfig() (*rest.Config, error) {
 	return restConfig, err
 }
 
-// helper function to reset test Git repo
+// helper function to reset test Git repos
 func resetRepo() error {
-	// open local path to cloned git server
-	repo, err := git.PlainOpen(localPath)
-	if err != nil {
-		return err
-	}
 
-	// open worktree
-	wt, err := repo.Worktree()
-	if err != nil {
-		return err
-	}
-
-	// find path to test repo in local
+	// get name of all repos cloned at local
 	entries, err := os.ReadDir(localPath)
 	if err != nil {
 		return err
@@ -185,25 +175,51 @@ func resetRepo() error {
 	for _, entry := range entries {
 		// clean out repo of all changes
 		if entry.IsDir() {
-			_, err = wt.Remove(entry.Name())
+			repoPath := filepath.Join(localPath, entry.Name())
+
+			// open local path to cloned git server at local/repo(num).git
+			repo, err := git.PlainOpen(repoPath)
+			if err != nil {
+				return err
+			}
+
+			// open worktree
+			wt, err := repo.Worktree()
+			if err != nil {
+				return err
+			}
+
+			// find path to manifests in repo
+			pathes, err := os.ReadDir(repoPath)
+			if err != nil {
+				return err
+			}
+
+			for _, path := range pathes {
+				// clean out repo of all changes
+				if path.IsDir() {
+					_, err = wt.Remove(path.Name())
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			_, err = wt.Commit("Cleaning out repo", &git.CommitOptions{})
+			if err != nil {
+				return err
+			}
+
+			// git push to remote
+			err = repo.Push(&git.PushOptions{
+				RemoteName: "origin",
+				Auth:       auth,
+			})
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	_, err = wt.Commit("Cleaning out repo", &git.CommitOptions{})
-	if err != nil {
-		return err
-	}
-
-	// git push to remote
-	err = repo.Push(&git.PushOptions{
-		RemoteName: "origin",
-		Auth:       auth,
-	})
-	if err != nil {
-		return err
-	}
 	return nil
 }

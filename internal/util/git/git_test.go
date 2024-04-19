@@ -192,7 +192,7 @@ func GetFakeKubernetesClient() (k8sClient.Client, error) {
 	return fakeClient, nil
 }
 
-// Testing the case when GitSync CRD has repository path but the RepoCredential Doesn't have the entry for it
+// Testing the case when GitSync CRD has a repository path but the RepoCredential Doesn't have the entry for it
 func TestGetRepoCloneOptionsPrefixNotFound(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
@@ -224,7 +224,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNilSSh(t *testing.T) {
 	assert.Nil(t, options.Auth)
 }
 
-// Testing case when the  SSH credentials are provided but both are empty
+// Testing case when the SSH credentials are provided but both are empty
 func TestGetRepoCloneOptionsPrefixFoundCredEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
@@ -240,7 +240,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredEmptySSH(t *testing.T) {
 	assert.Nil(t, options)
 }
 
-// Testing case when the  SSH credentials are provided but  Name is empty
+// Testing case when the SSH credentials are provided but the Name is empty
 func TestGetRepoCloneOptionsPrefixFoundCredNameEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
@@ -256,7 +256,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptySSH(t *testing.T) {
 	assert.Nil(t, options)
 }
 
-// Testing case when the  SSH credentials are provided but  Namespace is empty
+// Testing case when the SSH credentials are provided but Namespace is empty
 func TestGetRepoCloneOptionsPrefixFoundCredNameSpaceEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
@@ -272,7 +272,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameSpaceEmptySSH(t *testing.T) {
 	assert.Nil(t, options)
 }
 
-// Testing case when the  SSH credentials are provided but  Key  is empty
+// Testing case when the SSH credentials are provided but the Key is empty
 func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
@@ -288,7 +288,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptySSH(t *testing.T) {
 	assert.Nil(t, options)
 }
 
-// Testing case when the  HTTP credentials are provided but  Name is empty
+// Testing case when the HTTP credentials are provided but Name is empty
 func TestGetRepoCloneOptionsPrefixFoundCredNameEmptyHTTP(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
@@ -307,7 +307,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptyHTTP(t *testing.T) {
 	assert.Nil(t, options)
 }
 
-// Testing case when the  HTTP credentials are provided but  Key  is empty
+// Testing case when the HTTP credentials are provided but the Key is empty
 func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptyHTTP(t *testing.T) {
 
 	client, err := GetFakeKubernetesClient()

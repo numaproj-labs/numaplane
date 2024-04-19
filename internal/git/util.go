@@ -52,7 +52,6 @@ func GetLatestManifests(
 ) (string, []*unstructured.Unstructured, error) {
 	numaLogger := logger.FromContext(ctx).WithValues("GitSync name", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
 
-	// Fetch all remote branches
 	err := fetchUpdates(ctx, client, gitSync, r)
 	if err != nil {
 		return "", nil, err
@@ -213,15 +212,10 @@ func getLocalRepoPath(gitSync *v1alpha1.GitSync) string {
 	}
 }
 
-// fetchUpdates fetches all the remote branches and updates the local changes, returning nil if already up-to-date or an error otherwise.
+// fetchUpdates fetches the remote branch and updates the local changes, returning nil if already up-to-date or an error otherwise.
 func fetchUpdates(ctx context.Context,
 	client k8sClient.Client,
 	gitSync *v1alpha1.GitSync, repo *git.Repository) error {
-
-	remote, err := repo.Remote("origin")
-	if err != nil {
-		return err
-	}
 
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
@@ -230,13 +224,17 @@ func fetchUpdates(ctx context.Context,
 
 	credentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
 
-	fetchOptions, err := gitShared.GetRepoFetchOptions(ctx, credentials, client, gitSync.Spec.RepoUrl)
+	pullOptions, err := gitShared.GetRepoPullOptions(ctx, credentials, client, gitSync.Spec.RepoUrl)
 	if err != nil {
 		return err
 	}
 
-	err = remote.Fetch(fetchOptions)
-	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+	worktree, err := repo.Worktree()
+	if err != nil {
+		return err
+	}
+
+	if err = worktree.Pull(pullOptions); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return err
 	}
 
