@@ -245,7 +245,7 @@ func Test_GetLatestManifests(t *testing.T) {
 				"localBranch",
 				"https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				"staging-usw2-k8s",
-				"pipeline",
+				"main",
 			),
 			hasErr: false,
 		},
@@ -255,7 +255,7 @@ func Test_GetLatestManifests(t *testing.T) {
 				"rootPath",
 				"https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				"",
-				"pipeline",
+				"main",
 			),
 			hasErr: false,
 		},
@@ -434,7 +434,6 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 	assert.NotNil(t, cloneOptions)
 
 	cloneOptions.Auth.(*ssh.PublicKeys).HostKeyCallback = cryptossh.InsecureIgnoreHostKey()
-	assert.NoError(t, err)
 
 	gitSync := newGitSync("test", repoUrL, "gitClone", "master")
 

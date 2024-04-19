@@ -36,18 +36,18 @@ import (
 
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
+	cp "github.com/otiai10/copy"
 )
-
-// localGitUrl is set for local development/testing,
-// the GitSync controller uses a different URL configured in GitSync yaml.
-const localGitUrl = "http://localhost:8080/git/repo1.git"
 
 var (
 	auth = &http.BasicAuth{
 		Username: "root",
 		Password: "root",
 	}
-	localPath = "./local"
+	// localGitUrl is set for local development/testing,
+	// the GitSync controller uses a different URL configured in GitSync yaml.
+	localPath   = "./local"
+	localGitUrl = "http://localhost:8080/git/%s"
 )
 
 type Given struct {
@@ -56,6 +56,7 @@ type Given struct {
 	kubeClient    kubernetes.Interface
 	gitSyncClient planepkg.GitSyncInterface
 	gitSync       *v1alpha1.GitSync
+	currentCommit string
 }
 
 // create GitSync using raw YAML or @filename
@@ -116,9 +117,12 @@ func (g *Given) readResource(text string, v metav1.Object) {
 }
 
 // initializes Git repo specified by GitSync's RepoURL by pushing initial commit files
-// these files should be located at testdata/<gitSync.Spec.Path>
-func (g *Given) InitializeGitRepo() *Given {
+// these files should be located at testdata/<directory>
+// directory name does not need to match gitSync.Spec.Path
+func (g *Given) InitializeGitRepo(directory string) *Given {
 	ctx := context.Background()
+
+	g.t.Log("Initializing Git repo..")
 
 	// Clone the repository
 	repo, err := g.cloneRepo(ctx)
@@ -142,8 +146,10 @@ func (g *Given) InitializeGitRepo() *Given {
 		log.Println(err)
 	}
 
-	tmpPath := filepath.Join(localPath, g.gitSync.Spec.Path)
-	dataPath := filepath.Join("testdata", g.gitSync.Spec.Path)
+	// local/repo1.git/path
+	repoNum := TrimRepoUrl(g.gitSync.Spec.RepoUrl)
+	tmpPath := filepath.Join(localPath, repoNum, g.gitSync.Spec.Path)
+	dataPath := filepath.Join("testdata", directory)
 	_ = os.Mkdir(tmpPath, 0777)
 
 	dir, err := os.ReadDir(dataPath)
@@ -151,21 +157,22 @@ func (g *Given) InitializeGitRepo() *Given {
 		g.t.Fatal(err)
 	}
 
-	for _, file := range dir {
-		name := file.Name()
-		err := CopyFile(filepath.Join(dataPath, name), filepath.Join(tmpPath, name))
+	for _, entry := range dir {
+		name := entry.Name()
+		// can copy whole directories - needed for kustomize/helm tests
+		err := cp.Copy(filepath.Join(dataPath, name), filepath.Join(tmpPath, name))
 		if err != nil {
 			g.t.Fatal(err)
 		}
 	}
 
 	// Add and commit local changes
-	_, err = wt.Add(".")
+	_, err = wt.Add(g.gitSync.Spec.Path)
 	if err != nil {
 		g.t.Fatal(err)
 	}
 
-	_, err = wt.Commit("Update with local changes", &git.CommitOptions{})
+	hash, err := wt.Commit("Initial commit", &git.CommitOptions{})
 	if err != nil {
 		g.t.Fatal(err)
 	}
@@ -180,17 +187,27 @@ func (g *Given) InitializeGitRepo() *Given {
 		g.t.Fatal(err)
 	}
 
+	// store commit hash
+	g.currentCommit = hash.String()
+
+	g.t.Log("Files successfully pushed to repo")
+
 	return g
 }
 
 // clone repository unless it's already been cloned
 func (g *Given) cloneRepo(ctx context.Context) (*git.Repository, error) {
 
-	cloneOpts := git.CloneOptions{URL: localGitUrl, Auth: auth}
+	repoNum := TrimRepoUrl(g.gitSync.Spec.RepoUrl)
 
-	repo, err := git.PlainCloneContext(ctx, localPath, false, &cloneOpts)
+	cloneOpts := git.CloneOptions{URL: fmt.Sprintf(localGitUrl, repoNum), Auth: auth}
+
+	// local/repo(num).git/(path)
+	localPathToRepo := filepath.Join(localPath, repoNum)
+
+	repo, err := git.PlainCloneContext(ctx, localPathToRepo, false, &cloneOpts)
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		existingRepo, openErr := git.PlainOpen(localPath)
+		existingRepo, openErr := git.PlainOpen(localPathToRepo)
 		if openErr != nil {
 			return repo, fmt.Errorf("failed to open existing repo: %v", openErr)
 		}
@@ -208,5 +225,6 @@ func (g *Given) When() *When {
 		restConfig:    g.restConfig,
 		kubeClient:    g.kubeClient,
 		gitSyncClient: g.gitSyncClient,
+		currentCommit: g.currentCommit,
 	}
 }
