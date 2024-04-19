@@ -10,10 +10,11 @@ group=rbac.authorization.k8s.io,kind=RoleBinding;group=rbac.authorization.k8s.io
 repoCredentials:
 - url: "localgitserver-service.numaplane-system.svc.cluster.local/git"
   httpCredential:
-    username: "exampleUser"
+    username: "root"
     password:
       name: "http-creds"
       key: "password"
+      namespace: "numaplane-system"
 - url: "localgitserver-0.numaplane-system.svc.cluster.local/git"
   sshCredential:
     SSHKey:
@@ -23,9 +24,10 @@ repoCredentials:
     insecureSkipVerify: true
 - url: "localgitserver-0.numaplane-system.svc.cluster.local/git"
   httpCredential:
-    username: "exampleuser3"
+    username: "root"
     password:
       name: "http-creds"
       key: "password"
+      namespace: "numaplane-system"
   tls:
     insecureSkipVerify: true

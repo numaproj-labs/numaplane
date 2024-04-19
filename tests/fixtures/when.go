@@ -26,11 +26,13 @@ import (
 	git "github.com/go-git/go-git/v5"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
+	cp "github.com/otiai10/copy"
 )
 
 type When struct {
@@ -39,8 +41,10 @@ type When struct {
 	kubeClient    kubernetes.Interface
 	gitSync       *v1alpha1.GitSync
 	gitSyncClient planepkg.GitSyncInterface
+	currentCommit string
 }
 
+// create new GitSync
 func (w *When) CreateGitSyncAndWait() *When {
 
 	w.t.Helper()
@@ -60,8 +64,36 @@ func (w *When) CreateGitSyncAndWait() *When {
 		w.t.Fatal(err)
 	}
 	return w
-
 }
+
+// update existing GitSync
+func (w *When) UpdateGitSyncAndWait() *When {
+
+	w.t.Helper()
+	if w.gitSync == nil {
+		w.t.Fatal("No GitSync to create")
+	}
+	w.t.Log("Updating GitSync", w.gitSync.Name)
+	ctx := context.Background()
+	oldGitSync, err := w.gitSyncClient.Get(ctx, w.gitSync.Name, metav1.GetOptions{})
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	w.gitSync.SetResourceVersion(oldGitSync.GetResourceVersion())
+	i, err := w.gitSyncClient.Update(ctx, w.gitSync, metav1.UpdateOptions{})
+	if err != nil {
+		w.t.Fatal(err)
+	} else {
+		w.gitSync = i
+	}
+	// wait for GitSync to run
+	if err := w.waitForGitSyncRunning(ctx, w.gitSyncClient, w.gitSync.Name, defaultTimeout); err != nil {
+		w.t.Fatal(err)
+	}
+	return w
+}
+
+// delete existing GitSync
 func (w *When) DeleteGitSyncAndWait() *When {
 
 	w.t.Helper()
@@ -85,10 +117,19 @@ func (w *When) DeleteGitSyncAndWait() *When {
 }
 
 // make git push to Git server pod
-func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
+func (w *When) PushToGitRepo(directory string, fileNames []string, remove bool) *When {
+
+	if remove {
+		w.t.Log("Adding files to remove from repo..")
+	} else {
+		w.t.Log("Adding files to commit to repo..")
+	}
+
+	repoNum := TrimRepoUrl(w.gitSync.Spec.RepoUrl)
+	localPathToRepo := filepath.Join(localPath, repoNum)
 
 	// open local path to cloned git repo
-	repo, err := git.PlainOpen(localPath)
+	repo, err := git.PlainOpen(localPathToRepo)
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -101,22 +142,30 @@ func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
 
 	// dataPath points to commit directory with edited files
 	dataPath := filepath.Join("testdata", directory)
-	tmpPath := filepath.Join(localPath, w.gitSync.Spec.Path)
+	tmpPath := filepath.Join(localPathToRepo, w.gitSync.Spec.Path)
 
 	// iterate over files to be added and committed
 	for _, fileName := range fileNames {
 
-		err := CopyFile(filepath.Join(dataPath, fileName), filepath.Join(tmpPath, fileName))
-		if err != nil {
-			w.t.Fatal(err)
+		if remove {
+			_, err = wt.Remove(filepath.Join(w.gitSync.Spec.Path, fileName))
+			if err != nil {
+				w.t.Fatal(err)
+			}
+		} else {
+			err := cp.Copy(filepath.Join(dataPath, fileName), filepath.Join(tmpPath, fileName))
+			if err != nil {
+				w.t.Fatal(err)
+			}
+			_, err = wt.Add(w.gitSync.Spec.Path)
+			if err != nil {
+				w.t.Fatal(err)
+			}
 		}
-		_, err = wt.Add(w.gitSync.Spec.Path)
-		if err != nil {
-			w.t.Fatal(err)
-		}
+
 	}
 
-	_, err = wt.Commit("Committing to git server", &git.CommitOptions{})
+	hash, err := wt.Commit("Committing to git server", &git.CommitOptions{})
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -125,12 +174,63 @@ func (w *When) PushToGitRepo(directory string, fileNames []string) *When {
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		Auth:       auth,
-		RemoteURL:  w.gitSync.Spec.RepoUrl,
 	})
 	if err != nil {
 		w.t.Fatal(err)
 	}
 
+	// store commit hash
+	w.currentCommit = hash.String()
+
+	if remove {
+		w.t.Log("Files successfully removed from repo")
+	} else {
+		w.t.Log("Files successfully pushed to repo")
+	}
+
+	return w
+}
+
+// kubectl apply resource for self healing test
+func (w *When) ModifyResource(apiVersion, resourceType, resource, patch string) *When {
+
+	ctx := context.Background()
+
+	w.t.Log("Patching resource..")
+
+	if apiVersion == "v1" {
+		result := w.kubeClient.CoreV1().RESTClient().
+			Patch(types.MergePatchType).
+			Namespace(TargetNamespace).
+			Resource(resourceType).
+			Name(resource).
+			Body([]byte(patch)).
+			Do(ctx)
+		if result.Error() != nil {
+			w.t.Fatalf("Failed to patch resource %s/%s", resourceType, resource)
+		}
+	} else {
+		result := w.kubeClient.CoreV1().RESTClient().Patch(types.MergePatchType).AbsPath(
+			fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
+				apiVersion,
+				TargetNamespace,
+				resourceType,
+				resource)).Body([]byte(patch)).Do(ctx)
+		if result.Error() != nil {
+			w.t.Fatalf("Failed to patch resource %s/%s", resourceType, resource)
+		}
+	}
+
+	w.t.Log("Resource successfully patched")
+
+	return w
+}
+
+func (w *When) Wait(timeout time.Duration) *When {
+	w.t.Helper()
+	w.t.Log("Waiting for", timeout.String())
+	time.Sleep(timeout)
+	w.t.Log("Done waiting")
 	return w
 }
 
@@ -141,6 +241,7 @@ func (w *When) Given() *Given {
 		restConfig:    w.restConfig,
 		kubeClient:    w.kubeClient,
 		gitSyncClient: w.gitSyncClient,
+		currentCommit: w.currentCommit,
 	}
 }
 
@@ -151,6 +252,7 @@ func (w *When) Expect() *Expect {
 		restConfig:    w.restConfig,
 		kubeClient:    w.kubeClient,
 		gitSyncClient: w.gitSyncClient,
+		currentCommit: w.currentCommit,
 	}
 }
 

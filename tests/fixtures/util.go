@@ -17,42 +17,12 @@ limitations under the License.
 package fixtures
 
 import (
-	"io"
-	"os"
+	"strings"
 )
 
-func CopyFile(src, dst string) error {
-	// read source file
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
+// TODO: extend to trim URLs for ssh/https
+func TrimRepoUrl(repoUrl string) string {
 
-	// create dest file, overwrite if already exists
-	destFile, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
+	return strings.TrimPrefix(repoUrl, "http://localgitserver-service.numaplane-system.svc.cluster.local/git/")
 
-	_, err = io.Copy(destFile, srcFile)
-	if err != nil {
-		return err
-	}
-
-	err = destFile.Sync()
-	if err != nil {
-		return err
-	}
-
-	err = srcFile.Close()
-	if err != nil {
-		return err
-	}
-
-	err = destFile.Close()
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
