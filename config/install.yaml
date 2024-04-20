@@ -361,9 +361,7 @@ rules:
   - ""
   resources:
   - configmaps
-  - secrets
   - serviceaccounts
-  - namespaces
   verbs:
   - '*'
 - apiGroups:
@@ -435,7 +433,7 @@ metadata:
   name: numaplane-controller-manager
   namespace: numaplane-system
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/component: controller-manager
