@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-git/go-git/v5/plumbing"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // GetAuthMethod returns an authMethod for both cloning and fetching from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
@@ -81,8 +84,16 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 	return auth, insecureSkipTLS, nil
 }
 
+// GetReferenceName dynamically determines the reference type and returns the appropriate plumbing.ReferenceName only for tags and branches
+func GetReferenceName(reference string) plumbing.ReferenceName {
+	if reference[0] == 'v' || reference[0] == 'V' {
+		return plumbing.NewTagReferenceName(reference)
+	}
+	return plumbing.NewBranchReferenceName(reference)
+}
+
 // GetRepoCloneOptions creates git.CloneOptions for cloning a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
-func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (*git.CloneOptions, error) {
+func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string, referenceName string) (*git.CloneOptions, error) {
 	endpoint, err := transport.NewEndpoint(repoUrl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid repository URL: %w", err)
@@ -96,6 +107,7 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, ku
 		URL:             endpoint.String(),
 		Auth:            method,
 		InsecureSkipTLS: skipTls,
+		ReferenceName:   GetReferenceName(referenceName),
 	}
 	return cloneOptions, nil
 }

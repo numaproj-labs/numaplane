@@ -33,7 +33,8 @@ func CloneRepo(
 	globalConfig controllerConfig.GlobalConfig,
 ) (*git.Repository, error) {
 	gitCredentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
-	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)
+
+	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl, gitSync.Spec.TargetRevision)
 	if err != nil {
 		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
 	}
@@ -243,7 +244,6 @@ func fetchUpdates(ctx context.Context,
 
 func cloneRepo(ctx context.Context, gitSync *v1alpha1.GitSync, options *git.CloneOptions) (*git.Repository, error) {
 	path := getLocalRepoPath(gitSync)
-
 	r, err := git.PlainCloneContext(ctx, path, false, options)
 	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
 		// open the existing repo and return it.

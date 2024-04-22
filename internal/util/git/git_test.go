@@ -197,7 +197,7 @@ func TestGetRepoCloneOptionsPrefixNotFound(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
 	// repoCred will be nil in this case
-	cloneOptions, err := GetRepoCloneOptions(context.Background(), nil, client, "https://github.com/numaproj-labs/numaplane.git")
+	cloneOptions, err := GetRepoCloneOptions(context.Background(), nil, client, "https://github.com/numaproj-labs/numaplane.git", "main")
 	assert.NoError(t, err)
 	assert.NotNil(t, cloneOptions)
 }
@@ -206,7 +206,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNilHttp(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
 	cred := &apiv1.RepoCredential{}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git", "main")
 	assert.NoError(t, err)
 	assert.Equal(t, options.URL, "https://github.com/numaproj-labs/numaplane.git")
 	// In this case only auth method would be nil as it is asssumed that its public repository and doesn't require auth
@@ -217,7 +217,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNilSSh(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
 	cred := &apiv1.RepoCredential{}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git", "main")
 	assert.NoError(t, err)
 	assert.Equal(t, options.URL, "ssh://git@github.com/numaproj-labs/numaplane.git") // go git transport.endPoint appends the protocol ssh
 	// In this case only auth method would be nil as it is asssumed that its public repository and doesn't require auth
@@ -235,7 +235,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredEmptySSH(t *testing.T) {
 			Optional:        nil,
 		}},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
@@ -251,7 +251,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptySSH(t *testing.T) {
 			Optional:        nil,
 		}},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
@@ -267,7 +267,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameSpaceEmptySSH(t *testing.T) {
 			Optional:        nil,
 		}},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
@@ -283,7 +283,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptySSH(t *testing.T) {
 			Optional:        nil,
 		}},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
@@ -302,7 +302,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptyHTTP(t *testing.T) {
 			},
 		},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
@@ -322,7 +322,7 @@ func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptyHTTP(t *testing.T) {
 			},
 		},
 	}
-	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git")
+	options, err := GetRepoCloneOptions(context.Background(), cred, client, "https://github.com/numaproj-labs/numaplane.git", "main")
 	assert.Error(t, err)
 	assert.Nil(t, options)
 }
