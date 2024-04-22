@@ -521,8 +521,6 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
 	gitSync := newGitSync("test", repoUrL, "gitCloned", "master")
-	log.Println(cloneOptions)
-
 	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
