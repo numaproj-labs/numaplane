@@ -13,9 +13,7 @@ rules:
 - apiGroups: [""]
   resources:
     - configmaps
-    - secrets
     - serviceaccounts
-    - namespaces
   verbs:
     - '*'
 - apiGroups: ["rbac.authorization.k8s.io"]
