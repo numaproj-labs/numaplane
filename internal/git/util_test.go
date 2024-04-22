@@ -430,7 +430,6 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 	}
 	repoUrL := "ssh://root@localhost:2222/var/www/git/repo1.git"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL, "master")
-	log.Println(cloneOptions)
 	assert.NoError(t, err)
 	assert.NotNil(t, cloneOptions)
 
