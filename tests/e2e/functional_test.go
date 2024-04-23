@@ -239,6 +239,22 @@ func (s *FunctionalSuite) TestHelm() {
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"new-deploy"})
 	w.Expect().CheckCommitStatus()
 
+	w.PushToGitRepo("helm/modified", []string{"values.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"new-deploy"})
+	w.Expect().CheckCommitStatus()
+
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "new-deploy", "spec", "replicas", 5)
+
+	s.Given().GitSync("@testdata/helm-gitsync-params.yaml").
+		When().
+		UpdateGitSyncAndWait().
+		Wait(30 * time.Second)
+
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"new-deploy"})
+	w.Expect().CheckCommitStatus()
+
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "new-deploy", "spec", "replicas", 3)
+
 }
 
 func TestFunctionalSuite(t *testing.T) {

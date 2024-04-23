@@ -10,6 +10,9 @@ spec:
   helm:
     valueFiles:
     - "values.yaml"
+    parameters:
+    - name: "replicaCount"
+      value: "3"
   destination:
     cluster: staging-usw2-k8s
     namespace: numaplane-e2e
