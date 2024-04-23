@@ -449,7 +449,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 
 func TestGitCloneRepoWithTag(t *testing.T) {
 	repoUrL := "https://github.com/numaproj-labs/numaplane"
-	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), nil, nil, repoUrL, "master")
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), nil, nil, repoUrL, "tag/v0.1.0-beta.2")
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
 	gitSync := newGitSync("test", repoUrL, "gitCloned", "tag/v0.1.0-beta.2")
@@ -458,6 +458,38 @@ func TestGitCloneRepoWithTag(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "README.md") // data.yaml default file exists in docker git
+	assert.NoError(t, err)
+	err = os.RemoveAll("gitCloned")
+	assert.NoError(t, err)
+}
+
+func TestGitCloneRepoWithBranch(t *testing.T) {
+	repoUrL := "https://github.com/numaproj-labs/numaplane"
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), nil, nil, repoUrL, "xxww")
+	assert.NoError(t, err)
+	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
+	gitSync := newGitSync("test", repoUrL, "gitCloned", "xxww")
+
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+	err = FileExists(repo, "README.md")
+	assert.NoError(t, err)
+	err = os.RemoveAll("gitCloned")
+	assert.NoError(t, err)
+}
+
+func TestGitCloneRepoWithCommitHash(t *testing.T) {
+	repoUrL := "https://github.com/numaproj-labs/numaplane"
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), nil, nil, repoUrL, "4c74d04da72f5ede0e25bed4f1974286b3e698bb")
+	assert.NoError(t, err)
+	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
+	gitSync := newGitSync("test", repoUrL, "gitCloned", "4c74d04da72f5ede0e25bed4f1974286b3e698bb")
+
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+	err = FileExists(repo, "README.md")
 	assert.NoError(t, err)
 	err = os.RemoveAll("gitCloned")
 	assert.NoError(t, err)

@@ -90,8 +90,7 @@ func gitReferenceName(reference string) plumbing.ReferenceName {
 	} else if strings.HasPrefix(reference, "branch/") {
 		return plumbing.NewBranchReferenceName(strings.TrimPrefix(reference, "branch/"))
 	}
-	// Anything else should be returned as it is
-	return plumbing.ReferenceName(reference)
+	return plumbing.NewHashReference(plumbing.ReferenceName(reference), plumbing.NewHash(reference)).Name()
 }
 
 // GetRepoCloneOptions creates git.CloneOptions for cloning a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
