@@ -3,8 +3,9 @@ package git
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing"
 	"strings"
+
+	"github.com/go-git/go-git/v5/plumbing"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport"
