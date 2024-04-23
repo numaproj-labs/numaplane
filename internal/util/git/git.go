@@ -88,7 +88,7 @@ func gitReferenceName(reference string) plumbing.ReferenceName {
 	if strings.HasPrefix(reference, "tag/") {
 		return plumbing.NewTagReferenceName(strings.TrimPrefix(reference, "tag/"))
 	} else if strings.HasPrefix(reference, "branch/") {
-		return plumbing.NewBranchReferenceName(strings.TrimPrefix(reference, "tag/"))
+		return plumbing.NewBranchReferenceName(strings.TrimPrefix(reference, "branch/"))
 	}
 	// Anything else should be returned as it is
 	return plumbing.ReferenceName(reference)

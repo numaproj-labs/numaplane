@@ -447,6 +447,22 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 
 }
 
+func TestGitCloneRepoWithTag(t *testing.T) {
+	repoUrL := "https://github.com/numaproj-labs/numaplane"
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), nil, nil, repoUrL, "master")
+	assert.NoError(t, err)
+	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
+	gitSync := newGitSync("test", repoUrL, "gitCloned", "tag/v0.1.0-beta.2")
+
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+	err = FileExists(repo, "README.md") // data.yaml default file exists in docker git
+	assert.NoError(t, err)
+	err = os.RemoveAll("gitCloned")
+	assert.NoError(t, err)
+}
+
 func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 
 	secretData := map[string][]byte{"password": []byte(`root`)}
