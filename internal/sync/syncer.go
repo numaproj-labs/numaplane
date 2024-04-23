@@ -25,6 +25,7 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/common"
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/git"
+	"github.com/numaproj-labs/numaplane/internal/metrics"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
@@ -37,10 +38,11 @@ type Syncer struct {
 	kubectl    kubeUtil.Kubectl
 	gitSyncMap map[string]*list.Element
 	// List of the GitSync namespaced name, format is "namespace/name"
-	gitSyncList *list.List
-	lock        *sync.RWMutex
-	options     *options
-	stateCache  LiveStateCache
+	gitSyncList   *list.List
+	lock          *sync.RWMutex
+	options       *options
+	stateCache    LiveStateCache
+	metricsServer *metrics.MetricsServer
 }
 
 // KeyOfGitSync returns the unique key of a gitsync
@@ -52,7 +54,7 @@ func KeyOfGitSync(gitSync *v1alpha1.GitSync) string {
 func NewSyncer(
 	client client.Client,
 	config *rest.Config,
-	rawConfig *rest.Config,
+	metricServer *metrics.MetricsServer,
 	kubectl kubeUtil.Kubectl,
 	opts ...Option,
 ) *Syncer {
@@ -62,19 +64,28 @@ func NewSyncer(
 			opt(watcherOpts)
 		}
 	}
+
+	restConfig := metrics.AddMetricsTransportWrapper(metricServer, config)
 	stateCache := NewLiveStateCache(config)
-	w := &Syncer{
-		client:      client,
-		config:      config,
-		rawConfig:   rawConfig,
-		kubectl:     kubectl,
-		options:     watcherOpts,
-		gitSyncMap:  make(map[string]*list.Element),
-		gitSyncList: list.New(),
-		lock:        new(sync.RWMutex),
-		stateCache:  stateCache,
+	syncer := &Syncer{
+		client:        client,
+		config:        restConfig,
+		rawConfig:     config,
+		kubectl:       kubectl,
+		options:       watcherOpts,
+		gitSyncMap:    make(map[string]*list.Element),
+		gitSyncList:   list.New(),
+		lock:          new(sync.RWMutex),
+		stateCache:    stateCache,
+		metricsServer: metricServer,
 	}
-	return w
+	kubectl.SetOnKubectlRun(syncer.onKubectlRun)
+	return syncer
+}
+
+func (s *Syncer) onKubectlRun(command string) (kube.CleanupFunc, error) {
+	s.metricsServer.IncKubectlExec(command)
+	return func() {}, nil
 }
 
 // Contains returns if the synchronizer contains the key (namespace/name).
@@ -191,6 +202,8 @@ func (s *Syncer) run(ctx context.Context, id int, keyCh <-chan string) {
 
 // Function runOnce implements the logic of each synchronization.
 func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
+	// startTime used for calculating metrics
+	startTime := time.Now()
 	numaLogger := logger.FromContext(ctx).WithValues("worker", worker, "gitSyncKey", key)
 	numaLogger.Debugf("Working on key: %s.", key)
 	strs := strings.Split(key, "/")
@@ -208,6 +221,11 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		}
 		return fmt.Errorf("failed to query GitSync object of key %q, %w", key, err)
 	}
+	defer func() {
+		reconcileDuration := time.Since(startTime)
+		s.metricsServer.ObserveReconcile(gitSync, reconcileDuration)
+		numaLogger.WithValues("time_ms", reconcileDuration.Milliseconds()).Debug("Reconciliation completed")
+	}()
 	if !gitSync.GetDeletionTimestamp().IsZero() {
 		numaLogger.Debug("GitSync object being deleted.")
 		err := ProcessGitSyncDeletion(ctx, gitSync, s)
@@ -227,11 +245,11 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 
 	numaLogger.SetLevel(globalConfig.LogLevel)
 
-	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig)
+	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig, s.metricsServer)
 	if err != nil {
 		return fmt.Errorf("failed to clone the repo of key %q, %w", key, err)
 	}
-	commitHash, manifests, err := git.GetLatestManifests(ctx, repo, s.client, gitSync)
+	commitHash, manifests, err := git.GetLatestManifests(ctx, repo, s.client, gitSync, s.metricsServer)
 	if err != nil {
 		return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
 	}
@@ -262,7 +280,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		synced = true
 		numaLogger.Info("GitSync object is successfully synced.")
 	}
-
+	s.metricsServer.IncSync(gitSync, syncState)
 	if !gitSync.GetDeletionTimestamp().IsZero() {
 		log.Debug("GitSync object being deleted.")
 		err := ProcessGitSyncDeletion(ctx, gitSync, s)
@@ -272,7 +290,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		s.StopWatching(key)
 		return nil
 	} else {
-		return updateCommitStatus(ctx, s.client, &numaLogger, namespacedName, commitHash, synced, syncMessage)
+		return updateCommitStatus(ctx, s.client, &numaLogger, s.metricsServer, namespacedName, commitHash, synced, syncMessage)
 	}
 }
 
@@ -311,9 +329,12 @@ func (s *Syncer) sync(
 	cluster, err := s.stateCache.GetClusterCache()
 	if err != nil {
 		numaLogger.Error(err, "Error on getting the cluster cache")
+		s.metricsServer.IncKubeCacheFailed()
 		return gitopsSyncCommon.OperationError, err.Error()
 	}
 	openAPISchema := cluster.GetOpenAPISchema()
+	s.metricsServer.SetMonitoredKubeAPI(float64(len(cluster.GetAPIResources())))
+	s.metricsServer.SetKubeCachedResource(float64(len(targetObjs)))
 
 	syncCtx, cleanup, err := gitopsSync.NewSyncContext(
 		gitSync.Spec.TargetRevision,
@@ -435,6 +456,7 @@ func updateCommitStatus(
 	ctx context.Context,
 	kubeClient client.Client,
 	numaLogger *logger.NumaLogger,
+	metricServer *metrics.MetricsServer,
 	namespacedName types.NamespacedName,
 	hash string,
 	synced bool,
@@ -470,6 +492,7 @@ func updateCommitStatus(
 	gitSync.Status.CommitStatus = &commitStatus
 	if err := kubeClient.Status().Update(ctx, gitSync); err != nil {
 		numaLogger.Error(err, "Error Updating GitSync Status", "err")
+		metricServer.InGitSyncUpdateError(gitSync)
 		return err
 	}
 	return nil
