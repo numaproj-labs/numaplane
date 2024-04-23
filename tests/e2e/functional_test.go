@@ -235,16 +235,19 @@ func (s *FunctionalSuite) TestHelm() {
 	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"gitsync-example-helm-test"})
 	w.Expect().CheckCommitStatus()
 
+	// adding new template to repo
 	w.PushToGitRepo("helm/modified", []string{"templates/new-deploy.yaml"}, false).Wait(30 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"new-deploy"})
 	w.Expect().CheckCommitStatus()
 
+	// modifying the values.yaml target for helm
 	w.PushToGitRepo("helm/modified", []string{"values.yaml"}, false).Wait(30 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"new-deploy"})
 	w.Expect().CheckCommitStatus()
 
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "new-deploy", "spec", "replicas", 5)
 
+	// changing the GitSync spec to override values.yaml with ReplicaCount = 3
 	s.Given().GitSync("@testdata/helm-gitsync-params.yaml").
 		When().
 		UpdateGitSyncAndWait().
@@ -253,6 +256,7 @@ func (s *FunctionalSuite) TestHelm() {
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"new-deploy"})
 	w.Expect().CheckCommitStatus()
 
+	// verify change has occurred
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "new-deploy", "spec", "replicas", 3)
 
 }
