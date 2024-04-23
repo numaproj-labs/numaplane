@@ -3,9 +3,8 @@ package git
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"github.com/go-git/go-git/v5/plumbing"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport"
@@ -84,12 +83,11 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 	return auth, insecureSkipTLS, nil
 }
 
-// GetReferenceName dynamically determines the reference type and returns the appropriate plumbing.ReferenceName only for tags and branches
-func GetReferenceName(reference string) plumbing.ReferenceName {
-	if reference[0] == 'v' || reference[0] == 'V' {
-		return plumbing.NewTagReferenceName(reference)
+func gitReferenceName(reference string) plumbing.ReferenceName {
+	if strings.HasPrefix(reference, "tag/") {
+		return plumbing.NewTagReferenceName(strings.TrimPrefix(reference, "tag/"))
 	}
-	return plumbing.NewBranchReferenceName(reference)
+	return plumbing.ReferenceName(reference)
 }
 
 // GetRepoCloneOptions creates git.CloneOptions for cloning a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
@@ -102,12 +100,11 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, ku
 	if err != nil {
 		return nil, err
 	}
-
 	cloneOptions := &git.CloneOptions{
 		URL:             endpoint.String(),
 		Auth:            method,
 		InsecureSkipTLS: skipTls,
-		ReferenceName:   GetReferenceName(referenceName),
+		ReferenceName:   gitReferenceName(referenceName),
 	}
 	return cloneOptions, nil
 }
