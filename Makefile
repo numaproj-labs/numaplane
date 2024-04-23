@@ -252,7 +252,7 @@ test-%: e2e-test-start
 
 
 # release - targets only available on release branch
-ifneq ($(findstring release,$(GIT_BRANCH)),)
+ifneq ($(findstring release-,$(GIT_BRANCH)),)
 
 .PHONY: prepare-release
 prepare-release: check-version-warning clean update-manifests-version codegen
