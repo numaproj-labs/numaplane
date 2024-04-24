@@ -99,6 +99,7 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 	defer w.DeleteGitSyncAndWait()
 
 	// verify basics resources are created
+	w.Wait(30 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
