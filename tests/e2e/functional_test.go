@@ -226,7 +226,7 @@ func (s *FunctionalSuite) TestHelm() {
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
 
-	// verify all resources defined in kustomization file are created
+	// verify all resources defined in helm file are created
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"gitsync-example-helm-test"})
 	w.Expect().CheckCommitStatus()
 
