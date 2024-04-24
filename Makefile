@@ -215,6 +215,8 @@ gitserver:
 # ref: https://stackoverflow.com/questions/33509194/command-to-delete-all-pods-in-all-kubernetes-namespaces
 .PHONY: e2e-test-clean
 e2e-test-clean:
+	$(KUBECTL) delete -n numaplane-e2e isbsvc --all --ignore-not-found=true
+	$(KUBECTL) delete -n numaplane-e2e pipeline --all --ignore-not-found=true
 	$(KUBECTL) delete -n numaplane-e2e cm --all
 	$(KUBECTL) delete -n numaplane-e2e secret --all
 	$(KUBECTL) delete -n numaplane-e2e all --all
