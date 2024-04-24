@@ -82,7 +82,7 @@ func (s *FunctionalSuite) TestNumaflowGitSync() {
 	w.Expect().VerifyResourceState("numaflow.numaproj.io/v1alpha1", "pipelines", "simple-pipeline", "spec", "edge", initialEdges)
 
 	// remove pipeline manifest from repo
-	w.PushToGitRepo("numaflow/modified", []string{"http-pipeline.yaml"}, true).Wait(30 * time.Second)
+	w.PushToGitRepo("numaflow/modified", []string{"http-pipeline.yaml"}, true).Wait(45 * time.Second)
 
 	// verify that the pipeline has been deleted by GitSync and synced to current commit
 	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"http-pipeline"})
@@ -193,7 +193,7 @@ func (s *FunctionalSuite) TestChangeRepoUrl() {
 
 }
 
-// // GitSync testing with kustomize manifests
+// GitSync testing with kustomize manifests
 func (s *FunctionalSuite) TestKustomize() {
 
 	// create repo containing kustomize manifests
@@ -203,18 +203,61 @@ func (s *FunctionalSuite) TestKustomize() {
 	defer w.DeleteGitSyncAndWait()
 
 	// verify all resources defined in kustomization file are created
-	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
-	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
-	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"kustomize-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"kustomize-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"kustomize-secret"})
 	w.Expect().CheckCommitStatus()
 
 	// remove deployment resource from kustomization file
 	w.PushToGitRepo("kustomize/modified", []string{"kustomization.yaml"}, false).Wait(30 * time.Second)
 	// verify that deployment should be deleted while other resources remain
-	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"test-deploy"})
-	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
-	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
+	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"kustomize-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"kustomize-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"kustomize-secret"})
 	w.Expect().CheckCommitStatus()
+
+}
+
+// GitSync testing with basic helm manifests
+func (s *FunctionalSuite) TestHelm() {
+
+	w := s.Given().GitSync("@testdata/helm-gitsync.yaml").InitializeGitRepo("helm/initial-commit").
+		When().
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	// verify all resources defined in helm file are created
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"gitsync-example-helm-test"})
+	w.Expect().CheckCommitStatus()
+
+	// remove deployment manifest from repo
+	w.PushToGitRepo("helm/initial-commit", []string{"templates/deployment.yaml"}, true).Wait(30 * time.Second)
+	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"gitsync-example-helm-test"})
+	w.Expect().CheckCommitStatus()
+
+	// adding new template to repo
+	w.PushToGitRepo("helm/modified", []string{"templates/new-deploy.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"new-deploy"})
+	w.Expect().CheckCommitStatus()
+
+	// modifying the values.yaml target for helm
+	w.PushToGitRepo("helm/modified", []string{"values.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"new-deploy"})
+	w.Expect().CheckCommitStatus()
+
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "new-deploy", "spec", "replicas", 5)
+
+	// changing the GitSync spec to override values.yaml with ReplicaCount = 3
+	s.Given().GitSync("@testdata/helm-gitsync-params.yaml").
+		When().
+		UpdateGitSyncAndWait().
+		Wait(30 * time.Second)
+
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"new-deploy"})
+	w.Expect().CheckCommitStatus()
+
+	// verify change has occurred
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "new-deploy", "spec", "replicas", 3)
 
 }
 
