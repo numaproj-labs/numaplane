@@ -32,6 +32,8 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 			insecureSkipTLS = repoCred.TLS.InsecureSkipVerify
 		}
 
+		fmt.Printf("DELETETHIS: repoCred.HTTPCredential=%+v\n", repoCred.HTTPCredential)
+
 		switch scheme {
 		case "http", "https":
 			if cred := repoCred.HTTPCredential; cred != nil {
@@ -54,12 +56,14 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 				}*/
 				password, err := getSecretValue(ctx, kubeClient, cred.Password)
 				if err != nil {
-					return nil, false, fmt.Errorf("Failed to get HTTP credential: %w", err)
+					return nil, false, fmt.Errorf("failed to get HTTP credential: %w", err)
 				}
 				auth = &gitHttp.BasicAuth{
 					Username: cred.Username,
 					Password: string(password),
 				}
+				fmt.Printf("DELETETHIS: Retrieved Secret value %s for username %s\n", string(password), cred.Username)
+
 			}
 
 		case "ssh":
@@ -102,15 +106,15 @@ func getSecretValue(ctx context.Context, kubeClient k8sClient.Client, secretSour
 	if secretSource.FromKubernetesSecret != nil {
 		secretValue, err = kubernetes.GetSecretValue(ctx, kubeClient, *secretSource.FromKubernetesSecret)
 		if err != nil {
-			return "", fmt.Errorf("failed to get secret %w from K8S Secret: %w", secretSource, err)
+			return "", fmt.Errorf("failed to get secret %+v from K8S Secret: %w", *secretSource.FromKubernetesSecret, err)
 		}
 	} else if secretSource.FromFile != nil {
 		secretValue, err = secretSource.FromFile.GetSecretValue()
 		if err != nil {
-			return "", fmt.Errorf("failed to get secret %w from file: %w", secretSource, err)
+			return "", fmt.Errorf("failed to get secret %+v from file: %w", *secretSource.FromFile, err)
 		}
 	} else {
-		return "", fmt.Errorf("Invalid SecretSource: either FromKubernetesSecret or FromFile should be specified: %w", secretSource)
+		return "", fmt.Errorf("invalid SecretSource: either FromKubernetesSecret or FromFile should be specified: %+v", secretSource)
 	}
 	return secretValue, nil
 }

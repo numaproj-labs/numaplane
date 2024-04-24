@@ -223,6 +223,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		numaLogger.Error(err, "error getting the global config")
 	}
 
+	fmt.Printf("deletethis: setting log level to %d\n", globalConfig.LogLevel)
 	numaLogger.SetLevel(globalConfig.LogLevel)
 
 	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig)
