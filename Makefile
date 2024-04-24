@@ -20,6 +20,7 @@ GIT_BRANCH=$(shell git rev-parse --symbolic-full-name --verify --quiet --abbrev-
 GIT_TAG=$(shell if [[ -z "`git status --porcelain`" ]]; then git describe --exact-match --tags HEAD 2>/dev/null; fi)
 GIT_TREE_STATE=$(shell if [[ -z "`git status --porcelain`" ]]; then echo "clean" ; else echo "dirty"; fi)
 
+NUMAFLOW_CRDS=$(shell kubectl get crd | grep -c 'numaflow')
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -248,9 +249,11 @@ test-%: e2e-test-start
 	$(MAKE) e2e-test-clean
 
 numaflow-crd:
+ifeq ($(NUMAFLOW_CRDS), 0)
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/numaproj/helm-charts/main/charts/numaflow/crds/isbsvcs.yaml
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/numaproj/helm-charts/main/charts/numaflow/crds/pipelines.yaml
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/numaproj/helm-charts/main/charts/numaflow/crds/vertices.yaml
+endif
 
 
 # release - targets only available on release branch
