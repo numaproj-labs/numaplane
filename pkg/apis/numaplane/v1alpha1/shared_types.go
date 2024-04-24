@@ -19,8 +19,12 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -132,22 +136,73 @@ type RepoCredential struct {
 }
 
 type HTTPCredential struct {
-	Username string            `json:"username" mapstructure:"username"`
-	Password SecretKeySelector `json:"password" mapstructure:"password"`
+	Username string        `json:"username" mapstructure:"username"`
+	Password *SecretSource `json:"password" mapstructure:"password"`
 }
 
 type SSHCredential struct {
-	SSHKey SecretKeySelector `json:"SSHKey" mapstructure:"SSHKey"`
+	SSHKey SecretSource `json:"SSHKey" mapstructure:"SSHKey"`
 }
 
 type TLS struct {
 	InsecureSkipVerify bool `json:"insecureSkipVerify" mapstructure:"insecureSkipVerify"`
 }
 
+type SecretSource struct {
+	FromKubernetesSecret *SecretKeySelector `json:"fromKubernetesSecret" mapstructure:"fromKubernetesSecret"`
+	FromFile             *FileKeySelector   `json:"fromFile" mapstructure:"fromFile"`
+}
+
 type SecretKeySelector struct {
 	corev1.ObjectReference `json:",inline" mapstructure:",squash"` // for viper to correctly parse the config
 	Key                    string                                  `json:"key" mapstructure:"key"`
-	Optional               *bool                                   `json:"optional,omitempty" mapstructure:"optional,omitempty"`
+}
+
+// FileKeySelector reads a key from a JSON or YAML file formatted as a map
+type FileKeySelector struct {
+	JSONFilePath *string `json:"jsonFilePath,omitempty" mapstructure:"jsonFilePath"` // should either by json or yaml
+	YAMLFilePath *string `json:"yamlFilePath,omitempty" mapstructure:"yamlFilePath"`
+	Key          string  `json:"key" mapstructure:"key"`
+}
+
+func (fks *FileKeySelector) GetSecretValue() (string, error) {
+	if fks.JSONFilePath != nil && fks.YAMLFilePath != nil {
+		return "", fmt.Errorf("JSONFilePath and YAMLFilePath can't both be set for FileKeySelector: %+v", *fks)
+	}
+	// read the file into a map
+	var m map[string]interface{}
+	if fks.JSONFilePath != nil {
+		dat, err := os.ReadFile(*fks.JSONFilePath)
+		if err != nil {
+			return "", fmt.Errorf("Error reading JSONFilePath for FileKeySelector: %+v, err=%v", *fks, err)
+		}
+		err = json.Unmarshal(dat, &m)
+		if err != nil {
+			return "", fmt.Errorf("Failed to unmarshal JSONFilePath for FileKeySelector into map[string]interface{}: %+v, err=%v, file contents=%q", *fks, err, string(dat))
+		}
+	} else if fks.YAMLFilePath != nil {
+		dat, err := os.ReadFile(*fks.YAMLFilePath)
+		if err != nil {
+			return "", fmt.Errorf("Error reading YAMLFilePath for FileKeySelector: %+v, err=%v", *fks, err)
+		}
+		err = yaml.Unmarshal(dat, &m)
+		if err != nil {
+			return "", fmt.Errorf("Failed to unmarshal YAMLFilePath for FileKeySelector into map[string]interface{}: %+v, err=%v, file contents=%q", *fks, err, string(dat))
+		}
+	} else {
+		return "", fmt.Errorf("either JSONFilePath or YAMLFilePath should be set for FileKeySelector: %+v", *fks)
+	}
+
+	// now get the key from the map
+	valueAsInterface, found := m[fks.Key]
+	if !found {
+		return "", fmt.Errorf("Failed to locate key: %+v, file contents as map=%q", *fks, m)
+	}
+	valueAsString, ok := valueAsInterface.(string)
+	if !ok {
+		return "", fmt.Errorf("key in FileSeySelector %+v can't be cast as string, file contents as map=%q", *fks, m)
+	}
+	return valueAsString, nil
 }
 
 // SingleClusterGenerator consists of a single set of key/value pairs that can be used for templating
