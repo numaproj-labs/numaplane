@@ -13,6 +13,14 @@ CLUSTER_NAME ?= staging-usw2-k8s
 IMAGE_NAMESPACE ?= quay.io/numaio
 IMAGE_FULL_PATH ?= $(IMAGE_NAMESPACE)/$(IMG):$(VERSION)
 
+
+BUILD_DATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+GIT_COMMIT=$(shell git rev-parse HEAD)
+GIT_BRANCH=$(shell git rev-parse --symbolic-full-name --verify --quiet --abbrev-ref HEAD)
+GIT_TAG=$(shell if [[ -z "`git status --porcelain`" ]]; then git describe --exact-match --tags HEAD 2>/dev/null; fi)
+GIT_TREE_STATE=$(shell if [[ -z "`git status --porcelain`" ]]; then echo "clean" ; else echo "dirty"; fi)
+
+
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
@@ -144,6 +152,11 @@ run: manifests generate fmt vet ## Run a controller from your host.
 run-agent: generate fmt vet ## Run agent from your host.
 	go run -gcflags=${GCFLAGS} cmd/agent/main.go
 
+
+clean:
+	-rm bin/agent -f
+	-rm bin/manager -f
+
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
@@ -238,3 +251,42 @@ numaflow-crd:
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/numaproj/helm-charts/main/charts/numaflow/crds/isbsvcs.yaml
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/numaproj/helm-charts/main/charts/numaflow/crds/pipelines.yaml
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/numaproj/helm-charts/main/charts/numaflow/crds/vertices.yaml
+
+
+# release - targets only available on release branch
+ifneq ($(findstring release-,$(GIT_BRANCH)),)
+
+.PHONY: prepare-release
+prepare-release: check-version-warning clean update-manifests-version codegen
+	git status
+	@git diff --quiet || echo "\n\nPlease run 'git diff' to confirm the file changes are correct.\n"
+
+
+.PHONY: release
+release: check-version-warning
+	@echo
+	@echo "1. Make sure you have run 'VERSION=$(VERSION) make prepare-release', and confirmed all the changes are expected."
+	@echo
+	@echo "2. Run following commands to commit the changes to the release branch, add give a tag."
+	@echo
+	@echo "git commit -am \"Update manifests to $(VERSION)\""
+	@echo "git push {your-remote}"
+	@echo
+	@echo "git tag -a $(VERSION) -m $(VERSION)"
+	@echo "git push {your-remote} $(VERSION)"
+	@echo
+
+endif
+
+
+
+
+.PHONY: check-version-warning
+check-version-warning:
+	@if [[ ! "$(VERSION)" =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$  ]]; then echo -n "It looks like you're not using a version format like 'v1.2.3', or 'v1.2.3-rc2', that version format is required for our releases. Do you wish to continue anyway? [y/N]" && read ans && [[ $${ans:-N} = y ]]; fi
+
+
+.PHONY: update-manifests-version
+update-manifests-version:
+	cat config/manager/kustomization.yaml | sed 's/newTag: .*/newTag: $(VERSION)/' > /tmp/base_kustomization.yaml
+	mv /tmp/base_kustomization.yaml config/manager/kustomization.yaml
