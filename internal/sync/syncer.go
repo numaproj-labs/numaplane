@@ -285,7 +285,7 @@ func (s *Syncer) sync(
 	}
 
 	opts := []gitopsSync.SyncOpt{
-		gitopsSync.WithLogr(*numaLogger.WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name)).LogrLogger),
+		gitopsSync.WithLogr(*numaLogger.LogrLogger),
 		gitopsSync.WithOperationSettings(false, true, false, false),
 		gitopsSync.WithManifestValidation(true),
 		gitopsSync.WithPruneLast(false),
