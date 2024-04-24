@@ -216,7 +216,7 @@ gitserver:
 .PHONY: e2e-test-clean
 e2e-test-clean:
 	$(KUBECTL) delete -n numaplane-e2e isbsvc --all
-	$(KUBECTL) delete -n numaplane-e2e pipelines --all
+	$(KUBECTL) delete -n numaplane-e2e pipeline --all
 	$(KUBECTL) delete -n numaplane-e2e cm --all
 	$(KUBECTL) delete -n numaplane-e2e secret --all
 	$(KUBECTL) delete -n numaplane-e2e all --all
@@ -237,4 +237,6 @@ test-%: e2e-test-start
 	$(MAKE) e2e-test-clean
 
 numaflow-crd:
-	$(KUBECTL) apply -f numaflow_crd.yaml
+	$(KUBECTL) apply -f https://raw.githubusercontent.com/numaproj/helm-charts/main/charts/numaflow/crds/isbsvcs.yaml
+	$(KUBECTL) apply -f https://raw.githubusercontent.com/numaproj/helm-charts/main/charts/numaflow/crds/pipelines.yaml
+	$(KUBECTL) apply -f https://raw.githubusercontent.com/numaproj/helm-charts/main/charts/numaflow/crds/vertices.yaml
