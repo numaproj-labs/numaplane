@@ -12,6 +12,7 @@ import (
 
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -34,16 +35,26 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 		switch scheme {
 		case "http", "https":
 			if cred := repoCred.HTTPCredential; cred != nil {
-				if cred.Username == "" || cred.Password.Name == "" || cred.Password.Key == "" || cred.Password.Namespace == "" {
+				/*if cred.Username == "" || cred.Password.Name == "" || cred.Password.Key == "" || cred.Password.Namespace == "" {
 					return nil, false, fmt.Errorf("incomplete HTTP credentials")
-				}
-				secret, err := kubernetes.GetSecret(ctx, kubeClient, cred.Password.Namespace, cred.Password.Name)
+				}*/
+				/*var password string
+				if cred.Password.FromKubernetesSecret != nil {
+					password, err = kubernetes.GetSecretValue(ctx, kubeClient, *cred.Password.FromKubernetesSecret)
+					if err != nil {
+						return nil, false, fmt.Errorf("failed to get HTTP credentials secret %w: %w", cred.Password, err)
+					}
+				} else if cred.Password.FromFile != nil {
+					password, err = cred.Password.FromFile.GetSecretValue()
+					if err != nil {
+						return nil, false, fmt.Errorf("failed to get HTTP credentials secret %w: %w", cred.Password, err)
+					}
+				} else {
+					return nil, false, fmt.Errorf("Invalid HTTP credentials: either FromKubernetesSecret or FromFile should be specified: %w", cred.Password)
+				}*/
+				password, err := getSecretValue(ctx, kubeClient, cred.Password)
 				if err != nil {
-					return nil, false, fmt.Errorf("failed to get HTTP credentials secret: %w", err)
-				}
-				password, ok := secret.Data[cred.Password.Key]
-				if !ok {
-					return nil, false, fmt.Errorf("password key %s not found in secret %s", cred.Password.Key, cred.Password.Name)
+					return nil, false, fmt.Errorf("Failed to get HTTP credential: %w", err)
 				}
 				auth = &gitHttp.BasicAuth{
 					Username: cred.Username,
@@ -53,7 +64,7 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 
 		case "ssh":
 			if cred := repoCred.SSHCredential; cred != nil {
-				if cred.SSHKey.Name == "" || cred.SSHKey.Key == "" || cred.SSHKey.Namespace == "" {
+				/*if cred.SSHKey.Name == "" || cred.SSHKey.Key == "" || cred.SSHKey.Namespace == "" {
 					return nil, false, fmt.Errorf("incomplete SSH credentials")
 				}
 				secret, err := kubernetes.GetSecret(ctx, kubeClient, cred.SSHKey.Namespace, cred.SSHKey.Name)
@@ -63,12 +74,16 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 				sshKey, ok := secret.Data[cred.SSHKey.Key]
 				if !ok {
 					return nil, false, fmt.Errorf("SSH key %s not found in secret %s", cred.SSHKey.Key, cred.SSHKey.Name)
+				}*/
+				sshKey, err := getSecretValue(ctx, kubeClient, cred.SSHKey)
+				if err != nil {
+					return nil, false, fmt.Errorf("Failed to get SSH credential: %w", err)
 				}
 				parsedUrl, err := Parse(repoUrl)
 				if err != nil {
 					return nil, false, err
 				}
-				auth, err = ssh.NewPublicKeys(parsedUrl.User.Username(), sshKey, "")
+				auth, err = ssh.NewPublicKeys(parsedUrl.User.Username(), []byte(sshKey), "")
 				if err != nil {
 					return nil, false, fmt.Errorf("failed to create SSH public keys: %w", err)
 				}
@@ -79,6 +94,25 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 	}
 
 	return auth, insecureSkipTLS, nil
+}
+
+func getSecretValue(ctx context.Context, kubeClient k8sClient.Client, secretSource v1alpha1.SecretSource) (string, error) {
+	var secretValue string
+	var err error
+	if secretSource.FromKubernetesSecret != nil {
+		secretValue, err = kubernetes.GetSecretValue(ctx, kubeClient, *secretSource.FromKubernetesSecret)
+		if err != nil {
+			return "", fmt.Errorf("failed to get secret %w from K8S Secret: %w", secretSource, err)
+		}
+	} else if secretSource.FromFile != nil {
+		secretValue, err = secretSource.FromFile.GetSecretValue()
+		if err != nil {
+			return "", fmt.Errorf("failed to get secret %w from file: %w", secretSource, err)
+		}
+	} else {
+		return "", fmt.Errorf("Invalid SecretSource: either FromKubernetesSecret or FromFile should be specified: %w", secretSource)
+	}
+	return secretValue, nil
 }
 
 // GetRepoCloneOptions creates git.CloneOptions for cloning a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.

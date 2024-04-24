@@ -136,8 +136,8 @@ type RepoCredential struct {
 }
 
 type HTTPCredential struct {
-	Username string        `json:"username" mapstructure:"username"`
-	Password *SecretSource `json:"password" mapstructure:"password"`
+	Username string       `json:"username" mapstructure:"username"`
+	Password SecretSource `json:"password" mapstructure:"password"`
 }
 
 type SSHCredential struct {

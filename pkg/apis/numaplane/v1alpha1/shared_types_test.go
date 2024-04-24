@@ -26,26 +26,56 @@ func Test_GetSecretValue(t *testing.T) {
 
 	testCases := []struct {
 		name          string
-		filePath      string
+		filePathJSON  string
+		filePathYAML  string
 		key           string
 		expectedError bool
 		expectedValue string
 	}{
 		{
 			name:          "Valid JSON",
-			filePath:      "testdata/file.json",
+			filePathJSON:  "testdata/file.json",
 			key:           "key2",
 			expectedError: false,
 			expectedValue: "value2",
+		},
+		{
+			name:          "Valid YAML",
+			filePathYAML:  "testdata/file.yaml",
+			key:           "key2",
+			expectedError: false,
+			expectedValue: "value2",
+		},
+		{
+			name:          "Invalid JSON",
+			filePathJSON:  "testdata/unexpectedFormat.json",
+			key:           "key2",
+			expectedError: true,
+		},
+		{
+			name:          "Invalid YAML",
+			filePathYAML:  "testdata/unexpectedFormat.yaml",
+			key:           "key2",
+			expectedError: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			fks := FileKeySelector{
-				JSONFilePath: &tc.filePath,
-				Key:          tc.key,
+			var fks FileKeySelector
+			if tc.filePathJSON != "" {
+				fks = FileKeySelector{
+					JSONFilePath: &tc.filePathJSON,
+					Key:          tc.key,
+				}
 			}
+			if tc.filePathYAML != "" {
+				fks = FileKeySelector{
+					YAMLFilePath: &tc.filePathYAML,
+					Key:          tc.key,
+				}
+			}
+
 			value, err := fks.GetSecretValue()
 			if tc.expectedError {
 				assert.NotNil(t, err)
