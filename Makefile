@@ -224,7 +224,7 @@ e2e-test-clean:
 
 
 .PHONY: e2e-test-start
-e2e-test-start: e2e-test-clean image
+e2e-test-start: e2e-test-clean image numaflow-crd
 	$(KUBECTL) apply -f tests/e2e/manifests/numaplane-ns.yaml
 	$(KUBECTL) apply -n numaplane-system -k ./tests/e2e-gitserver
 	$(KUBECTL) kustomize tests/e2e/manifests | sed 's/CLUSTER_NAME_VALUE/$(CLUSTER_NAME)/g' | sed 's@quay.io/numaproj/@$(IMAGE_NAMESPACE)/@' | sed 's/$(IMG):$(BASE_VERSION)/$(IMG):$(VERSION)/' | $(KUBECTL) apply -f -
@@ -236,3 +236,5 @@ test-%: e2e-test-start
 	go test -v -timeout 15m -count 1 --tags test -p 1 ./tests/$*
 	$(MAKE) e2e-test-clean
 
+numaflow-crd:
+	$(KUBECTL) apply -f numaflow_crd.yaml
