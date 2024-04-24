@@ -205,7 +205,7 @@ func resetRepo() error {
 				}
 			}
 
-			_, err = wt.Commit("Cleaning out repo", &git.CommitOptions{})
+			_, err = wt.Commit("Cleaning out repo", &git.CommitOptions{Author: author})
 			if err != nil {
 				return err
 			}

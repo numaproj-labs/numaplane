@@ -165,7 +165,7 @@ func (w *When) PushToGitRepo(directory string, fileNames []string, remove bool) 
 
 	}
 
-	hash, err := wt.Commit("Committing to git server", &git.CommitOptions{})
+	hash, err := wt.Commit("Committing to git server", &git.CommitOptions{Author: author})
 	if err != nil {
 		w.t.Fatal(err)
 	}
