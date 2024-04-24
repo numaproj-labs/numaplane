@@ -73,6 +73,8 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: false
+      matrix:
+        case: [e2e]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -104,7 +106,7 @@ jobs:
       - name: Run tests
         env:
           GOPATH: /home/runner/go
-        run: KUBECONFIG=~/.kube/numaplane-e2e-config VERSION=${{ github.sha }} DOCKER_PUSH=true make test-e2e
+        run: KUBECONFIG=~/.kube/numaplane-e2e-config VERSION=${{ github.sha }} DOCKER_PUSH=true make test-${{matrix.case}}
 
   lint:
     name: Lint
