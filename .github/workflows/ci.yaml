@@ -17,7 +17,13 @@ jobs:
       - name: Set up SSH agent
         uses: webfactory/ssh-agent@v0.5.3
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-private-key: '-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACBBwLbaNG1RkwFAEyYYg04ymv5WYNS2LvoHSXMp+HCvAwAAAIhcN3LMXDdy
+zAAAAAtzc2gtZWQyNTUxOQAAACBBwLbaNG1RkwFAEyYYg04ymv5WYNS2LvoHSXMp+HCvAw
+AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
+/lZg1LYu+gdJcyn4cK8DAAAABWxvY2Fs
+-----END OPENSSH PRIVATE KEY-----'
       - name: Add SSH config
         run: |
             mkdir -p ~/.ssh
