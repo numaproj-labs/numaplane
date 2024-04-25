@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-git/go-git/v5/config"
 	"os"
 	"strconv"
 
@@ -245,62 +244,16 @@ func fetchUpdates(ctx context.Context,
 
 func cloneRepo(ctx context.Context, gitSync *v1alpha1.GitSync, options *git.CloneOptions) (*git.Repository, error) {
 	path := getLocalRepoPath(gitSync)
+
 	r, err := git.PlainCloneContext(ctx, path, false, options)
-	if err != nil {
-		if errors.Is(err, git.ErrRepositoryAlreadyExists) {
-			// Open the existing repo and return it.
-			existingRepo, openErr := git.PlainOpen(path)
-			if openErr != nil {
-				return nil, fmt.Errorf("failed to open existing repo, err: %v", openErr)
-			}
-			return existingRepo, nil
+	if err != nil && errors.Is(err, git.ErrRepositoryAlreadyExists) {
+		// open the existing repo and return it.
+		existingRepo, openErr := git.PlainOpen(path)
+		if openErr != nil {
+			return r, fmt.Errorf("failed to open existing repo, err: %v", openErr)
 		}
-		return nil, err
+		return existingRepo, nil
 	}
 
-	// fetch all references
-	err = fetchAll(r)
-	if err != nil {
-		return nil, err
-	}
-
-	// Perform checkout to the specified reference after a successful clone
-	if checkoutErr := checkoutRepo(r, gitSync.Spec.TargetRevision); checkoutErr != nil {
-		return nil, checkoutErr
-	}
-
-	return r, nil
-}
-
-func checkoutRepo(repo *git.Repository, referenceName string) error {
-	w, err := repo.Worktree()
-	if err != nil {
-		return fmt.Errorf("failed to get worktree: %v", err)
-	}
-	// resolve the reference as a commit, a branch, or a tag
-	commitHash, err := repo.ResolveRevision(plumbing.Revision(referenceName))
-	if err != nil {
-		return fmt.Errorf("error in resolving revison %s", err)
-	}
-	return w.Checkout(&git.CheckoutOptions{
-		Hash: *commitHash,
-	})
-
-}
-
-func fetchAll(repo *git.Repository) error {
-	remote, err := repo.Remote("origin")
-	if err != nil {
-		return fmt.Errorf("failed to get remote: %v", err)
-	}
-
-	// Fetch using default options
-	err = remote.Fetch(&git.FetchOptions{
-		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
-		Force:    true,
-	})
-	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-		return fmt.Errorf("failed to fetch repo: %v", err)
-	}
-	return nil
+	return r, err
 }

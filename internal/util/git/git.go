@@ -84,13 +84,12 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 	return auth, insecureSkipTLS, nil
 }
 
-func gitReferenceName(reference string) plumbing.ReferenceName {
-	if strings.HasPrefix(reference, "tag/") {
-		return plumbing.NewTagReferenceName(strings.TrimPrefix(reference, "tag/"))
-	} else if strings.HasPrefix(reference, "branch/") {
-		return plumbing.NewBranchReferenceName(strings.TrimPrefix(reference, "branch/"))
+func GetReferenceName(reference string) plumbing.ReferenceName {
+	if strings.HasPrefix(reference, "v") || strings.HasPrefix(reference, "V") {
+		return plumbing.NewTagReferenceName(reference)
 	}
-	return plumbing.NewHashReference(plumbing.ReferenceName(reference), plumbing.NewHash(reference)).Name()
+	return plumbing.NewBranchReferenceName(reference)
+
 }
 
 // GetRepoCloneOptions creates git.CloneOptions for cloning a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
@@ -107,6 +106,7 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, ku
 		URL:             endpoint.String(),
 		Auth:            method,
 		InsecureSkipTLS: skipTls,
+		ReferenceName:   GetReferenceName(referenceName),
 	}
 	return cloneOptions, nil
 }

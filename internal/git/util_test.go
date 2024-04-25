@@ -32,6 +32,7 @@ import (
 
 const (
 	testNamespace = "test-ns"
+	repoUrL       = "https://github.com/numaproj-labs/numaplane"
 )
 
 var pool *dockertest.Pool
@@ -452,7 +453,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 }
 
 func TestGitCloneRepoWithTag(t *testing.T) {
-	repoUrL := "https://github.com/numaproj-labs/numaplane"
+
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), nil, nil, repoUrL, "v0.1.0-beta.2")
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
@@ -468,7 +469,6 @@ func TestGitCloneRepoWithTag(t *testing.T) {
 }
 
 func TestGitCloneRepoWithBranch(t *testing.T) {
-	repoUrL := "https://github.com/numaproj-labs/numaplane"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), nil, nil, repoUrL, "xxww")
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
@@ -484,7 +484,6 @@ func TestGitCloneRepoWithBranch(t *testing.T) {
 }
 
 func TestGitCloneRepoWithCommitHash(t *testing.T) {
-	repoUrL := "https://github.com/numaproj-labs/numaplane"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), nil, nil, repoUrL, "4c74d04da72f5ede0e25bed4f1974286b3e698bb")
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
