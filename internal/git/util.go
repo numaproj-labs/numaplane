@@ -225,7 +225,7 @@ func fetchUpdates(ctx context.Context,
 
 	credentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
 
-	pullOptions, err := gitShared.GetRepoPullOptions(ctx, credentials, client, gitSync.Spec.RepoUrl)
+	pullOptions, err := gitShared.GetRepoPullOptions(ctx, credentials, client, gitSync.Spec.RepoUrl, gitSync.Spec.TargetRevision)
 	if err != nil {
 		return err
 	}
