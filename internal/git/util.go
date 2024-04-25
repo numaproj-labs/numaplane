@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-git/go-git/v5/config"
 	"os"
 	"strconv"
+
+	"github.com/go-git/go-git/v5/config"
 
 	argoGit "github.com/argoproj/argo-cd/v2/util/git"
 	"github.com/argoproj/argo-cd/v2/util/helm"
