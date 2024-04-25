@@ -209,7 +209,6 @@ func Test_GetLatestManifests(t *testing.T) {
 			),
 			hasErr: false,
 		},
-
 		{
 			name: "tag name as a TargetRevision",
 			gitSync: newGitSync(
