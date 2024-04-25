@@ -7,10 +7,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/go-git/go-git/v5/plumbing/storer"
-	log "github.com/sirupsen/logrus"
-
 	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 
 	argoGit "github.com/argoproj/argo-cd/v2/util/git"
 	"github.com/argoproj/argo-cd/v2/util/helm"
@@ -247,9 +245,8 @@ func fetchUpdates(ctx context.Context,
 
 	branch, err := GetCurrentBranch(repo)
 	if err != nil {
-		log.Println("err", err)
+		return err
 	}
-	log.Println("branch ---", branch)
 	pullOptions, err := gitShared.GetRepoPullOptions(ctx, credentials, client, gitSync.Spec.RepoUrl, branch)
 	if err != nil {
 		return err
@@ -282,7 +279,7 @@ func cloneRepo(ctx context.Context, gitSync *v1alpha1.GitSync, options *git.Clon
 		}
 		return nil, err
 	}
-
+	// No need to fetch the references if  the target revision is already main or master (branches)
 	if gitSync.Spec.TargetRevision != "main" && gitSync.Spec.TargetRevision != "master" {
 		// fetch all references
 		err = fetchAll(r)
