@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: test-deploy
+  name: kustomize-deploy
   labels:
     app: nginx
 spec:
