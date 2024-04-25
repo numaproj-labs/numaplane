@@ -279,6 +279,7 @@ func cloneRepo(ctx context.Context, gitSync *v1alpha1.GitSync, options *git.Clon
 		}
 		return nil, err
 	}
+
 	// No need to fetch the references if  the target revision is already main or master (branches)
 	if gitSync.Spec.TargetRevision != "main" && gitSync.Spec.TargetRevision != "master" {
 		// fetch all references
@@ -385,7 +386,6 @@ func fetchAll(repo *git.Repository) error {
 	if err != nil {
 		return fmt.Errorf("failed to get remote: %v", err)
 	}
-
 	// Fetch using default options
 	err = remote.Fetch(&git.FetchOptions{
 		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
@@ -410,7 +410,7 @@ func findFirstBranchContainingCommit(repo *git.Repository, commitHash string) (s
 	// Variable to store the name of the first branch containing the commit
 	var firstBranchContainingCommit string
 
-	// Iterate over all branches
+	// Iterate over all branches to check whether the commit hash belongs to any branch
 	err = refs.ForEach(func(ref *plumbing.Reference) error {
 		// Check if the branch contains the commit
 		commitIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
@@ -420,7 +420,7 @@ func findFirstBranchContainingCommit(repo *git.Repository, commitHash string) (s
 		err = commitIter.ForEach(func(c *object.Commit) error {
 			if c.Hash == hash {
 				firstBranchContainingCommit = ref.Name().Short()
-				return storer.ErrStop // Stop the iteration as soon as we find the commit
+				return storer.ErrStop
 			}
 			return nil
 		})
@@ -428,7 +428,7 @@ func findFirstBranchContainingCommit(repo *git.Repository, commitHash string) (s
 			return err
 		}
 		if firstBranchContainingCommit != "" {
-			return storer.ErrStop // Stop the outer iteration as well
+			return storer.ErrStop
 		}
 		return nil
 	})
