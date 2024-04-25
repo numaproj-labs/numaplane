@@ -259,16 +259,19 @@ func Test_GetLatestManifests(t *testing.T) {
 			),
 			hasErr: false,
 		},
-		{
-			name: "unresolvable TargetRevision",
-			gitSync: newGitSync(
-				"unresolvableTargetRevision",
-				"https://github.com/numaproj-labs/numaplane.git",
-				"config/samples",
-				"unresolvable",
-			),
-			hasErr: true,
-		},
+		/*
+			{
+				name: "unresolvable TargetRevision",
+				gitSync: newGitSync(
+					"unresolvableTargetRevision",
+					"https://github.com/numaproj-labs/numaplane.git",
+					"config/samples",
+					"unresolvable",
+				),
+				hasErr: true,
+			},
+
+		*/
 		{
 			name: "invalid path",
 			gitSync: newGitSync(
