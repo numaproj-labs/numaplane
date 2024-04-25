@@ -7,6 +7,9 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/go-git/go-git/v5/plumbing/storer"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/go-git/go-git/v5/config"
 
 	argoGit "github.com/argoproj/argo-cd/v2/util/git"
@@ -214,6 +217,22 @@ func getLocalRepoPath(gitSync *v1alpha1.GitSync) string {
 	}
 }
 
+func GetCurrentBranch(r *git.Repository) (string, error) {
+	// Get the HEAD reference to determine the current branch.
+	ref, err := r.Head()
+	if err != nil {
+		return "", fmt.Errorf("failed to get HEAD: %w", err)
+	}
+
+	// Check if the HEAD is a symbolic reference (which means it is pointing to a branch).
+	if ref.Name().IsBranch() {
+		return ref.Name().Short(), nil
+	}
+
+	// If HEAD is not a symbolic reference, it might be a detached HEAD.
+	return "", fmt.Errorf("HEAD is detached and not pointing to any branch")
+}
+
 // fetchUpdates fetches the remote branch and updates the local changes, returning nil if already up-to-date or an error otherwise.
 func fetchUpdates(ctx context.Context,
 	client k8sClient.Client,
@@ -226,7 +245,12 @@ func fetchUpdates(ctx context.Context,
 
 	credentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
 
-	pullOptions, err := gitShared.GetRepoPullOptions(ctx, credentials, client, gitSync.Spec.RepoUrl)
+	branch, err := GetCurrentBranch(repo)
+	if err != nil {
+		log.Println("err", err)
+	}
+	log.Println("branch ---", branch)
+	pullOptions, err := gitShared.GetRepoPullOptions(ctx, credentials, client, gitSync.Spec.RepoUrl, branch)
 	if err != nil {
 		return err
 	}
@@ -273,20 +297,88 @@ func cloneRepo(ctx context.Context, gitSync *v1alpha1.GitSync, options *git.Clon
 	return r, nil
 }
 
-func checkoutRepo(repo *git.Repository, referenceName string) error {
+func findFirstBranchContainingTag(repo *git.Repository, tagName string) (string, error) {
+	// Find the tag and resolve it to a commit
+	tagRef, err := repo.Tag(tagName)
+	if err != nil {
+		return "", fmt.Errorf("failed to find tag '%s': %v", tagName, err)
+	}
+	commit, err := repo.CommitObject(tagRef.Hash())
+	if err != nil {
+		return "", fmt.Errorf("failed to get commit from tag '%s': %v", tagName, err)
+	}
+
+	// List all branches and check if they contain the commit
+	refs, err := repo.Branches()
+	if err != nil {
+		return "", fmt.Errorf("failed to list branches: %v", err)
+	}
+
+	var firstBranchContainingTag string
+	err = refs.ForEach(func(ref *plumbing.Reference) error {
+		// Check each branch if it contains the commit
+		commitIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
+		if err != nil {
+			return err
+		}
+		err = commitIter.ForEach(func(c *object.Commit) error {
+			if c.Hash == commit.Hash {
+				firstBranchContainingTag = ref.Name().Short()
+				return storer.ErrStop
+			}
+			return nil
+		})
+
+		if err != nil {
+			return err
+		}
+		if firstBranchContainingTag != "" {
+			return storer.ErrStop
+		}
+		return nil
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("error while checking branches: %v", err)
+	}
+	if firstBranchContainingTag == "" {
+		return "", fmt.Errorf("no branch found containing the commit from tag '%s'", tagName)
+	}
+
+	return firstBranchContainingTag, nil
+}
+
+func checkoutRepo(repo *git.Repository, refName string) error {
 	w, err := repo.Worktree()
 	if err != nil {
 		return fmt.Errorf("failed to get worktree: %v", err)
 	}
-	// resolve the reference as a commit, a branch, or a tag
-	commitHash, err := repo.ResolveRevision(plumbing.Revision(referenceName))
-	if err != nil {
-		return fmt.Errorf("error in resolving revison %s", err)
-	}
-	return w.Checkout(&git.CheckoutOptions{
-		Hash: *commitHash,
-	})
 
+	// Try to resolve as branch first
+	branchRef, err := repo.Reference(plumbing.ReferenceName("refs/heads/"+refName), true)
+	if err == nil {
+		return w.Checkout(&git.CheckoutOptions{
+			Branch: branchRef.Name(),
+		})
+	}
+
+	// Try as a tag next
+	firstBranch, err := findFirstBranchContainingTag(repo, refName)
+	if err == nil {
+		return w.Checkout(&git.CheckoutOptions{
+			Branch: plumbing.ReferenceName("refs/heads/" + firstBranch),
+		})
+	}
+
+	// Try as a commit hash
+	firstBranchFromCommit, err := findFirstBranchContainingCommit(repo, refName)
+	if err == nil {
+		return w.Checkout(&git.CheckoutOptions{
+			Branch: plumbing.ReferenceName("refs/heads/" + firstBranchFromCommit),
+		})
+	}
+
+	return fmt.Errorf("reference '%s' not found as a branch, tag, or in any branch as a commit: %v", refName, err)
 }
 
 func fetchAll(repo *git.Repository) error {
@@ -304,4 +396,50 @@ func fetchAll(repo *git.Repository) error {
 		return fmt.Errorf("failed to fetch repo: %v", err)
 	}
 	return nil
+}
+
+func findFirstBranchContainingCommit(repo *git.Repository, commitHash string) (string, error) {
+	// Convert the string hash to a proper Hash object
+	hash := plumbing.NewHash(commitHash)
+
+	// List all branches
+	refs, err := repo.Branches()
+	if err != nil {
+		return "", fmt.Errorf("failed to list branches: %v", err)
+	}
+
+	// Variable to store the name of the first branch containing the commit
+	var firstBranchContainingCommit string
+
+	// Iterate over all branches
+	err = refs.ForEach(func(ref *plumbing.Reference) error {
+		// Check if the branch contains the commit
+		commitIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
+		if err != nil {
+			return err
+		}
+		err = commitIter.ForEach(func(c *object.Commit) error {
+			if c.Hash == hash {
+				firstBranchContainingCommit = ref.Name().Short()
+				return storer.ErrStop // Stop the iteration as soon as we find the commit
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		if firstBranchContainingCommit != "" {
+			return storer.ErrStop // Stop the outer iteration as well
+		}
+		return nil
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("error while checking branches: %v", err)
+	}
+	if firstBranchContainingCommit == "" {
+		return "", fmt.Errorf("no branch found containing the commit %s", commitHash)
+	}
+
+	return firstBranchContainingCommit, nil
 }

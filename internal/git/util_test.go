@@ -209,6 +209,7 @@ func Test_GetLatestManifests(t *testing.T) {
 			),
 			hasErr: false,
 		},
+
 		{
 			name: "tag name as a TargetRevision",
 			gitSync: newGitSync(
@@ -219,6 +220,7 @@ func Test_GetLatestManifests(t *testing.T) {
 			),
 			hasErr: false,
 		},
+
 		{
 			name: "commit hash as a TargetRevision",
 			gitSync: newGitSync(
@@ -229,13 +231,14 @@ func Test_GetLatestManifests(t *testing.T) {
 			),
 			hasErr: false,
 		},
+
 		{
 			name: "remote branch name as a TargetRevision",
 			gitSync: newGitSync(
 				"remoteBranch",
 				"https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				"staging-usw2-k8s",
-				"refs/remotes/origin/pipeline",
+				"pipeline",
 			),
 			hasErr: false,
 		},
