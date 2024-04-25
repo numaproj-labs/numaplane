@@ -25,15 +25,19 @@ jobs:
             /lZg1LYu+gdJcyn4cK8DAAAABWxvY2Fs
             -----END OPENSSH PRIVATE KEY-----
         run: |
-          mkdir -p ~/.ssh
-          # Write the SSH key to a file
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          echo "SSH_AUTH_SOCK=/tmp/ssh_auth_sock" >> $GITHUB_ENV
-          eval "$(ssh-agent -a $SSH_AUTH_SOCK)"
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/id_rsa
-          ssh-keyscan -H localhost:2222 >> ~/.ssh/known_hosts
+          # Ensure the .ssh directory exists
+                mkdir -p ~/.ssh
+          
+                echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+                chmod 600 ~/.ssh/id_rsa
+          
+                SSH_AUTH_SOCK=/tmp/ssh_auth_sock
+                echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+                eval "$(ssh-agent -a $SSH_AUTH_SOCK)"
+          
+                ssh-add ~/.ssh/id_rsa
+          
+                ssh-keyscan -p 2222 localhost >> ~/.ssh/known_hosts
       - name: Restore go build cache
         uses: actions/cache@v3
         with:
