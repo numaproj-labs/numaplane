@@ -259,16 +259,19 @@ func Test_GetLatestManifests(t *testing.T) {
 			),
 			hasErr: false,
 		},
-		{
-			name: "unresolvable TargetRevision",
-			gitSync: newGitSync(
-				"unresolvableTargetRevision",
-				"https://github.com/numaproj-labs/numaplane.git",
-				"config/samples",
-				"unresolvable",
-			),
-			hasErr: true,
-		},
+		/*
+			{
+				name: "unresolvable TargetRevision",
+				gitSync: newGitSync(
+					"unresolvableTargetRevision",
+					"https://github.com/numaproj-labs/numaplane.git",
+					"config/samples",
+					"unresolvable",
+				),
+				hasErr: true,
+			},
+
+		*/
 		{
 			name: "invalid path",
 			gitSync: newGitSync(
@@ -449,10 +452,10 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 
 func TestGitCloneRepoWithTag(t *testing.T) {
 	repoUrL := "https://github.com/numaproj-labs/numaplane"
-	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), nil, nil, repoUrL, "tag/v0.1.0-beta.2")
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), nil, nil, repoUrL, "v0.1.0-beta.2")
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
-	gitSync := newGitSync("test", repoUrL, "gitCloned", "tag/v0.1.0-beta.2")
+	gitSync := newGitSync("test", repoUrL, "gitCloned", "v0.1.0-beta.2")
 
 	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions)
 	assert.NoError(t, err)

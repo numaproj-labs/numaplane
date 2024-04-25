@@ -107,7 +107,6 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, ku
 		URL:             endpoint.String(),
 		Auth:            method,
 		InsecureSkipTLS: skipTls,
-		ReferenceName:   gitReferenceName(referenceName),
 	}
 	return cloneOptions, nil
 }
@@ -124,7 +123,7 @@ func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kub
 		return nil, err
 	}
 	return &git.PullOptions{
-		Force:           true, // for override any local changes
+		Force:           true, // for overriding any local changes
 		Auth:            method,
 		InsecureSkipTLS: skipTls,
 		RemoteName:      "origin",
