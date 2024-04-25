@@ -29,9 +29,11 @@ jobs:
           # Write the SSH key to a file
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          echo "SSH_AUTH_SOCK=/tmp/ssh_auth_sock" >> $GITHUB_ENV
+          eval "$(ssh-agent -a $SSH_AUTH_SOCK)"
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
-          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+          ssh-keyscan -H localhost:2222 >> ~/.ssh/known_hosts
       - name: Restore go build cache
         uses: actions/cache@v3
         with:
