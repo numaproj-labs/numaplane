@@ -40,9 +40,9 @@ var pool *dockertest.Pool
 // This function handles the connection to Docker, initiates the specified container if it's not currently active,
 // and performs test case execution. Post-execution, it ensures thorough cleanup of all utilized resources.
 // Inside the Docker container, it sets up a test repository accessible via:
-// - SSH at ssh://root@localhost:2222/var/www/git/test.git
-// - HTTP at http://localhost:8080/git/test.git, served by the Apache HTTP server
-// - HTTPS at https://localhost:8443/git/test.git, secured with a self-signed certificate.
+// - SSH at ssh://root@localhost:2222/var/www/git/repo1.git
+// - HTTP at http://localhost:8080/git/repo1.git, served by the Apache HTTP server
+// - HTTPS at https://localhost:8443/git/repo1.git, secured with a self-signed certificate.
 // The default credentials for HTTP access are root:root.
 // The default credentials for SSH access are also root:root.
 // A default public SSH key (ssh-ed25519) is pre-added to the container's authorized keys.
@@ -433,6 +433,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 	}
 	repoUrL := "ssh://root@localhost:2222/var/www/git/repo1.git"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL, "master")
+
 	assert.NoError(t, err)
 	assert.NotNil(t, cloneOptions)
 
@@ -525,6 +526,7 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 	}
 	repoUrL := "http://localhost:8080/git/repo1.git"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL, "master")
+
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
 	gitSync := newGitSync("test", repoUrL, "gitCloned", "master")
@@ -569,6 +571,7 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 	}
 	repoUrL := "https://localhost:8443/git/repo1.git"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL, "master")
+
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
 	gitSync := newGitSync("test", repoUrL, "gitCloned", "master")
