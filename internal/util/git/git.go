@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-git/go-git/v5/plumbing"
-
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
@@ -120,6 +119,29 @@ func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kub
 		InsecureSkipTLS: skipTls,
 		RemoteName:      "origin",
 		ReferenceName:   plumbing.NewBranchReferenceName(refName),
+	}, nil
+}
+
+// GetRepoFetchOptions creates git.FetchOptions for fetching updates from a
+// repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
+func GetRepoFetchOptions(
+	ctx context.Context,
+	kubeClient k8sClient.Client,
+	repoUrl string,
+	globalConfig controllerConfig.GlobalConfig,
+) (*git.FetchOptions, error) {
+
+	gitCredentials := FindCredByUrl(repoUrl, globalConfig)
+	method, skipTls, err := GetAuthMethod(ctx, gitCredentials, kubeClient, repoUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	return &git.FetchOptions{
+		RefSpecs:        []config.RefSpec{"refs/*:refs/*"},
+		Force:           true,
+		Auth:            method,
+		InsecureSkipTLS: skipTls,
 	}, nil
 }
 
