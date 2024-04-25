@@ -1,4 +1,4 @@
 clusterName: "staging-usw2-k8s"
-syncTimeIntervalMs: 60000
+syncTimeIntervalMs: 30000
+autoHealEnabled: true
 cascadeDeletion: false
-autoHealTimeIntervalMs: 30000
