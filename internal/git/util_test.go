@@ -226,7 +226,7 @@ func Test_GetLatestManifests(t *testing.T) {
 				"commitHash",
 				"https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				"staging-usw2-k8s",
-				"7b68200947f2d2624797e56edf02c6d848bc48d1",
+				"hash/7b68200947f2d2624797e56edf02c6d848bc48d1",
 			),
 			hasErr: false,
 		},
@@ -236,7 +236,7 @@ func Test_GetLatestManifests(t *testing.T) {
 				"remoteBranch",
 				"https://github.com/numaproj-labs/numaplane-control-manifests.git",
 				"staging-usw2-k8s",
-				"refs/remotes/origin/pipeline",
+				"pipeline",
 			),
 			hasErr: false,
 		},
@@ -260,19 +260,18 @@ func Test_GetLatestManifests(t *testing.T) {
 			),
 			hasErr: false,
 		},
-		/*
-			{
-				name: "unresolvable TargetRevision",
-				gitSync: newGitSync(
-					"unresolvableTargetRevision",
-					"https://github.com/numaproj-labs/numaplane.git",
-					"config/samples",
-					"unresolvable",
-				),
-				hasErr: true,
-			},
 
-		*/
+		{
+			name: "unresolvable TargetRevision",
+			gitSync: newGitSync(
+				"unresolvableTargetRevision",
+				"https://github.com/numaproj-labs/numaplane.git",
+				"config/samples",
+				"unresolvable",
+			),
+			hasErr: true,
+		},
+
 		{
 			name: "invalid path",
 			gitSync: newGitSync(

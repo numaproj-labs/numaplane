@@ -87,6 +87,8 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 func GetReferenceName(reference string) plumbing.ReferenceName {
 	if strings.HasPrefix(reference, "v") || strings.HasPrefix(reference, "V") {
 		return plumbing.NewTagReferenceName(reference)
+	} else if strings.HasPrefix(reference, "hash/") {
+		return plumbing.ReferenceName(reference)
 	}
 	return plumbing.NewBranchReferenceName(reference)
 }
