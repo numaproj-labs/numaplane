@@ -14,17 +14,23 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: SetUp ssh agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-            ssh-private-key: |
-              -----BEGIN OPENSSH PRIVATE KEY-----
-              b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-              QyNTUxOQAAACBBwLbaNG1RkwFAEyYYg04ymv5WYNS2LvoHSXMp+HCvAwAAAIhcN3LMXDdy
-              zAAAAAtzc2gtZWQyNTUxOQAAACBBwLbaNG1RkwFAEyYYg04ymv5WYNS2LvoHSXMp+HCvAw
-              AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
-              /lZg1LYu+gdJcyn4cK8DAAAABWxvY2Fs
-              -----END OPENSSH PRIVATE KEY-----
+      - name: Set up SSH key and agent manually
+        env:
+          SSH_PRIVATE_KEY: |
+            -----BEGIN OPENSSH PRIVATE KEY-----
+            b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+            QyNTUxOQAAACBBwLbaNG1RkwFAEyYYg04ymv5WYNS2LvoHSXMp+HCvAwAAAIhcN3LMXDdy
+            zAAAAAtzc2gtZWQyNTUxOQAAACBBwLbaNG1RkwFAEyYYg04ymv5WYNS2LvoHSXMp+HCvAw
+            AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
+            /lZg1LYu+gdJcyn4cK8DAAAABWxvY2Fs
+            -----END OPENSSH PRIVATE KEY-----
+        run: |
+          # Write the SSH key to a file and load it into the SSH agent
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
       - name: Restore go build cache
         uses: actions/cache@v3
         with:
