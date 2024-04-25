@@ -283,10 +283,12 @@ func cloneRepo(ctx context.Context, gitSync *v1alpha1.GitSync, options *git.Clon
 		return nil, err
 	}
 
-	// fetch all references
-	err = fetchAll(r)
-	if err != nil {
-		return nil, err
+	if gitSync.Spec.TargetRevision != "main" && gitSync.Spec.TargetRevision != "master" {
+		// fetch all references
+		err = fetchAll(r)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Perform checkout to the specified reference after a successful clone
