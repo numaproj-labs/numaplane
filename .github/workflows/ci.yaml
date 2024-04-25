@@ -25,7 +25,8 @@ jobs:
             /lZg1LYu+gdJcyn4cK8DAAAABWxvY2Fs
             -----END OPENSSH PRIVATE KEY-----
         run: |
-          # Write the SSH key to a file and load it into the SSH agent
+          mkdir -p ~/.ssh
+          # Write the SSH key to a file
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           eval "$(ssh-agent -s)"
