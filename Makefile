@@ -227,9 +227,9 @@ gitserver:
 # (because if a Controller is also being deleted, it first needs to remove the finalizers before it's deleted)
 # ConfigMaps and Secrets are explicitly deleted as they are not included in `kubectl delete all`
 # ref: https://stackoverflow.com/questions/33509194/command-to-delete-all-pods-in-all-kubernetes-namespaces
-.PHONY: e2e-test-clean
-e2e-test-clean:
-	$(KUBECTL) delete -n numaplane-e2e isbsvc --all
+.PHONY: cleanup-e2e
+cleanup-e2e:
+	$(KUBECTL) delete -n numaplane-e2e isbsvc --all --force 
 	$(KUBECTL) delete -n numaplane-e2e pipeline --all
 	$(KUBECTL) delete -n numaplane-e2e cm --all
 	$(KUBECTL) delete -n numaplane-e2e secret --all
@@ -237,18 +237,18 @@ e2e-test-clean:
 	$(KUBECTL) delete -n numaplane-system pod --all
 
 
-.PHONY: e2e-test-start
-e2e-test-start: numaflow-crd e2e-test-clean image
+.PHONY: start-e2e
+start-e2e: numaflow-crd cleanup-e2e image
 	$(KUBECTL) apply -f tests/e2e/manifests/numaplane-ns.yaml
 	$(KUBECTL) apply -n numaplane-system -k ./tests/e2e-gitserver
 	$(KUBECTL) kustomize tests/e2e/manifests | sed 's/CLUSTER_NAME_VALUE/$(CLUSTER_NAME)/g' | sed 's@quay.io/numaproj/@$(IMAGE_NAMESPACE)/@' | sed 's/$(IMG):$(BASE_VERSION)/$(IMG):$(VERSION)/' | $(KUBECTL) apply -f -
 	$(KUBECTL) wait -n numaplane-system pod --all --for=condition=Ready
 
 test-e2e:
-test-%: e2e-test-start
+test-%: start-e2e
 	go generate $(shell find ./tests/$* -name '*.go')
 	go test -v -timeout 15m -count 1 --tags test -p 1 ./tests/$*
-	$(MAKE) e2e-test-clean
+	$(MAKE) cleanup-e2e
 
 numaflow-crd:
 ifeq ($(NUMAFLOW_CRDS), 0)
