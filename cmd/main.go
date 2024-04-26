@@ -98,12 +98,7 @@ func main() {
 
 	numaLogger.SetLevel(config.LogLevel)
 
-	interval := config.AutoHealTimeIntervalMs
-	// If auto healing is not enabled, use the automated syncing
-	// interval instead.
-	if interval == 0 {
-		interval = config.SyncTimeIntervalMs
-	}
+	interval := config.SyncTimeIntervalMs
 	kubectl := kubernetes.NewKubectl()
 	syncer := sync.NewSyncer(
 		mgr.GetClient(),
