@@ -126,13 +126,12 @@ func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kub
 // repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
 func GetRepoFetchOptions(
 	ctx context.Context,
+	repoCred *apiv1.RepoCredential,
 	kubeClient k8sClient.Client,
 	repoUrl string,
-	globalConfig controllerConfig.GlobalConfig,
 ) (*git.FetchOptions, error) {
 
-	gitCredentials := FindCredByUrl(repoUrl, globalConfig)
-	method, skipTls, err := GetAuthMethod(ctx, gitCredentials, kubeClient, repoUrl)
+	method, skipTls, err := GetAuthMethod(ctx, repoCred, kubeClient, repoUrl)
 	if err != nil {
 		return nil, err
 	}

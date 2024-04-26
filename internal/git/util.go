@@ -40,7 +40,7 @@ func CloneRepo(
 		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
 	}
 
-	fetchOptions, err := gitShared.GetRepoFetchOptions(ctx, client, gitSync.Spec.RepoUrl, globalConfig)
+	fetchOptions, err := gitShared.GetRepoFetchOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)
 	if err != nil {
 		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
 	}
