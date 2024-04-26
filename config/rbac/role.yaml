@@ -22,6 +22,15 @@ rules:
     - roles
   verbs:
     - '*'
+- apiGroups:
+    - ""
+  resources:
+    - secrets
+    - namespaces
+  verbs:
+    - 'get'
+    - 'list'
+    - 'watch'
 - apiGroups: ["apps"]
   resources:
     - deployments
