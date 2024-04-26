@@ -71,6 +71,7 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 	return auth, insecureSkipTLS, nil
 }
 
+// get a secret value, either from a File or from a Kubernetes Secret
 func getSecretValue(ctx context.Context, kubeClient k8sClient.Client, secretSource v1alpha1.SecretSource) (string, error) {
 	var secretValue string
 	var err error
