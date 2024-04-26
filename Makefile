@@ -228,6 +228,7 @@ gitserver:
 .PHONY: cleanup-e2e
 cleanup-e2e:
 	$(KUBECTL) get pipelines  -o custom-columns=Kind:.kind,Name:.metadata.name,Finalizers:.metadata.finalizers -n numaplane-e2e
+	$(KUBECTL) get isbsvcs  -o custom-columns=Kind:.kind,Name:.metadata.name,Finalizers:.metadata.finalizers -n numaplane-e2e
 	$(KUBECTL) delete -n numaplane-e2e cm --all
 	$(KUBECTL) delete -n numaplane-e2e secret --all
 	$(KUBECTL) delete -n numaplane-e2e all --all
