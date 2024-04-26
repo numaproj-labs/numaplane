@@ -1,5 +1,5 @@
 # numaplane
-Numaplane is a control plane for install, manage and run numaflow pipelines on Kubernetes.
+Numaplane is a control plane for installing, managing and running numaflow resources on Kubernetes.
 
 ## Getting Started
 
@@ -9,58 +9,22 @@ Numaplane is a control plane for install, manage and run numaflow pipelines on K
 - kubectl version v1.11.3+.
 - Access to a Kubernetes v1.11.3+ cluster.
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMAGE_FULL_PATH`:**
+### To build Numaplane image and run it on your local cluster with latest manifests
 
-```sh
-make docker-build docker-push IMAGE_FULL_PATH=<some-registry>/numaplane-controller:tag
+`make start`
+
+### To auto-generate code and manifests from Go
+
+`make codegen`
+
+### To create a new release
+
 ```
-
-**NOTE:** This image ought to be published in the personal registry you specified. 
-And it is required to have access to pull the image from the working environment. 
-Make sure you have the proper permission to the registry if the above commands don’t work.
-
-**Install the CRDs into the cluster:**
-
-```sh
-make install
-```
-
-**Deploy the Manager to the cluster with the image specified by `IMAGE_FULL_PATH`:**
-
-```sh
-make deploy IMAGE_FULL_PATH=<some-registry>/numaplane:tag
-```
-
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin 
-privileges or be logged in as admin.
-
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
-
-```sh
-kubectl apply -k config/samples/
-```
-
->**NOTE**: Ensure that the samples has default values to test it out.
-
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
-```
-
-**Delete the APIs(CRDs) from the cluster:**
-
-```sh
-make uninstall
-```
-
-**UnDeploy the controller from the cluster:**
-
-```sh
-make undeploy
+git checkout release-<major>.<minor>
+export VERSION=v<major>.<minor>.<patch>
+make docker-buildx # this manual step will be replaced by CI
+make prepare-release # follow directions for any manual steps
+make release  # follow directions for any manual steps
 ```
 
 ## Contributing

@@ -223,7 +223,8 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		numaLogger.Error(err, "error getting the global config")
 	}
 
-	fmt.Printf("deletethis: setting log level to %d\n", globalConfig.LogLevel)
+	autoHeal := globalConfig.AutoHealEnabled
+
 	numaLogger.SetLevel(globalConfig.LogLevel)
 
 	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig)
@@ -234,6 +235,22 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
 	}
+
+	namespacedName := types.NamespacedName{
+		Namespace: gitSync.Namespace,
+		Name:      gitSync.Name,
+	}
+	lastSyncedCommitHash, err := getCommitStatus(ctx, s.client, namespacedName, &numaLogger)
+	if err != nil {
+		return fmt.Errorf("failed to get the current commit status of key %q, %w", key, err)
+	}
+	// If auto heal is not enabled and the target commit hash is the same as last sync,
+	// skip the syncing.
+	if !autoHeal && lastSyncedCommitHash != nil && lastSyncedCommitHash.Hash == commitHash {
+		numaLogger.Info("Skip the syncing as there are no changes and auto heal is turned off.")
+		return nil
+	}
+
 	uns, err := applyAnnotationAndNamespace(manifests, gitSyncName, gitSync.Spec.Destination.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to parse the manifest of key %q, %w", key, err)
@@ -244,11 +261,6 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if syncState.Successful() {
 		synced = true
 		numaLogger.Info("GitSync object is successfully synced.")
-	}
-
-	namespacedName := types.NamespacedName{
-		Namespace: gitSync.Namespace,
-		Name:      gitSync.Name,
 	}
 
 	if !gitSync.GetDeletionTimestamp().IsZero() {
@@ -395,6 +407,25 @@ func applyAnnotationAndNamespace(manifests []*unstructured.Unstructured, gitSync
 		uns = append(uns, m)
 	}
 	return uns, nil
+}
+
+func getCommitStatus(
+	ctx context.Context,
+	kubeClient client.Client,
+	namespacedName types.NamespacedName,
+	numaLogger *logger.NumaLogger,
+) (*v1alpha1.CommitStatus, error) {
+	gitSync := &v1alpha1.GitSync{}
+	if err := kubeClient.Get(ctx, namespacedName, gitSync); err != nil {
+		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		} else {
+			numaLogger.Error(err, "Unable to get GitSync", "err")
+			return nil, err
+		}
+	}
+	return gitSync.Status.CommitStatus, nil
 }
 
 // updateCommitStatus will update the commit status in git sync CR.
