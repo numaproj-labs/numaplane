@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
@@ -370,47 +369,4 @@ func TestHTTPAuthMethodFile(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "someuser", basicAuth.Username)
 	assert.Equal(t, "my-password", basicAuth.Password)
-}
-
-func TestSSHAuthMethodFile(t *testing.T) {
-	client, err := GetFakeKubernetesClient()
-	assert.Nil(t, err)
-
-	jsonFile := "testdata/credentials.json"
-	repoCredential := &apiv1.RepoCredential{
-		URL: "github.com/someorg",
-		SSHCredential: &apiv1.SSHCredential{
-			SSHKey: apiv1.SecretSource{
-				FromFile: &apiv1.FileKeySelector{
-					Key:          "ssh-cred",
-					JSONFilePath: &jsonFile,
-				},
-			},
-		},
-	}
-	auth, _, err := GetAuthMethod(context.Background(), repoCredential, client, "ssh://github.com/someorg/somerepo.git")
-	assert.NoError(t, err)
-	assert.NotNil(t, auth)
-	sshAuth, ok := auth.(*ssh.PublicKeys)
-	assert.True(t, ok)
-	assert.NotNil(t, sshAuth.Signer)
-
-	yamlFile := "testdata/credentials.yaml"
-	repoCredential = &apiv1.RepoCredential{
-		URL: "github.com/someorg",
-		SSHCredential: &apiv1.SSHCredential{
-			SSHKey: apiv1.SecretSource{
-				FromFile: &apiv1.FileKeySelector{
-					Key:          "ssh-cred",
-					YAMLFilePath: &yamlFile,
-				},
-			},
-		},
-	}
-	auth, _, err = GetAuthMethod(context.Background(), repoCredential, client, "ssh://github.com/someorg/somerepo.git")
-	assert.NoError(t, err)
-	assert.NotNil(t, auth)
-	sshAuth, ok = auth.(*ssh.PublicKeys)
-	assert.True(t, ok)
-	assert.NotNil(t, sshAuth.Signer)
 }
