@@ -34,28 +34,9 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 			insecureSkipTLS = repoCred.TLS.InsecureSkipVerify
 		}
 
-		fmt.Printf("DELETETHIS: repoCred.HTTPCredential=%+v\n", repoCred.HTTPCredential)
-
 		switch scheme {
 		case "http", "https":
 			if cred := repoCred.HTTPCredential; cred != nil {
-				/*if cred.Username == "" || cred.Password.Name == "" || cred.Password.Key == "" || cred.Password.Namespace == "" {
-					return nil, false, fmt.Errorf("incomplete HTTP credentials")
-				}*/
-				/*var password string
-				if cred.Password.FromKubernetesSecret != nil {
-					password, err = kubernetes.GetSecretValue(ctx, kubeClient, *cred.Password.FromKubernetesSecret)
-					if err != nil {
-						return nil, false, fmt.Errorf("failed to get HTTP credentials secret %w: %w", cred.Password, err)
-					}
-				} else if cred.Password.FromFile != nil {
-					password, err = cred.Password.FromFile.GetSecretValue()
-					if err != nil {
-						return nil, false, fmt.Errorf("failed to get HTTP credentials secret %w: %w", cred.Password, err)
-					}
-				} else {
-					return nil, false, fmt.Errorf("Invalid HTTP credentials: either FromKubernetesSecret or FromFile should be specified: %w", cred.Password)
-				}*/
 				password, err := getSecretValue(ctx, kubeClient, cred.Password)
 				if err != nil {
 					return nil, false, fmt.Errorf("failed to get HTTP credential: %w", err)
@@ -64,23 +45,11 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 					Username: cred.Username,
 					Password: string(password),
 				}
-				fmt.Printf("DELETETHIS: Retrieved Secret value %s for username %s\n", string(password), cred.Username)
 
 			}
 
 		case "ssh":
 			if cred := repoCred.SSHCredential; cred != nil {
-				/*if cred.SSHKey.Name == "" || cred.SSHKey.Key == "" || cred.SSHKey.Namespace == "" {
-					return nil, false, fmt.Errorf("incomplete SSH credentials")
-				}
-				secret, err := kubernetes.GetSecret(ctx, kubeClient, cred.SSHKey.Namespace, cred.SSHKey.Name)
-				if err != nil {
-					return nil, false, fmt.Errorf("failed to get SSH key secret: %w", err)
-				}
-				sshKey, ok := secret.Data[cred.SSHKey.Key]
-				if !ok {
-					return nil, false, fmt.Errorf("SSH key %s not found in secret %s", cred.SSHKey.Key, cred.SSHKey.Name)
-				}*/
 				sshKey, err := getSecretValue(ctx, kubeClient, cred.SSHKey)
 				if err != nil {
 					return nil, false, fmt.Errorf("Failed to get SSH credential: %w", err)
