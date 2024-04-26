@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 
 	argoGit "github.com/argoproj/argo-cd/v2/util/git"
@@ -40,7 +39,12 @@ func CloneRepo(
 	if err != nil {
 		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
 	}
-	return cloneRepo(ctx, gitSync, cloneOptions)
+
+	fetchOptions, err := gitShared.GetRepoFetchOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)
+	if err != nil {
+		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
+	}
+	return cloneRepo(ctx, gitSync, cloneOptions, fetchOptions)
 }
 
 // GetLatestManifests gets the latest manifests from the Git repository.
@@ -247,6 +251,7 @@ func fetchUpdates(ctx context.Context,
 	if err != nil {
 		return err
 	}
+
 	pullOptions, err := gitShared.GetRepoPullOptions(ctx, credentials, client, gitSync.Spec.RepoUrl, branch)
 	if err != nil {
 		return err
@@ -264,10 +269,15 @@ func fetchUpdates(ctx context.Context,
 	return nil
 }
 
-func cloneRepo(ctx context.Context, gitSync *v1alpha1.GitSync, options *git.CloneOptions) (*git.Repository, error) {
+func cloneRepo(
+	ctx context.Context,
+	gitSync *v1alpha1.GitSync,
+	cloneOptions *git.CloneOptions,
+	fetchOptions *git.FetchOptions,
+) (*git.Repository, error) {
 	path := getLocalRepoPath(gitSync)
 
-	r, err := git.PlainCloneContext(ctx, path, false, options)
+	r, err := git.PlainCloneContext(ctx, path, false, cloneOptions)
 	if err != nil {
 		if errors.Is(err, git.ErrRepositoryAlreadyExists) {
 			// Open the existing repo and return it.
@@ -280,10 +290,10 @@ func cloneRepo(ctx context.Context, gitSync *v1alpha1.GitSync, options *git.Clon
 		return nil, err
 	}
 
-	// No need to fetch the references if  the target revision is already main or master (branches)
+	// No need to fetch the references if the target revision is already main or master (branches)
 	if gitSync.Spec.TargetRevision != "main" && gitSync.Spec.TargetRevision != "master" {
 		// fetch all references
-		err = fetchAll(r)
+		err = fetchAll(r, fetchOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -381,16 +391,16 @@ func checkoutRepo(repo *git.Repository, refName string) error {
 	return fmt.Errorf("reference '%s' not found as a branch, tag, or in any branch as a commit: %v", refName, err)
 }
 
-func fetchAll(repo *git.Repository) error {
+func fetchAll(
+	repo *git.Repository,
+	fetchOptions *git.FetchOptions,
+) error {
 	remote, err := repo.Remote("origin")
 	if err != nil {
 		return fmt.Errorf("failed to get remote: %v", err)
 	}
-	// Fetch using default options
-	err = remote.Fetch(&git.FetchOptions{
-		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
-		Force:    true,
-	})
+
+	err = remote.Fetch(fetchOptions)
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return fmt.Errorf("failed to fetch repo: %v", err)
 	}
