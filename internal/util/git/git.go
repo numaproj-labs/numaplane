@@ -43,7 +43,7 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 				}
 				auth = &gitHttp.BasicAuth{
 					Username: cred.Username,
-					Password: string(password),
+					Password: password,
 				}
 
 			}
