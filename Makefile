@@ -20,7 +20,7 @@ GIT_BRANCH=$(shell git rev-parse --symbolic-full-name --verify --quiet --abbrev-
 GIT_TAG=$(shell if [[ -z "`git status --porcelain`" ]]; then git describe --exact-match --tags HEAD 2>/dev/null; fi)
 GIT_TREE_STATE=$(shell if [[ -z "`git status --porcelain`" ]]; then echo "clean" ; else echo "dirty"; fi)
 
-NUMAFLOW_CRDS=$(shell kubectl get crd | grep -c 'numaflow')
+NUMAFLOW_CRDS=$(shell kubectl get crd | grep -c 'numaflow.numaproj.io')
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -229,6 +229,8 @@ gitserver:
 # ref: https://stackoverflow.com/questions/33509194/command-to-delete-all-pods-in-all-kubernetes-namespaces
 .PHONY: e2e-test-clean
 e2e-test-clean:
+	$(KUBECTL) delete -n numaplane-e2e isbsvc --all
+	$(KUBECTL) delete -n numaplane-e2e pipeline --all
 	$(KUBECTL) delete -n numaplane-e2e cm --all
 	$(KUBECTL) delete -n numaplane-e2e secret --all
 	$(KUBECTL) delete -n numaplane-e2e all --all
