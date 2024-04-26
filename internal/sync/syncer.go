@@ -223,12 +223,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		numaLogger.Error(err, "error getting the global config")
 	}
 
-	autoHeal := true
-	interval := globalConfig.AutoHealTimeIntervalMs
-	// Check if auto heal is enabled
-	if interval == 0 {
-		autoHeal = false
-	}
+	autoHeal := globalConfig.AutoHealEnabled
 
 	numaLogger.SetLevel(globalConfig.LogLevel)
 

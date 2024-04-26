@@ -6,14 +6,16 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // GetAuthMethod returns an authMethod for both cloning and fetching from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
@@ -101,7 +103,7 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, ku
 }
 
 // GetRepoPullOptions creates git.PullOptions for pull updates from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
-func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (*git.PullOptions, error) {
+func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string, refName string) (*git.PullOptions, error) {
 	// check to ensure proper repository url is passed
 	_, err := transport.NewEndpoint(repoUrl)
 	if err != nil {
@@ -116,6 +118,29 @@ func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kub
 		Auth:            method,
 		InsecureSkipTLS: skipTls,
 		RemoteName:      "origin",
+		ReferenceName:   plumbing.NewBranchReferenceName(refName),
+	}, nil
+}
+
+// GetRepoFetchOptions creates git.FetchOptions for fetching updates from a
+// repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
+func GetRepoFetchOptions(
+	ctx context.Context,
+	repoCred *apiv1.RepoCredential,
+	kubeClient k8sClient.Client,
+	repoUrl string,
+) (*git.FetchOptions, error) {
+
+	method, skipTls, err := GetAuthMethod(ctx, repoCred, kubeClient, repoUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	return &git.FetchOptions{
+		RefSpecs:        []config.RefSpec{"refs/*:refs/*"},
+		Force:           true,
+		Auth:            method,
+		InsecureSkipTLS: skipTls,
 	}, nil
 }
 
