@@ -422,11 +422,10 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 	assert.Nil(t, err)
 
 	credential := &v1alpha1.RepoCredential{
-		SSHCredential: &v1alpha1.SSHCredential{SSHKey: v1alpha1.SecretKeySelector{
+		SSHCredential: &v1alpha1.SSHCredential{SSHKey: v1alpha1.SecretSource{FromKubernetesSecret: &v1alpha1.SecretKeySelector{
 			ObjectReference: corev1.ObjectReference{Name: "sshKey", Namespace: testNamespace},
 			Key:             "sshKey",
-			Optional:        nil,
-		}},
+		}}},
 	}
 	repoUrL := "ssh://root@localhost:2222/var/www/git/repo1.git"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL)
@@ -465,10 +464,11 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 	credential := &v1alpha1.RepoCredential{
 		HTTPCredential: &v1alpha1.HTTPCredential{
 			Username: "root",
-			Password: v1alpha1.SecretKeySelector{
-				ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
-				Key:             "password",
-				Optional:        nil,
+			Password: v1alpha1.SecretSource{
+				FromKubernetesSecret: &v1alpha1.SecretKeySelector{
+					ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
+					Key:             "password",
+				},
 			},
 		},
 	}
@@ -505,10 +505,11 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 	credential := &v1alpha1.RepoCredential{
 		HTTPCredential: &v1alpha1.HTTPCredential{
 			Username: "root",
-			Password: v1alpha1.SecretKeySelector{
-				ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
-				Key:             "password",
-				Optional:        nil,
+			Password: v1alpha1.SecretSource{
+				FromKubernetesSecret: &v1alpha1.SecretKeySelector{
+					ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
+					Key:             "password",
+				},
 			},
 		},
 		TLS: &v1alpha1.TLS{

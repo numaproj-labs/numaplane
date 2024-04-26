@@ -229,11 +229,10 @@ func TestGetRepoCloneOptionsPrefixFoundCredEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
 	cred := &apiv1.RepoCredential{
-		SSHCredential: &apiv1.SSHCredential{SSHKey: apiv1.SecretKeySelector{
+		SSHCredential: &apiv1.SSHCredential{SSHKey: apiv1.SecretSource{FromKubernetesSecret: &apiv1.SecretKeySelector{
 			ObjectReference: corev1.ObjectReference{Name: ""},
 			Key:             "",
-			Optional:        nil,
-		}},
+		}}},
 	}
 	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
 	assert.Error(t, err)
@@ -245,11 +244,10 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
 	cred := &apiv1.RepoCredential{
-		SSHCredential: &apiv1.SSHCredential{SSHKey: apiv1.SecretKeySelector{
+		SSHCredential: &apiv1.SSHCredential{SSHKey: apiv1.SecretSource{FromKubernetesSecret: &apiv1.SecretKeySelector{
 			ObjectReference: corev1.ObjectReference{Name: "", Namespace: "testnamespace"},
 			Key:             "somekey",
-			Optional:        nil,
-		}},
+		}}},
 	}
 	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
 	assert.Error(t, err)
@@ -261,11 +259,10 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameSpaceEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
 	cred := &apiv1.RepoCredential{
-		SSHCredential: &apiv1.SSHCredential{SSHKey: apiv1.SecretKeySelector{
+		SSHCredential: &apiv1.SSHCredential{SSHKey: apiv1.SecretSource{FromKubernetesSecret: &apiv1.SecretKeySelector{
 			ObjectReference: corev1.ObjectReference{Name: "somename"},
 			Key:             "somekey",
-			Optional:        nil,
-		}},
+		}}},
 	}
 	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
 	assert.Error(t, err)
@@ -277,11 +274,10 @@ func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptySSH(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
 	cred := &apiv1.RepoCredential{
-		SSHCredential: &apiv1.SSHCredential{SSHKey: apiv1.SecretKeySelector{
+		SSHCredential: &apiv1.SSHCredential{SSHKey: apiv1.SecretSource{FromKubernetesSecret: &apiv1.SecretKeySelector{
 			ObjectReference: corev1.ObjectReference{Name: "somename", Namespace: "testnamespace"},
 			Key:             "",
-			Optional:        nil,
-		}},
+		}}},
 	}
 	options, err := GetRepoCloneOptions(context.Background(), cred, client, "git@github.com:numaproj-labs/numaplane.git")
 	assert.Error(t, err)
@@ -295,10 +291,11 @@ func TestGetRepoCloneOptionsPrefixFoundCredNameEmptyHTTP(t *testing.T) {
 	cred := &apiv1.RepoCredential{
 		HTTPCredential: &apiv1.HTTPCredential{
 			Username: "",
-			Password: apiv1.SecretKeySelector{
-				ObjectReference: corev1.ObjectReference{Name: "", Namespace: "testnamespace"},
-				Key:             "somekey",
-				Optional:        nil,
+			Password: apiv1.SecretSource{
+				FromKubernetesSecret: &apiv1.SecretKeySelector{
+					ObjectReference: corev1.ObjectReference{Name: "", Namespace: "testnamespace"},
+					Key:             "somekey",
+				},
 			},
 		},
 	}
@@ -315,10 +312,11 @@ func TestGetRepoCloneOptionsPrefixFoundCredKeyEmptyHTTP(t *testing.T) {
 	cred := &apiv1.RepoCredential{
 		HTTPCredential: &apiv1.HTTPCredential{
 			Username: "",
-			Password: apiv1.SecretKeySelector{
-				ObjectReference: corev1.ObjectReference{Name: "somename", Namespace: "testnamespace"},
-				Key:             "",
-				Optional:        nil,
+			Password: apiv1.SecretSource{
+				FromKubernetesSecret: &apiv1.SecretKeySelector{
+					ObjectReference: corev1.ObjectReference{Name: "somename", Namespace: "testnamespace"},
+					Key:             "",
+				},
 			},
 		},
 	}
