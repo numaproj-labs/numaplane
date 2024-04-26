@@ -191,6 +191,17 @@ func (w *When) PushToGitRepo(directory string, fileNames []string, remove bool) 
 	return w
 }
 
+func (w *When) RemoveAllFromRepo() *When {
+
+	err := ResetRepo()
+	if err != nil {
+		w.t.Fatal(err)
+	}
+
+	return w
+
+}
+
 // kubectl apply resource for self healing test
 func (w *When) ModifyResource(apiVersion, resourceType, resource, patch string) *When {
 

@@ -93,7 +93,7 @@ func (s *E2ESuite) BeforeTest(suiteName, testName string) {
 
 func (s *E2ESuite) AfterTest(suiteName, testName string) {
 
-	err := resetRepo()
+	err := ResetRepo()
 	s.CheckError(err)
 
 	// delete local directory after each test
@@ -164,7 +164,7 @@ func k8sRestConfig() (*rest.Config, error) {
 }
 
 // helper function to reset test Git repos
-func resetRepo() error {
+func ResetRepo() error {
 
 	// get name of all repos cloned at local
 	entries, err := os.ReadDir(localPath)
