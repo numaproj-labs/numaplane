@@ -227,7 +227,7 @@ gitserver:
 # ref: https://stackoverflow.com/questions/33509194/command-to-delete-all-pods-in-all-kubernetes-namespaces
 .PHONY: cleanup-e2e
 cleanup-e2e:
-	$(KUBECTL) get pipeline  -o custom-columns=Kind:.kind,Name:.metadata.name,Finalizers:.metadata.finalizers -n numaplane-e2e
+	$(KUBECTL) get pipelines  -o custom-columns=Kind:.kind,Name:.metadata.name,Finalizers:.metadata.finalizers -n numaplane-e2e
 	$(KUBECTL) delete -n numaplane-e2e cm --all
 	$(KUBECTL) delete -n numaplane-e2e secret --all
 	$(KUBECTL) delete -n numaplane-e2e all --all
