@@ -223,10 +223,14 @@ gitserver:
 		-t $(GITSERVER_IMAGE) \
 		--push .
 
+# Pipelines and ISBs are deleted first as they may have finalizers which will cause "delete all" to hang 
+# (because if a Controller is also being deleted, it first needs to remove the finalizers before it's deleted)
 # ConfigMaps and Secrets are explicitly deleted as they are not included in `kubectl delete all`
 # ref: https://stackoverflow.com/questions/33509194/command-to-delete-all-pods-in-all-kubernetes-namespaces
 .PHONY: cleanup-e2e
 cleanup-e2e:
+	$(KUBECTL) delete -n numaplane-e2e isbsvc --all
+	$(KUBECTL) delete -n numaplane-e2e pipelines --all
 	$(KUBECTL) delete -n numaplane-e2e cm --all
 	$(KUBECTL) delete -n numaplane-e2e secret --all
 	$(KUBECTL) delete -n numaplane-e2e all --all
