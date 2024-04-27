@@ -40,6 +40,9 @@ var pool *dockertest.Pool
 // TestMain configures the testing environment by initializing a Docker container that serves as a local git server.
 // This function handles the connection to Docker, initiates the specified container if it's not currently active,
 // and performs test case execution. Post-execution, it ensures thorough cleanup of all utilized resources.
+// Note: if user runs tests one at a time, user should kill and remove previous docker container prior to starting new one,
+// else Ports will be in use and unavailable.
+//
 // Inside the Docker container, it sets up a test repository accessible via:
 // - SSH at ssh://root@localhost:2222/var/www/git/repo1.git
 // - HTTP at http://localhost:8080/git/repo1.git, served by the Apache HTTP server
@@ -379,14 +382,14 @@ func TestGetLatestCommitHash(t *testing.T) {
 
 // Testing cloning repo with authentication
 
-func GetFakeKubernetesClient(secret *corev1.Secret) (k8sClient.Client, error) {
+func GetFakeKubernetesClient(initObjs ...k8sClient.Object) (k8sClient.Client, error) {
 	scheme := runtime.NewScheme()
 	err := corev1.AddToScheme(scheme)
 	if err != nil {
 		return nil, err
 
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjs...).Build()
 	return fakeClient, nil
 }
 
@@ -437,11 +440,45 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 	assert.Nil(t, err)
 
 	credential := &v1alpha1.RepoCredential{
-		SSHCredential: &v1alpha1.SSHCredential{SSHKey: v1alpha1.SecretKeySelector{
+		SSHCredential: &v1alpha1.SSHCredential{SSHKey: v1alpha1.SecretSource{FromKubernetesSecret: &v1alpha1.SecretKeySelector{
 			ObjectReference: corev1.ObjectReference{Name: "sshKey", Namespace: testNamespace},
 			Key:             "sshKey",
-			Optional:        nil,
-		}},
+		}}},
+	}
+	repoUrL := "ssh://root@localhost:2222/var/www/git/repo1.git"
+	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL)
+	assert.NoError(t, err)
+	assert.NotNil(t, cloneOptions)
+
+	cloneOptions.Auth.(*ssh.PublicKeys).HostKeyCallback = cryptossh.InsecureIgnoreHostKey()
+
+	gitSync := newGitSync("test", repoUrL, "gitClone", "master")
+
+	fetchOptions := &git.FetchOptions{
+		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
+		Force:    true,
+	}
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions)
+	assert.NoError(t, err)
+	assert.NotNil(t, repo)
+	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
+	assert.NoError(t, err)
+	err = os.RemoveAll("gitClone")
+	assert.NoError(t, err)
+
+}
+
+func TestGitCloneRepoSshLocalGitServerFileCredential(t *testing.T) {
+
+	client, err := GetFakeKubernetesClient()
+	assert.Nil(t, err)
+
+	yamlFilePath := "testdata/sshkey.yaml"
+	credential := &v1alpha1.RepoCredential{
+		SSHCredential: &v1alpha1.SSHCredential{SSHKey: v1alpha1.SecretSource{FromFile: &v1alpha1.FileKeySelector{
+			YAMLFilePath: &yamlFilePath,
+			Key:          "sshKey",
+		}}},
 	}
 	repoUrL := "ssh://root@localhost:2222/var/www/git/repo1.git"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL)
@@ -484,10 +521,11 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 	credential := &v1alpha1.RepoCredential{
 		HTTPCredential: &v1alpha1.HTTPCredential{
 			Username: "root",
-			Password: v1alpha1.SecretKeySelector{
-				ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
-				Key:             "password",
-				Optional:        nil,
+			Password: v1alpha1.SecretSource{
+				FromKubernetesSecret: &v1alpha1.SecretKeySelector{
+					ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
+					Key:             "password",
+				},
 			},
 		},
 	}
@@ -528,10 +566,11 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 	credential := &v1alpha1.RepoCredential{
 		HTTPCredential: &v1alpha1.HTTPCredential{
 			Username: "root",
-			Password: v1alpha1.SecretKeySelector{
-				ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
-				Key:             "password",
-				Optional:        nil,
+			Password: v1alpha1.SecretSource{
+				FromKubernetesSecret: &v1alpha1.SecretKeySelector{
+					ObjectReference: corev1.ObjectReference{Name: "http-cred", Namespace: testNamespace},
+					Key:             "password",
+				},
 			},
 		},
 		TLS: &v1alpha1.TLS{
