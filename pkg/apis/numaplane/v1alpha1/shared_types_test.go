@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_GetSecretValue(t *testing.T) {
+func Test_FileKeySelector_GetSecretValue(t *testing.T) {
 
 	testCases := []struct {
 		name          string
