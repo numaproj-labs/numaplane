@@ -470,10 +470,10 @@ func TestGitCloneRepoSshLocalGitServerFileCredential(t *testing.T) {
 	client, err := GetFakeKubernetesClient()
 	assert.Nil(t, err)
 
-	jsonFilePath := "testdata/sshkey.json"
+	yamlFilePath := "testdata/sshkey.yaml"
 	credential := &v1alpha1.RepoCredential{
 		SSHCredential: &v1alpha1.SSHCredential{SSHKey: v1alpha1.SecretSource{FromFile: &v1alpha1.FileKeySelector{
-			JSONFilePath: &jsonFilePath,
+			YAMLFilePath: &yamlFilePath,
 			Key:          "sshKey",
 		}}},
 	}
