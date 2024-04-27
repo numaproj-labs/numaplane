@@ -62,6 +62,7 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 				if err != nil {
 					return nil, false, fmt.Errorf("failed to create SSH public keys: %w", err)
 				}
+				fmt.Printf("deletethis: user=%q, sshKey=%s\n", parsedUrl.User.Username(), sshKey)
 			}
 		default:
 			return nil, false, fmt.Errorf("unsupported URL scheme: %s", scheme)
