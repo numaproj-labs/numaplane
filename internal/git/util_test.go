@@ -40,6 +40,9 @@ var pool *dockertest.Pool
 // TestMain configures the testing environment by initializing a Docker container that serves as a local git server.
 // This function handles the connection to Docker, initiates the specified container if it's not currently active,
 // and performs test case execution. Post-execution, it ensures thorough cleanup of all utilized resources.
+// Note: if user runs tests one at a time, user should kill and remove previous docker container prior to starting new one,
+// else Ports will be in use and unavailable.
+//
 // Inside the Docker container, it sets up a test repository accessible via:
 // - SSH at ssh://root@localhost:2222/var/www/git/repo1.git
 // - HTTP at http://localhost:8080/git/repo1.git, served by the Apache HTTP server
