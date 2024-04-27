@@ -29,11 +29,18 @@ repoCredentials:
       insecureSkipVerify: true
   - url: "github.com/numalabs"
     httpCredential:
-      username: "exampleuser3"
+      username: "exampleuser2"
       password:
-        fromKubernetesSecret:
-          name: "http-creds"
+        fromFile:
+          jsonFilePath: "/etc/credentials.json"
           key: "password"
-          namespace: "numaplane-controller"
+    tls:
+      insecureSkipVerify: true
+  - url: "github.com:numaproj"
+    sshCredential:
+      SSHKey:
+        fromFile:
+          yamlFilePath: "/etc/credentials.yaml"
+          key: "sshKey"
     tls:
       insecureSkipVerify: true

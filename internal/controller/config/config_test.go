@@ -47,20 +47,24 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Equal(t, "http-creds", config.RepoCredentials[0].HTTPCredential.Password.FromKubernetesSecret.Name, "Password Name for HTTPCredential of numaproj-labs does not match")
 	assert.Equal(t, "password", config.RepoCredentials[0].HTTPCredential.Password.FromKubernetesSecret.Key, "Password Key for HTTPCredential of numaproj-labs does not match")
 	assert.Equal(t, "numaplane-controller", config.RepoCredentials[0].HTTPCredential.Password.FromKubernetesSecret.Namespace, "Kubernetes namespace for password doesn't match")
-
 	assert.NotNil(t, config.RepoCredentials[0].TLS, "TLS for numaproj-labs is missing")
+
 	assert.NotNil(t, config.RepoCredentials[1].SSHCredential, "SSHCredential for numaproj is missing")
 	assert.Equal(t, "ssh-creds", config.RepoCredentials[1].SSHCredential.SSHKey.FromKubernetesSecret.Name, "SSHKey Name for SSHCredential of numaproj does not match")
 	assert.Equal(t, "sshKey", config.RepoCredentials[1].SSHCredential.SSHKey.FromKubernetesSecret.Key, "SSHKey Key for SSHCredential of numaproj does not match")
-
 	assert.True(t, config.RepoCredentials[1].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numaproj does not match")
 
 	assert.NotNil(t, config.RepoCredentials[2].HTTPCredential, "HTTPCredential for numalabs is missing")
-	assert.Equal(t, "exampleuser3", config.RepoCredentials[2].HTTPCredential.Username, "Username for HTTPCredential of numalabs does not match")
-	assert.Equal(t, "http-creds", config.RepoCredentials[2].HTTPCredential.Password.FromKubernetesSecret.Name, "Password Name for HTTPCredential of numalabs does not match")
-	assert.Equal(t, "password", config.RepoCredentials[2].HTTPCredential.Password.FromKubernetesSecret.Key, "Password Key for HTTPCredential of numalabs does not match")
-
+	assert.Equal(t, "exampleuser2", config.RepoCredentials[2].HTTPCredential.Username, "Username for HTTPCredential of numalabs does not match")
+	assert.NotNil(t, config.RepoCredentials[2].HTTPCredential.Password.FromFile.JSONFilePath, "JSON File Path didn't get set")
+	assert.Equal(t, "password", config.RepoCredentials[2].HTTPCredential.Password.FromFile.Key, "Password Key for HTTPCredential of numalabs does not match")
 	assert.True(t, config.RepoCredentials[2].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numalabs does not match")
+
+	assert.NotNil(t, config.RepoCredentials[3].SSHCredential, "SSHCredential for numaproj is missing")
+	assert.NotNil(t, config.RepoCredentials[3].SSHCredential.SSHKey.FromFile, "SSHCredential for numaproj not of type File")
+	assert.NotNil(t, config.RepoCredentials[3].SSHCredential.SSHKey.FromFile.YAMLFilePath, "YAML File Path for SSHCredential of numaproj not set")
+	assert.Equal(t, "sshKey", config.RepoCredentials[3].SSHCredential.SSHKey.FromFile.Key, "SSHKey Key for SSHCredential of numaproj does not match")
+	assert.True(t, config.RepoCredentials[3].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numaproj does not match")
 
 	// now verify that if we modify the file, it will still be okay
 	originalFile := "../../../tests/config/testconfig.yaml"
