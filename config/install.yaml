@@ -361,9 +361,7 @@ rules:
   - ""
   resources:
   - configmaps
-  - secrets
   - serviceaccounts
-  - namespaces
   verbs:
   - '*'
 - apiGroups:
@@ -418,8 +416,13 @@ subjects:
 apiVersion: v1
 data:
   config.yaml: |
-    syncTimeIntervalMs: 60000
-    autoHealTimeIntervalMs: 30000
+    syncTimeIntervalMs: 30000
+    autoHealEnabled: true
+    includedResources: "group=apps,kind=Deployment;\
+    group=,kind=ConfigMap;group=,kind=Secret;group=,kind=ServiceAccount;group=,kind=Namespace;\
+    group=numaflow.numaproj.io,kind=;\
+    group=numaflow.numaproj.io,kind=;\
+    group=rbac.authorization.k8s.io,kind=RoleBinding;group=rbac.authorization.k8s.io,kind=Role"
 kind: ConfigMap
 metadata:
   name: numaplane-controller-config
@@ -435,7 +438,7 @@ metadata:
   name: numaplane-controller-manager
   namespace: numaplane-system
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/component: controller-manager
@@ -483,6 +486,7 @@ spec:
         volumeMounts:
         - mountPath: /etc/numaplane
           name: config-volume
+      initContainers: []
       serviceAccountName: numaplane-sa
       terminationGracePeriodSeconds: 10
       volumes:

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -88,6 +89,18 @@ func GetSecret(ctx context.Context, client k8sClient.Client, namespace, secretNa
 		return nil, err
 	}
 	return secret, nil
+}
+
+func GetSecretValue(ctx context.Context, client k8sClient.Client, secretKeySelector v1alpha1.SecretKeySelector) (string, error) {
+	secret, err := GetSecret(ctx, client, secretKeySelector.Namespace, secretKeySelector.Name)
+	if err != nil {
+		return "", err
+	}
+	value, ok := secret.Data[secretKeySelector.Key]
+	if !ok {
+		return "", fmt.Errorf("key %s not found in secret %s/%s", secretKeySelector.Key, secretKeySelector.Namespace, secretKeySelector.Name)
+	}
+	return string(value), nil
 }
 
 func DeleteKubernetesResource(ctx context.Context, client k8sClient.Client, item k8sClient.Object) error {

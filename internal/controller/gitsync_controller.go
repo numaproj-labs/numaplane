@@ -126,7 +126,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // reconcile does the real logic
 func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSync) error {
-	numaLogger := logger.FromContext(ctx)
+	numaLogger := logger.FromContext(ctx).WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name))
 
 	if !gitSync.Spec.ContainsClusterDestination(r.clusterName) {
 		gitSync.Status.MarkNotApplicable("ClusterMismatch", "This cluster isn't a destination")
@@ -135,7 +135,7 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 
 	gitSyncKey := sync.KeyOfGitSync(gitSync)
 	if !gitSync.DeletionTimestamp.IsZero() {
-		numaLogger.Info("Deleting", "GitSync", gitSync)
+		numaLogger.Info("Deleting GitSync")
 		if r.syncer != nil {
 			err := sync.ProcessGitSyncDeletion(ctx, gitSync, r.syncer)
 			if err != nil {
