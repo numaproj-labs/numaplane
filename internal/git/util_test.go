@@ -303,9 +303,9 @@ func Test_GetLatestManifests(t *testing.T) {
 				Spec: v1alpha1.GitSyncSpec{
 					GitSource: v1alpha1.GitSource{
 						GitLocation: v1alpha1.GitLocation{
-							RepoUrl:        "https://github.com/numaproj/numaflow.git",
-							TargetRevision: "main",
-							Path:           "config/namespace-install",
+							RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
+							TargetRevision: "controlledTestsPathEn",
+							Path:           "tests/manifests/namespace-install",
 						},
 						Kustomize: &v1alpha1.KustomizeSource{},
 					},
@@ -371,7 +371,7 @@ func Test_GetLatestManifests(t *testing.T) {
 
 func TestGetLatestCommitHash(t *testing.T) {
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
-		URL:          "https://github.com/shubhamdixit863/testingrepo",
+		URL:          "https://github.com/numaproj-labs/numaplane.git",
 		SingleBranch: true,
 	})
 	assert.Nil(t, err)
