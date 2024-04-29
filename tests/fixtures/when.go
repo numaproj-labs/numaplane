@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -222,6 +223,33 @@ func (w *When) ModifyResource(apiVersion, resourceType, resource, patch string) 
 	}
 
 	w.t.Log("Resource successfully patched")
+
+	return w
+}
+
+// update Numaplane controller configmap
+func (w *When) UpdateConfig(disableAutoHeal bool) *When {
+
+	ctx := context.Background()
+
+	cm, err := w.kubeClient.CoreV1().ConfigMaps("numaplane-system").Get(ctx, "numaplane-controller-config", metav1.GetOptions{})
+	if err != nil {
+		w.t.Fatal()
+	}
+	config := cm.Data["config.yaml"]
+
+	// reconfigure autoheal value
+	if disableAutoHeal {
+		cm.Data["config.yaml"] = strings.Replace(config, "autoHealEnabled: true", "autoHealEnabled: false", 1)
+	} else {
+		cm.Data["config.yaml"] = strings.Replace(config, "autoHealEnabled: false", "autoHealEnabled: true", 1)
+	}
+
+	// apply update to configmap
+	_, err = w.kubeClient.CoreV1().ConfigMaps("numaplane-system").Update(ctx, cm, metav1.UpdateOptions{})
+	if err != nil {
+		w.t.Fatal()
+	}
 
 	return w
 }
