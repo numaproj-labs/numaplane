@@ -96,7 +96,7 @@ func (s *FunctionalSuite) TestNumaflowGitSync() {
 
 }
 
-// // GitSync testing with basic k8s objects
+// GitSync testing with basic k8s objects
 func (s *FunctionalSuite) TestBasicGitSync() {
 
 	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
