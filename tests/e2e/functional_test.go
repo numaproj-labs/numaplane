@@ -178,7 +178,7 @@ func (s *FunctionalSuite) TestAutoHealing() {
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 4)
 
 	// reenable autohealing for test cases left to run
-	w.UpdateConfig(true)
+	w.UpdateAutoHealConfig(true)
 }
 
 // test behavior when changing the repoUrl of a GitSync
