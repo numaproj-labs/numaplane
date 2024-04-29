@@ -88,6 +88,12 @@ func (s *FunctionalSuite) TestNumaflowGitSync() {
 	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"http-pipeline"})
 	w.Expect().CheckCommitStatus()
 
+	// Remove Pipeline and ISBService
+	w.PushToGitRepo("numaflow/initial-commit", []string{"sample_pipeline.yaml", "isbsvc_jetstream.yaml"}, true).Wait(30 * time.Second)
+	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
+	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "interstepbufferservices", []string{"default"})
+	w.Expect().CheckCommitStatus()
+
 }
 
 // GitSync testing with basic k8s objects
@@ -99,6 +105,7 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 	defer w.DeleteGitSyncAndWait()
 
 	// verify basics resources are created
+	w.Wait(30 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
