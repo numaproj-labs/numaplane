@@ -12,22 +12,25 @@ repoCredentials:
   httpCredential:
     username: "root"
     password:
-      name: "http-creds"
-      key: "password"
-      namespace: "numaplane-system"
+      fromKubernetesSecret:
+        name: "http-creds"
+        key: "password"
+        namespace: "numaplane-system"
 - url: "localgitserver-0.numaplane-system.svc.cluster.local/git"
   sshCredential:
     SSHKey:
-      name: "ssh-creds"
-      key: "sshKey"
+      fromKubernetesSecret:
+        name: "ssh-creds"
+        key: "sshKey"
   tls:
     insecureSkipVerify: true
 - url: "localgitserver-0.numaplane-system.svc.cluster.local/git"
   httpCredential:
     username: "root"
     password:
-      name: "http-creds"
-      key: "password"
-      namespace: "numaplane-system"
+      fromKubernetesSecret:
+        name: "http-creds"
+        key: "password"
+        namespace: "numaplane-system"
   tls:
     insecureSkipVerify: true
