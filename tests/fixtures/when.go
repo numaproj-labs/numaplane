@@ -227,9 +227,8 @@ func (w *When) ModifyResource(apiVersion, resourceType, resource, patch string) 
 	return w
 }
 
-// update Numaplane controller configmap
-// configurable currently: autohealing
-func (w *When) UpdateConfig(autoHealEnabled bool) *When {
+// update Numaplane controller configmap to enable/disable autohealing
+func (w *When) UpdateAutoHealConfig(autoHealEnabled bool) *When {
 
 	ctx := context.Background()
 
