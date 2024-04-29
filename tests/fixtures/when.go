@@ -244,10 +244,10 @@ func (w *When) UpdateConfig(autoHealEnabled bool) *When {
 	// configure autoHealEnabled to desired case
 	if !autoHealEnabled {
 		cm.Data["config.yaml"] = strings.Replace(config, "autoHealEnabled: true", "autoHealEnabled: false", 1)
-		w.t.Log("Autohealing disabled succesfully")
+		w.t.Log("Autohealing disabled successfully")
 	} else {
 		cm.Data["config.yaml"] = strings.Replace(config, "autoHealEnabled: false", "autoHealEnabled: true", 1)
-		w.t.Log("Autohealing enabled succesfully")
+		w.t.Log("Autohealing enabled successfully")
 	}
 
 	// apply update to configmap
