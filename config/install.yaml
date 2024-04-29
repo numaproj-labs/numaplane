@@ -362,6 +362,7 @@ rules:
   resources:
   - configmaps
   - serviceaccounts
+  - secrets
   verbs:
   - '*'
 - apiGroups:
@@ -374,7 +375,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secrets
   - namespaces
   verbs:
   - get
