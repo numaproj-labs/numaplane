@@ -154,6 +154,8 @@ func (s *FunctionalSuite) TestAutoHealing() {
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
 
+	w.Wait(30 * time.Second)
+
 	// verify that test deployment is created with {replicas: 3} in spec
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().CheckCommitStatus()
