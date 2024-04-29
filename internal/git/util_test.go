@@ -304,7 +304,7 @@ func Test_GetLatestManifests(t *testing.T) {
 					GitSource: v1alpha1.GitSource{
 						GitLocation: v1alpha1.GitLocation{
 							RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
-							TargetRevision: "controlledTestsPathEn",
+							TargetRevision: "main",
 							Path:           "tests/manifests/namespace-install",
 						},
 						Kustomize: &v1alpha1.KustomizeSource{},
