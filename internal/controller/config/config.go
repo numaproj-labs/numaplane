@@ -34,11 +34,12 @@ func GetConfigManagerInstance() *ConfigManager {
 // supposed to be populated from the configmap attached to the
 // controller manager.
 type GlobalConfig struct {
-	ClusterName        string `json:"clusterName" mapstructure:"clusterName"`
-	SyncTimeIntervalMs int    `json:"syncTimeIntervalMs" mapstructure:"syncTimeIntervalMs"`
-	CascadeDeletion    bool   `json:"cascadeDeletion" mapstructure:"cascadeDeletion"`
-	AutoHealEnabled    bool   `json:"autoHealEnabled" mapstructure:"autoHealEnabled"`
-	IncludedResources  string `json:"includedResources" mapstructure:"includedResources"`
+	ClusterName           string `json:"clusterName" mapstructure:"clusterName"`
+	SyncTimeIntervalMs    int    `json:"syncTimeIntervalMs" mapstructure:"syncTimeIntervalMs"`
+	AutomatedSyncDisabled bool   `json:"automatedSyncDisabled" mapstructure:"automatedSyncDisabled"`
+	CascadeDeletion       bool   `json:"cascadeDeletion" mapstructure:"cascadeDeletion"`
+	AutoHealDisabled      bool   `json:"autoHealDisabled" mapstructure:"autoHealDisabled"`
+	IncludedResources     string `json:"includedResources" mapstructure:"includedResources"`
 	// RepoCredentials maps each Git Repository Path prefix to the corresponding credentials that are needed for it
 	RepoCredentials []apiv1.RepoCredential `json:"repoCredentials" mapstructure:"repoCredentials"`
 	LogLevel        int                    `json:"logLevel" mapstructure:"logLevel"`
