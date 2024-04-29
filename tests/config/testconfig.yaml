@@ -12,25 +12,35 @@ repoCredentials:
     httpCredential:
       username: "exampleUser"
       password:
-        name: "http-creds"
-        key: "password"
-        namespace: "numaplane-controller"
+        fromKubernetesSecret:
+          name: "http-creds"
+          key: "password"
+          namespace: "numaplane-controller"
     tls:
       insecureSkipVerify: true
   - url: "github.com:numaproj"
     sshCredential:
       SSHKey:
-        name: "ssh-creds"
-        key: "sshKey"
-        namespace: "numaplane-controller"
+        fromKubernetesSecret:
+          name: "ssh-creds"
+          key: "sshKey"
+          namespace: "numaplane-controller"
     tls:
       insecureSkipVerify: true
   - url: "github.com/numalabs"
     httpCredential:
-      username: "exampleuser3"
+      username: "exampleuser2"
       password:
-        name: "http-creds"
-        key: "password"
-        namespace: "numaplane-controller"
+        fromFile:
+          jsonFilePath: "/etc/credentials.json"
+          key: "password"
+    tls:
+      insecureSkipVerify: true
+  - url: "github.com:numaproj"
+    sshCredential:
+      SSHKey:
+        fromFile:
+          yamlFilePath: "/etc/credentials.yaml"
+          key: "sshKey"
     tls:
       insecureSkipVerify: true

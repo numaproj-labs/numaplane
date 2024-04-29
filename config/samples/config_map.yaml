@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: controller-config
+  name: numaplane-controller-config
   namespace: numaplane-system
 data:
   config.yaml: |
@@ -15,22 +15,25 @@ data:
         httpCredential:
           username: "exampleUser"
           password:
-            name: "http-creds"
-            key: "password"
-            namespace: "numaplane-system"  # namespace where the secrets live 
+            fromKubernetesSecret:
+              name: "http-creds"
+              key: "password"
+              namespace: "numaplane-system"  # namespace where the secrets live 
       - url: "github.com:numaproj"
         sshCredential:
           SSHKey:
-            name: "ssh-creds"
-            key: "sshKey"
-            namespace: "numaplane-system"
+            fromKubernetesSecret:
+              name: "ssh-creds"
+              key: "sshKey"
+              namespace: "numaplane-system"
         tls:
           insecureSkipVerify: true
       - url: "git@github.com:numalabs"
         httpCredential:
           username: "exampleuser3"
           password:
-            name: "http-creds"
-            key: "password"
+            fromKubernetesSecret:
+              name: "http-creds"
+              key: "password"
         tls:
           insecureSkipVerify: true
