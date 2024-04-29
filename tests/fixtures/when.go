@@ -233,7 +233,8 @@ func (w *When) UpdateConfig(autoHealEnabled bool) *When {
 
 	ctx := context.Background()
 
-	cm, err := w.kubeClient.CoreV1().ConfigMaps("numaplane-system").Get(ctx, "numaplane-controller-config", metav1.GetOptions{})
+	cm, err := w.kubeClient.CoreV1().ConfigMaps("numaplane-system").
+		Get(ctx, "numaplane-controller-config", metav1.GetOptions{})
 	if err != nil {
 		w.t.Fatalf("Failed to get configmap numaplane-controller-config")
 	}
@@ -251,7 +252,8 @@ func (w *When) UpdateConfig(autoHealEnabled bool) *When {
 	}
 
 	// apply update to configmap
-	_, err = w.kubeClient.CoreV1().ConfigMaps("numaplane-system").Update(ctx, cm, metav1.UpdateOptions{})
+	_, err = w.kubeClient.CoreV1().ConfigMaps("numaplane-system").
+		Update(ctx, cm, metav1.UpdateOptions{})
 	if err != nil {
 		w.t.Fatal()
 	}
