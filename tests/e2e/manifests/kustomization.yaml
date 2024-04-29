@@ -13,6 +13,20 @@ patches:
     target:
       kind: Deployment
       name: numaplane-controller-manager
+  - patch: |-
+      - op: add
+        path: /rules/2/resources/-
+        value: secrets
+    target:
+      kind: ClusterRole
+      name: numaplane-role
+  - patch: |-
+      - op: add
+        path: /rules/2/resources/-
+        value: namespaces
+    target:
+      kind: ClusterRole
+      name: numaplane-role
 
 configMapGenerator:
   - name: numaplane-controller-config

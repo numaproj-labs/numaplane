@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 
-ARG REPO_COUNT=1
+ARG REPO_COUNT=5
 
 
 RUN apt-get update && \
@@ -46,6 +46,16 @@ RUN for i in $(seq 1 $REPO_COUNT); do \
     chmod +x "/var/www/git/repo$i.git/hooks/post-receive"; \
     done
 
+#creating repositories which donot require authentication and can be accessed from http://localhost:8080/gitopen
+RUN for i in $(seq 1 $REPO_COUNT); do \
+    mkdir -p "/var/www/gitopen/repo$i.git" && \
+    git init --bare "/var/www/gitopen/repo$i.git" && \
+    chown -R www-data:www-data "/var/www/gitopen/repo$i.git"; \
+    echo "#!/bin/sh" > "/var/www/gitopen/repo$i.git/hooks/post-receive" && \
+    echo "chown -R www-data:www-data ." >> "/var/www/gitopen/repo$i.git/hooks/post-receive" && \
+    chmod +x "/var/www/gitopen/repo$i.git/hooks/post-receive"; \
+    done
+
 # Setup Apache for Git HTTP and HTTPS access with Basic authentication
 RUN mkdir /auth && \
     htpasswd -cb /auth/.htpasswd root root && \
@@ -53,6 +63,7 @@ RUN mkdir /auth && \
     SetEnv GIT_PROJECT_ROOT /var/www/git\n\
     SetEnv GIT_HTTP_EXPORT_ALL\n\
     ScriptAlias /git/ /usr/lib/git-core/git-http-backend/\n\
+    ScriptAlias /gitopen/ /usr/lib/git-core/git-http-backend/\n\
     ScriptAlias /create /usr/lib/cgi-bin/create_repo.cgi\n\
     <Location /git>\n\
     AuthType Basic\n\
@@ -60,6 +71,10 @@ RUN mkdir /auth && \
     AuthUserFile /auth/.htpasswd\n\
     Require valid-user\n\
     </Location>\n\
+    <LocationMatch \"^/gitopen\">\n\
+        Satisfy Any\n\
+        Allow from all\n\
+    </LocationMatch>\n\
     </VirtualHost>\n\
     <VirtualHost *:443>\n\
     SSLEngine on\n\
@@ -68,12 +83,17 @@ RUN mkdir /auth && \
     SetEnv GIT_PROJECT_ROOT /var/www/git\n\
     SetEnv GIT_HTTP_EXPORT_ALL\n\
     ScriptAlias /git/ /usr/lib/git-core/git-http-backend/\n\
+    ScriptAlias /gitopen/ /usr/lib/git-core/git-http-backend/\n\
     <Location /git>\n\
     AuthType Basic\n\
     AuthName \"Git Access\"\n\
     AuthUserFile /auth/.htpasswd\n\
     Require valid-user\n\
     </Location>\n\
+     <LocationMatch \"^/gitopen\">\n\
+        Satisfy Any\n\
+        Allow from all\n\
+    </LocationMatch>\n\
     </VirtualHost>" > /etc/apache2/sites-available/000-default.conf
 
 
@@ -94,12 +114,28 @@ RUN for i in $(seq 1 $REPO_COUNT); do \
     git init && \
     git config --global user.email "you@example.com" && \
     git config --global user.name "Your Name" && \
-    echo "some: data" > data.yaml && \
-    git add data.yaml && \
+    echo "Local Repo" > readme.md && \
+    git add readme.md && \
     git commit -m "Initial commit" && \
     git push /var/www/git/repo$i.git master;\
     done
 #to access http://localhost:8080/git/repo2.git http://localhost:8080/git/repo1.git
+
+
+# Creating a non bare git repo  which donot require  authentication with working directory as per the RepoCount variable and pushing the changes
+# to the bare repository created in /var/www/git
+RUN for i in $(seq 1 $REPO_COUNT); do \
+    mkdir /tmp/gitopen-repo$i && \
+    cd /tmp/gitopen-repo$i && \
+    git init && \
+    git config --global user.email "you@example.com" && \
+    git config --global user.name "Your Name" && \
+    echo "Local Repo" > readme.md && \
+    git add readme.md && \
+    git commit -m "Initial commit" && \
+    git push /var/www/gitopen/repo$i.git master;\
+    done
+#to access http://localhost:8080/gitopen/repo2.git http://localhost:8080/gitopen/repo1.git
 
 # Copy the start script into the container and set permissions
 COPY start.sh /start.sh

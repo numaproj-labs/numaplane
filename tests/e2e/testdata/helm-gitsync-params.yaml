@@ -1,0 +1,18 @@
+apiVersion: numaplane.numaproj.io/v1alpha1
+kind: GitSync
+metadata:
+  name: gitsync-example
+  namespace: numaplane-system
+spec:
+  path: "sample-manifests"
+  repoUrl: http://localgitserver-service.numaplane-system.svc.cluster.local/git/repo4.git
+  targetRevision: master
+  helm:
+    valueFiles:
+    - "values.yaml"
+    parameters:
+    - name: "replicaCount"
+      value: "3"
+  destination:
+    cluster: staging-usw2-k8s
+    namespace: numaplane-e2e

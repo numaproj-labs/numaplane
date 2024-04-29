@@ -30,8 +30,8 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Nil(t, err, "Failed to load configuration")
 
 	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
-	assert.Equal(t, 60000, config.SyncTimeIntervalMs, "SyncTimeIntervalMs does not match")
-	assert.Equal(t, 30000, config.AutoHealTimeIntervalMs, "AutoHealTimeIntervalMs does not match")
+	assert.Equal(t, 30000, config.SyncTimeIntervalMs, "SyncTimeIntervalMs does not match")
+	assert.Equal(t, true, config.AutoHealEnabled, "AutoHealEnabled does not match")
 	assert.Equal(t, false, config.CascadeDeletion, "CascadeDeletion Field does not match")
 	assert.Equal(t, "group=apps,kind=Deployment;"+
 		"group=,kind=ConfigMap;group=,kind=Secret;group=,kind=ServiceAccount;group=,kind=Namespace;"+
@@ -44,23 +44,27 @@ func TestLoadConfigMatchValues(t *testing.T) {
 
 	assert.NotNil(t, config.RepoCredentials[0].HTTPCredential, "HTTPCredential for numaproj-labs is missing")
 	assert.Equal(t, "exampleUser", config.RepoCredentials[0].HTTPCredential.Username, "Username for HTTPCredential of numaproj-labs does not match")
-	assert.Equal(t, "http-creds", config.RepoCredentials[0].HTTPCredential.Password.Name, "Password Name for HTTPCredential of numaproj-labs does not match")
-	assert.Equal(t, "password", config.RepoCredentials[0].HTTPCredential.Password.Key, "Password Key for HTTPCredential of numaproj-labs does not match")
-	assert.Equal(t, "numaplane-controller", config.RepoCredentials[0].HTTPCredential.Password.Namespace, "Kubernetes namespace for password doesn't match")
-
+	assert.Equal(t, "http-creds", config.RepoCredentials[0].HTTPCredential.Password.FromKubernetesSecret.Name, "Password Name for HTTPCredential of numaproj-labs does not match")
+	assert.Equal(t, "password", config.RepoCredentials[0].HTTPCredential.Password.FromKubernetesSecret.Key, "Password Key for HTTPCredential of numaproj-labs does not match")
+	assert.Equal(t, "numaplane-controller", config.RepoCredentials[0].HTTPCredential.Password.FromKubernetesSecret.Namespace, "Kubernetes namespace for password doesn't match")
 	assert.NotNil(t, config.RepoCredentials[0].TLS, "TLS for numaproj-labs is missing")
-	assert.NotNil(t, config.RepoCredentials[1].SSHCredential, "SSHCredential for numaproj is missing")
-	assert.Equal(t, "ssh-creds", config.RepoCredentials[1].SSHCredential.SSHKey.Name, "SSHKey Name for SSHCredential of numaproj does not match")
-	assert.Equal(t, "sshKey", config.RepoCredentials[1].SSHCredential.SSHKey.Key, "SSHKey Key for SSHCredential of numaproj does not match")
 
+	assert.NotNil(t, config.RepoCredentials[1].SSHCredential, "SSHCredential for numaproj is missing")
+	assert.Equal(t, "ssh-creds", config.RepoCredentials[1].SSHCredential.SSHKey.FromKubernetesSecret.Name, "SSHKey Name for SSHCredential of numaproj does not match")
+	assert.Equal(t, "sshKey", config.RepoCredentials[1].SSHCredential.SSHKey.FromKubernetesSecret.Key, "SSHKey Key for SSHCredential of numaproj does not match")
 	assert.True(t, config.RepoCredentials[1].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numaproj does not match")
 
 	assert.NotNil(t, config.RepoCredentials[2].HTTPCredential, "HTTPCredential for numalabs is missing")
-	assert.Equal(t, "exampleuser3", config.RepoCredentials[2].HTTPCredential.Username, "Username for HTTPCredential of numalabs does not match")
-	assert.Equal(t, "http-creds", config.RepoCredentials[2].HTTPCredential.Password.Name, "Password Name for HTTPCredential of numalabs does not match")
-	assert.Equal(t, "password", config.RepoCredentials[2].HTTPCredential.Password.Key, "Password Key for HTTPCredential of numalabs does not match")
-
+	assert.Equal(t, "exampleuser2", config.RepoCredentials[2].HTTPCredential.Username, "Username for HTTPCredential of numalabs does not match")
+	assert.NotNil(t, config.RepoCredentials[2].HTTPCredential.Password.FromFile.JSONFilePath, "JSON File Path didn't get set")
+	assert.Equal(t, "password", config.RepoCredentials[2].HTTPCredential.Password.FromFile.Key, "Password Key for HTTPCredential of numalabs does not match")
 	assert.True(t, config.RepoCredentials[2].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numalabs does not match")
+
+	assert.NotNil(t, config.RepoCredentials[3].SSHCredential, "SSHCredential for numaproj is missing")
+	assert.NotNil(t, config.RepoCredentials[3].SSHCredential.SSHKey.FromFile, "SSHCredential for numaproj not of type File")
+	assert.NotNil(t, config.RepoCredentials[3].SSHCredential.SSHKey.FromFile.YAMLFilePath, "YAML File Path for SSHCredential of numaproj not set")
+	assert.Equal(t, "sshKey", config.RepoCredentials[3].SSHCredential.SSHKey.FromFile.Key, "SSHKey Key for SSHCredential of numaproj does not match")
+	assert.True(t, config.RepoCredentials[3].TLS.InsecureSkipVerify, "insecureSkipVerify for TLS of numaproj does not match")
 
 	// now verify that if we modify the file, it will still be okay
 	originalFile := "../../../tests/config/testconfig.yaml"
@@ -78,7 +82,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
-	assert.Equal(t, 60000, config.SyncTimeIntervalMs, "SyncTimeIntervalMs does not match")
+	assert.Equal(t, 30000, config.SyncTimeIntervalMs, "SyncTimeIntervalMs does not match")
 	assert.Len(t, config.RepoCredentials, 0, "RepoCredentials should not be present")
 
 }
@@ -192,29 +196,30 @@ func TestCloneWithSerialization(t *testing.T) {
 				URL: "repo1",
 				HTTPCredential: &apiv1.HTTPCredential{
 					Username: "user1",
-					Password: apiv1.SecretKeySelector{
-						ObjectReference: corev1.ObjectReference{
-							Name: "secretName1",
+					Password: apiv1.SecretSource{
+						FromKubernetesSecret: &apiv1.SecretKeySelector{
+							ObjectReference: corev1.ObjectReference{
+								Name: "secretName1",
+							},
+							Key: "password",
 						},
-						Key:      "password",
-						Optional: nil,
 					},
 				},
 				SSHCredential: &apiv1.SSHCredential{
-					SSHKey: apiv1.SecretKeySelector{
-						ObjectReference: corev1.ObjectReference{
-							Name: "secretNameSSH",
+					SSHKey: apiv1.SecretSource{
+						FromKubernetesSecret: &apiv1.SecretKeySelector{
+							ObjectReference: corev1.ObjectReference{
+								Name: "secretNameSSH",
+							},
+							Key: "sshKey",
 						},
-						Key:      "sshKey",
-						Optional: nil,
 					},
 				},
 				TLS: &apiv1.TLS{
 					InsecureSkipVerify: true,
 				},
 			},
-		},
-	}
+		}}
 
 	cloned, err := CloneWithSerialization(original)
 	if err != nil {
@@ -243,23 +248,26 @@ func createGlobalConfigForBenchmarking() *GlobalConfig {
 				URL: "repo1",
 				HTTPCredential: &apiv1.HTTPCredential{
 					Username: "user1",
-					Password: apiv1.SecretKeySelector{
-						ObjectReference: corev1.ObjectReference{
-							Name: "secretName1",
+					Password: apiv1.SecretSource{
+						FromKubernetesSecret: &apiv1.SecretKeySelector{
+							ObjectReference: corev1.ObjectReference{
+								Name: "secretName1",
+							},
+							Key: "password",
 						},
-						Key:      "password",
-						Optional: nil,
 					},
 				},
 				SSHCredential: &apiv1.SSHCredential{
-					SSHKey: apiv1.SecretKeySelector{
-						ObjectReference: corev1.ObjectReference{
-							Name: "secretNameSSH",
+					SSHKey: apiv1.SecretSource{
+						FromKubernetesSecret: &apiv1.SecretKeySelector{
+							ObjectReference: corev1.ObjectReference{
+								Name: "secretNameSSH",
+							},
+							Key: "sshKey",
 						},
-						Key:      "sshKey",
-						Optional: nil,
 					},
 				},
+
 				TLS: &apiv1.TLS{
 					InsecureSkipVerify: true,
 				},
