@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing/storer"
@@ -17,6 +20,7 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/cespare/xxhash/v2"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -40,7 +44,7 @@ func CloneRepo(
 	gitCredentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
 	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)
 	if err != nil {
-		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
+		return nil, fmt.Errorf("error getting the clone options: %v", err)
 	}
 
 	return cloneRepo(ctx, gitSync, cloneOptions, metricServer)
@@ -177,7 +181,7 @@ func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, 
 	if err != nil {
 		return nil, err
 	}
-	return commitHash, err
+	return commitHash, nil
 }
 
 // getCommitTreeAtPath retrieves a specific tree (or subtree) located at a given path within a specific commit in a Git repository
@@ -472,4 +476,91 @@ func findFirstBranchContainingCommit(repo *git.Repository, commitHash string) (s
 	}
 
 	return firstBranchContainingCommit, nil
+}
+
+// TODO: move below related code into a separate file
+type AuthorizationHeader struct {
+	Key   string
+	Value string
+}
+
+func (h AuthorizationHeader) String() string {
+	return fmt.Sprintf("%s: %s", h.Key, h.Value)
+}
+
+func (h AuthorizationHeader) Name() string {
+	return "extraheader"
+}
+
+func (h AuthorizationHeader) SetAuth(r *http.Request) {
+	r.Header.Set(h.Key, h.Value)
+}
+
+// TODO: instead of passing cloneOptions and fetchOptions, find a way to pass a generic of either of those kinds.
+// Also, consider passing just the repo URL to use for both clone and fetch
+// instead of the specific fetchRemoteURL only for fetch.
+func addProxyOptions(cloneOptions *git.CloneOptions, fetchOptions *git.FetchOptions, fetchRemoteURL string) error {
+	// fmt.Printf("cloneOptions BEFORE: %+v\n", cloneOptions)
+	// fmt.Printf("fetchOptions BEFORE: %+v\n", fetchOptions)
+
+	// TODO: call both GlobalScope and SystemScope OR just ignore SystemScope
+	// and mention in README that the GlobalScope is the only one used.
+	cfg, err := config.LoadConfig(config.GlobalScope)
+	// cfg, err := config.LoadConfig(config.SystemScope)
+	if err != nil {
+		// TODO: instead of returning error, just show an info or warn and do not update the options
+		// because it could mean that .gitconfig was not configured to
+		// use proxy (with or without api gateway [only applies internally to Intuit])
+		return fmt.Errorf("error loading git config: %v", err)
+	}
+
+	authKey := ""
+
+	// Assumption: only focusing on HTTP requests (not SSH)
+	if cloneOptions != nil {
+		// TODO: check error and handle it appropriately
+		repoURL, _ := url.Parse(cloneOptions.URL)
+
+		insteadOf := fmt.Sprintf("%s://%s", repoURL.Scheme, repoURL.Host)
+		for k, v := range cfg.URLs {
+			if v.InsteadOf == insteadOf {
+				cloneOptions.URL = fmt.Sprintf("%s%s", k, repoURL.Path)
+
+				// TODO: check error and handle it appropriately
+				keyURL, _ := url.Parse(k)
+				authKey = fmt.Sprintf("%s://%s", keyURL.Scheme, keyURL.Host)
+				break
+			}
+		}
+	} else if fetchOptions != nil {
+		// TODO: check error and handle it appropriately
+		repoURL, _ := url.Parse(fetchRemoteURL)
+		authKey = fmt.Sprintf("%s://%s", repoURL.Scheme, repoURL.Host)
+	} else {
+		// TODO: this should not happen. Fix after making the func more generic
+		return errors.New("nor clone nor fetch")
+	}
+
+	var authzHeader AuthorizationHeader
+	if httpSection := cfg.Raw.Section("http"); httpSection != nil {
+		if subSection := httpSection.Subsection(authKey); subSection != nil {
+			if option := subSection.Option("extraheader"); strings.HasPrefix(option, "Authorization:") {
+				parts := strings.SplitN(option, ":", 2)
+				authzHeader = AuthorizationHeader{Key: parts[0], Value: parts[1]}
+			}
+		}
+	}
+
+	if cloneOptions != nil {
+		cloneOptions.Auth = authzHeader
+	}
+
+	if fetchOptions != nil {
+		fetchOptions.Auth = authzHeader
+	}
+
+	// fmt.Printf("cloneOptions AFTER: %+v\n", cloneOptions)
+	// fmt.Printf("fetchOptions AFTER: %+v\n", fetchOptions)
+
+	return nil
 }
