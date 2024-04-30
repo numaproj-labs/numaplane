@@ -153,6 +153,17 @@ func (g *Given) InitializeGitRepo(directory string) *Given {
 		log.Println(err)
 	}
 
+	if g.gitSync.Spec.TargetRevision != "master" {
+		// new branch is created always in this case
+		err = wt.Checkout(&git.CheckoutOptions{
+			Create: true,
+			Branch: plumbing.NewBranchReferenceName(g.gitSync.Spec.TargetRevision),
+		})
+		if err != nil {
+			g.t.Fatal(err)
+		}
+	}
+
 	// local/repo1.git/path
 	repoNum := TrimRepoUrl(g.gitSync.Spec.RepoUrl)
 	tmpPath := filepath.Join(localPath, repoNum, g.gitSync.Spec.Path)
@@ -198,6 +209,43 @@ func (g *Given) InitializeGitRepo(directory string) *Given {
 	g.currentCommit = hash.String()
 
 	g.t.Log("Files successfully pushed to repo")
+
+	return g
+}
+
+func (g *Given) ChangeBranch() *Given {
+
+	repoNum := TrimRepoUrl(g.gitSync.Spec.RepoUrl)
+	localPathToRepo := filepath.Join(localPath, repoNum)
+
+	// open local path to cloned git repo
+	repo, err := git.PlainOpen(localPathToRepo)
+	if err != nil {
+		g.t.Fatal(err)
+	}
+
+	// open worktree
+	wt, err := repo.Worktree()
+	if err != nil {
+		g.t.Fatal(err)
+	}
+
+	err = wt.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName(g.gitSync.Spec.TargetRevision),
+		Create: true,
+	})
+	if err != nil {
+		if err == git.ErrBranchExists {
+			err = wt.Checkout(&git.CheckoutOptions{
+				Branch: plumbing.NewBranchReferenceName(g.gitSync.Spec.TargetRevision),
+			})
+			if err != nil {
+				g.t.Fatal(err)
+			}
+		} else {
+			g.t.Fatal(err)
+		}
+	}
 
 	return g
 }
