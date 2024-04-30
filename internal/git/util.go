@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/go-git/go-git/v5/plumbing/storer"
 
@@ -22,6 +23,7 @@ import (
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
+	"github.com/numaproj-labs/numaplane/internal/metrics"
 	gitShared "github.com/numaproj-labs/numaplane/internal/util/git"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
@@ -33,6 +35,7 @@ func CloneRepo(
 	client k8sClient.Client,
 	gitSync *v1alpha1.GitSync,
 	globalConfig controllerConfig.GlobalConfig,
+	metricServer *metrics.MetricsServer,
 ) (*git.Repository, error) {
 	gitCredentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
 	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)
@@ -44,7 +47,7 @@ func CloneRepo(
 	if err != nil {
 		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
 	}
-	return cloneRepo(ctx, gitSync, cloneOptions, fetchOptions)
+	return cloneRepo(ctx, gitSync, cloneOptions, fetchOptions, metricServer)
 }
 
 // GetLatestManifests gets the latest manifests from the Git repository.
@@ -56,10 +59,11 @@ func GetLatestManifests(
 	r *git.Repository,
 	client k8sClient.Client,
 	gitSync *v1alpha1.GitSync,
+	metricServer *metrics.MetricsServer,
 ) (string, []*unstructured.Unstructured, error) {
 	numaLogger := logger.FromContext(ctx).WithValues("GitSync name", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
 
-	err := fetchUpdates(ctx, client, gitSync, r)
+	err := fetchUpdates(ctx, client, gitSync, r, metricServer)
 	if err != nil {
 		return "", nil, err
 	}
@@ -238,8 +242,9 @@ func GetCurrentBranch(r *git.Repository) (string, error) {
 // fetchUpdates fetches the remote branch and updates the local changes, returning nil if already up-to-date or an error otherwise.
 func fetchUpdates(ctx context.Context,
 	client k8sClient.Client,
-	gitSync *v1alpha1.GitSync, repo *git.Repository) error {
-
+	gitSync *v1alpha1.GitSync, repo *git.Repository,
+	metricServer *metrics.MetricsServer,
+) error {
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
 		return err
@@ -262,7 +267,13 @@ func fetchUpdates(ctx context.Context,
 		return err
 	}
 
+	startTime := time.Now()
+	defer func() {
+		metricServer.IncGitRequest()
+		metricServer.ObserveGitRequestLatency(time.Since(startTime))
+	}()
 	if err = worktree.Pull(pullOptions); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+		metricServer.IncGitRequestFailed()
 		return err
 	}
 
@@ -274,8 +285,12 @@ func cloneRepo(
 	gitSync *v1alpha1.GitSync,
 	cloneOptions *git.CloneOptions,
 	fetchOptions *git.FetchOptions,
+	metricServer *metrics.MetricsServer,
 ) (*git.Repository, error) {
 	path := getLocalRepoPath(gitSync)
+	defer func() {
+		metricServer.IncGitRequest()
+	}()
 
 	r, err := git.PlainCloneContext(ctx, path, false, cloneOptions)
 	if err != nil {

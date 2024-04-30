@@ -12,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/numaproj-labs/numaplane/internal/metrics"
 )
 
 type MockKubectl struct {
@@ -33,12 +35,17 @@ func (m *MockKubectl) DeleteResource(ctx context.Context, config *rest.Config, g
 
 func newFakeSyncer() *Syncer {
 	client := fake.NewClientBuilder().Build()
+	metric, err := metrics.NewMetricsServer()
+	if err != nil {
+		panic(err)
+	}
+
 	//stateCache := newFakeLivStateCache(t)
 	kubectl := &MockKubectl{Kubectl: &kubetest.MockKubectlCmd{}}
 	syncer := NewSyncer(
 		client,
 		&rest.Config{Host: "https://localhost:6443"},
-		&rest.Config{Host: "https://localhost:6443"},
+		metric,
 		kubectl,
 	)
 	return syncer
