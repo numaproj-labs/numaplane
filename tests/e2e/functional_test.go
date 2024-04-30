@@ -146,13 +146,15 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 
 }
 
-// GitSync self healing occurs when resource does not match manifest in repo
-func (s *FunctionalSuite) TestSelfHealing() {
+// GitSync auto healing occurs when resource does not match manifest in repo
+func (s *FunctionalSuite) TestAutoHealing() {
 
 	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
 		When().
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
+
+	w.Wait(30 * time.Second)
 
 	// verify that test deployment is created with {replicas: 3} in spec
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
@@ -166,6 +168,17 @@ func (s *FunctionalSuite) TestSelfHealing() {
 	// verify that resource has been "healed" by resetting replica count to 3
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 3)
 
+	// disable autohealing
+	w.UpdateAutoHealConfig(false).Wait(60 * time.Second)
+
+	// apply patch to resource
+	w.ModifyResource("apps/v1", "deployments", "test-deploy", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
+
+	// verify that resource has not been healed like previous
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 4)
+
+	// reenable autohealing for test cases left to run
+	w.UpdateAutoHealConfig(true)
 }
 
 // test behavior when changing the repoUrl of a GitSync
