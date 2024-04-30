@@ -437,6 +437,34 @@ metadata:
   name: numaplane-controller-config
   namespace: numaplane-system
 ---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  labels:
+    type: local
+  name: repo-pv
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 5Gi
+  hostPath:
+    path: /tmp
+  storageClassName: manual
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: repo-pvc
+  namespace: numaplane-system
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: manual
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -495,6 +523,8 @@ spec:
         volumeMounts:
         - mountPath: /etc/numaplane
           name: config-volume
+        - mountPath: /tmp
+          name: repo-volume
       initContainers: []
       serviceAccountName: numaplane-sa
       terminationGracePeriodSeconds: 10
@@ -502,3 +532,6 @@ spec:
       - configMap:
           name: numaplane-controller-config
         name: config-volume
+      - name: repo-volume
+        persistentVolumeClaim:
+          claimName: repo-pvc

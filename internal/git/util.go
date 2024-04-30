@@ -216,7 +216,7 @@ func isRootDir(path string) bool {
 func getLocalRepoPath(gitSync *v1alpha1.GitSync) string {
 	// baseDir is persistent volume path on the cluster node
 	// TODO // should we get it from config variable ?
-	baseDir := "/etc/gitrepo"
+	baseDir := "/tmp"
 	repoUrl := strconv.FormatUint(xxhash.Sum64([]byte(gitSync.Spec.RepoUrl)), 16)
 	return fmt.Sprintf("%s/%s/%s", baseDir, gitSync.Name, repoUrl)
 }
