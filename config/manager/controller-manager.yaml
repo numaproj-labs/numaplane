@@ -83,9 +83,14 @@ spec:
         volumeMounts: 
           - name: config-volume
             mountPath: /etc/numaplane
+          - name: repo-volume
+            mountPath: /etc/gitrepo
       serviceAccountName: numaplane-sa
       terminationGracePeriodSeconds: 10
       volumes:
         - name: config-volume
           configMap:
             name: numaplane-controller-config
+        - name: repo-volume
+          persistentVolumeClaim:
+            claimName: repo-pvc

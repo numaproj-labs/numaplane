@@ -4,6 +4,8 @@ kind: Kustomization
 resources:
 - controller-manager.yaml
 - controller-config.yaml
+- persistent-volume.yaml
+- persistent-volume-claim.yaml
 
 images:
 - name: quay.io/numaproj/numaplane-controller
