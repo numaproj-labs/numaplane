@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 
 	argoGit "github.com/argoproj/argo-cd/v2/util/git"
@@ -281,6 +282,11 @@ func fetchUpdates(ctx context.Context,
 	pullOptions, err := gitShared.GetRepoPullOptions(ctx, credentials, client, gitSync.Spec.RepoUrl, branch)
 	if err != nil {
 		return err
+	}
+
+	err = gitShared.UpdateOptionsWithGitConfig(config.GlobalScope, pullOptions, gitSync.Spec.RepoUrl)
+	if err != nil {
+		return fmt.Errorf("error updating pull options with git config: %v", err)
 	}
 
 	worktree, err := repo.Worktree()

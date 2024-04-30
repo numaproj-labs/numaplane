@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -19,6 +20,23 @@ import (
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
+
+type AuthorizationHeader struct {
+	Key   string
+	Value string
+}
+
+func (h AuthorizationHeader) String() string {
+	return fmt.Sprintf("%s: %s", h.Key, h.Value)
+}
+
+func (h AuthorizationHeader) Name() string {
+	return "extraheader"
+}
+
+func (h AuthorizationHeader) SetAuth(r *http.Request) {
+	r.Header.Set(h.Key, h.Value)
+}
 
 // GetAuthMethod returns an authMethod for both cloning and fetching from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
 func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (transport.AuthMethod, bool, error) {
@@ -179,7 +197,7 @@ func NormalizeGitUrl(gitUrl string) string {
 // UpdateOptionsWithGitConfig updates the given clone or fetch options object with
 // information loaded from the git config found based on the given config scope.
 // The function only takes into account HTTP URLs (not SSH).
-func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions](
+func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions | git.PullOptions](
 	scope config.Scope, options *T, repoURL string,
 ) error {
 	gitConfig, err := config.LoadConfig(scope)
@@ -214,7 +232,7 @@ func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions](
 				break
 			}
 		}
-	case git.FetchOptions:
+	case git.FetchOptions, git.PullOptions:
 		httpSubSecKey = fmt.Sprintf("%s://%s", rURL.Scheme, rURL.Host)
 	}
 
@@ -235,6 +253,8 @@ func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions](
 			any(options).(*git.CloneOptions).Auth = authzHeader
 		case git.FetchOptions:
 			any(options).(*git.FetchOptions).Auth = authzHeader
+		case git.PullOptions:
+			any(options).(*git.PullOptions).Auth = authzHeader
 		}
 	}
 
