@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -173,4 +174,71 @@ func NormalizeGitUrl(gitUrl string) string {
 	normalizedUrl := fmt.Sprintf("%s/%s", parsedUrl.Host, strings.Trim(parsedUrl.Path, "/"))
 	normalizedUrl = strings.Trim(normalizedUrl, "/")
 	return normalizedUrl
+}
+
+// UpdateOptionsWithGitConfig updates the given clone or fetch options object with
+// information loaded from the git config found based on the given config scope.
+// The function only takes into account HTTP URLs (not SSH).
+func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions](
+	scope config.Scope, options *T, repoURL string,
+) error {
+	gitConfig, err := config.LoadConfig(scope)
+	if err != nil {
+		return fmt.Errorf("error loading git config: %v", err)
+	}
+
+	// Check if LoadConfig resulted in an empty/new config (maybe because the git config file was not setup)
+	if len(gitConfig.URLs) == 0 && gitConfig.Raw == nil {
+		return nil
+	}
+
+	httpSubSecKey := ""
+
+	rURL, err := url.Parse(repoURL)
+	if err != nil {
+		return fmt.Errorf("error parsing repo URL '%s': %v", repoURL, err)
+	}
+
+	switch any(*options).(type) {
+	case git.CleanOptions:
+		{
+			insteadOf := fmt.Sprintf("%s://%s", rURL.Scheme, rURL.Host)
+			for k, v := range gitConfig.URLs {
+				if v.InsteadOf == insteadOf {
+					keyURL, err := url.Parse(k)
+					if err != nil {
+						return fmt.Errorf("invalid URL '%s' in git config: %v", k, err)
+					}
+
+					any(*options).(*git.CloneOptions).URL = fmt.Sprintf("%s%s", k, rURL.Path)
+					httpSubSecKey = fmt.Sprintf("%s://%s", keyURL.Scheme, keyURL.Host)
+					break
+				}
+			}
+		}
+	case git.FetchOptions:
+		httpSubSecKey = fmt.Sprintf("%s://%s", rURL.Scheme, rURL.Host)
+	}
+
+	var authzHeader *AuthorizationHeader
+	if httpSection := gitConfig.Raw.Section("http"); httpSection != nil {
+		if subSection := httpSection.Subsection(httpSubSecKey); subSection != nil {
+			if option := subSection.Option("extraheader"); strings.HasPrefix(option, "Authorization:") {
+				if before, after, found := strings.Cut(option, ":"); found {
+					authzHeader = &AuthorizationHeader{Key: before, Value: after}
+				}
+			}
+		}
+	}
+
+	if authzHeader != nil {
+		switch any(*options).(type) {
+		case git.CleanOptions:
+			any(*options).(*git.CloneOptions).Auth = authzHeader
+		case git.FetchOptions:
+			any(*options).(*git.FetchOptions).Auth = authzHeader
+		}
+	}
+
+	return nil
 }
