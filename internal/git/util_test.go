@@ -27,6 +27,7 @@ import (
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/numaproj-labs/numaplane/internal/metrics"
 	gitshared "github.com/numaproj-labs/numaplane/internal/util/git"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
@@ -36,6 +37,7 @@ const (
 )
 
 var pool *dockertest.Pool
+var metric *metrics.MetricsServer
 
 // TestMain configures the testing environment by initializing a Docker container that serves as a local git server.
 // This function handles the connection to Docker, initiates the specified container if it's not currently active,
@@ -58,6 +60,8 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Could not connect to Docker; is it running? %s", err)
 	}
 	pool = p
+
+	metric, _ = metrics.NewMetricsServer()
 
 	relativePath := "../../tests/e2e-gitserver"
 	absolutePath, err := filepath.Abs(relativePath)
@@ -190,7 +194,7 @@ func Test_cloneRepo(t *testing.T) {
 				RefSpecs: []config.RefSpec{"refs/*:refs/*"},
 				Force:    true,
 			}
-			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, cloneOptions, fetchOptions)
+			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, cloneOptions, fetchOptions, metric)
 			assert.NoError(t, cloneErr)
 			if tc.hasErr {
 				assert.NotNil(t, err)
@@ -304,7 +308,7 @@ func Test_GetLatestManifests(t *testing.T) {
 					GitSource: v1alpha1.GitSource{
 						GitLocation: v1alpha1.GitLocation{
 							RepoUrl:        "https://github.com/numaproj-labs/numaplane.git",
-							TargetRevision: "controlledTestsPathEn",
+							TargetRevision: "main",
 							Path:           "tests/manifests/namespace-install",
 						},
 						Kustomize: &v1alpha1.KustomizeSource{},
@@ -352,14 +356,14 @@ func Test_GetLatestManifests(t *testing.T) {
 				RefSpecs: []config.RefSpec{"refs/*:refs/*"},
 				Force:    true,
 			}
-			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, cloneOptions, fetchOptions)
+			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, cloneOptions, fetchOptions, metric)
 			assert.Nil(t, cloneErr)
 
 			// To break the continuous check of repo update, added the context timeout.
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 
-			_, _, err = GetLatestManifests(ctx, r, nil, tc.gitSync)
+			_, _, err = GetLatestManifests(ctx, r, nil, tc.gitSync, metric)
 			if tc.hasErr {
 				assert.NotNil(t, err)
 			} else {
@@ -458,7 +462,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
 		Force:    true,
 	}
-	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions)
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
@@ -493,7 +497,7 @@ func TestGitCloneRepoSshLocalGitServerFileCredential(t *testing.T) {
 		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
 		Force:    true,
 	}
-	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions)
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
@@ -539,7 +543,7 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
 		Force:    true,
 	}
-	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions)
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
@@ -589,7 +593,7 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
 		Force:    true,
 	}
-	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions)
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git

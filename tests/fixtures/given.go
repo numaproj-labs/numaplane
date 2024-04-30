@@ -25,9 +25,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -43,6 +45,11 @@ var (
 	auth = &http.BasicAuth{
 		Username: "root",
 		Password: "root",
+	}
+	author = &object.Signature{
+		Name:  "e2e-test",
+		Email: "e2e@test.com",
+		When:  time.Now(),
 	}
 	// localGitUrl is set for local development/testing,
 	// the GitSync controller uses a different URL configured in GitSync yaml.
@@ -172,7 +179,7 @@ func (g *Given) InitializeGitRepo(directory string) *Given {
 		g.t.Fatal(err)
 	}
 
-	hash, err := wt.Commit("Initial commit", &git.CommitOptions{})
+	hash, err := wt.Commit("Initial commit", &git.CommitOptions{Author: author})
 	if err != nil {
 		g.t.Fatal(err)
 	}

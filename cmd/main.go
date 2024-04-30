@@ -29,6 +29,7 @@ import (
 
 	"github.com/numaproj-labs/numaplane/internal/controller"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
+	"github.com/numaproj-labs/numaplane/internal/metrics"
 	"github.com/numaproj-labs/numaplane/internal/sync"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
@@ -99,11 +100,15 @@ func main() {
 	numaLogger.SetLevel(config.LogLevel)
 
 	interval := config.SyncTimeIntervalMs
+	metricServer, err := metrics.NewMetricsServer()
+	if err != nil {
+		numaLogger.Fatal(err, "Failed to initialize metric")
+	}
 	kubectl := kubernetes.NewKubectl()
 	syncer := sync.NewSyncer(
 		mgr.GetClient(),
 		mgr.GetConfig(),
-		mgr.GetConfig(),
+		metricServer,
 		kubectl,
 		sync.WithTaskInterval(interval))
 	// Add syncer runner

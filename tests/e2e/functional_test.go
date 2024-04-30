@@ -88,6 +88,12 @@ func (s *FunctionalSuite) TestNumaflowGitSync() {
 	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"http-pipeline"})
 	w.Expect().CheckCommitStatus()
 
+	// Remove Pipeline and ISBService
+	w.PushToGitRepo("numaflow/initial-commit", []string{"sample_pipeline.yaml", "isbsvc_jetstream.yaml"}, true).Wait(30 * time.Second)
+	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
+	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "interstepbufferservices", []string{"default"})
+	w.Expect().CheckCommitStatus()
+
 }
 
 // GitSync testing with basic k8s objects
@@ -99,6 +105,7 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 	defer w.DeleteGitSyncAndWait()
 
 	// verify basics resources are created
+	w.Wait(30 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
@@ -139,13 +146,15 @@ func (s *FunctionalSuite) TestBasicGitSync() {
 
 }
 
-// GitSync self healing occurs when resource does not match manifest in repo
-func (s *FunctionalSuite) TestSelfHealing() {
+// GitSync auto healing occurs when resource does not match manifest in repo
+func (s *FunctionalSuite) TestAutoHealing() {
 
 	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
 		When().
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
+
+	w.Wait(30 * time.Second)
 
 	// verify that test deployment is created with {replicas: 3} in spec
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
@@ -159,6 +168,17 @@ func (s *FunctionalSuite) TestSelfHealing() {
 	// verify that resource has been "healed" by resetting replica count to 3
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 3)
 
+	// disable autohealing
+	w.UpdateAutoHealConfig(false).Wait(60 * time.Second)
+
+	// apply patch to resource
+	w.ModifyResource("apps/v1", "deployments", "test-deploy", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
+
+	// verify that resource has not been healed like previous
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 4)
+
+	// reenable autohealing for test cases left to run
+	w.UpdateAutoHealConfig(true)
 }
 
 // test behavior when changing the repoUrl of a GitSync
