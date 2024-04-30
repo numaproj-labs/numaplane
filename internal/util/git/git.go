@@ -132,7 +132,7 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, ku
 // GetRepoPullOptions creates git.PullOptions for pull updates from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
 func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string, refName string) (*git.PullOptions, error) {
 	// check to ensure proper repository url is passed
-	_, err := transport.NewEndpoint(repoUrl)
+	remoteURL, err := transport.NewEndpoint(repoUrl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid repository URL: %w", err)
 	}
@@ -146,6 +146,7 @@ func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kub
 		InsecureSkipTLS: skipTls,
 		RemoteName:      "origin",
 		ReferenceName:   plumbing.NewBranchReferenceName(refName),
+		RemoteURL:       remoteURL.String(),
 	}, nil
 }
 
@@ -157,6 +158,10 @@ func GetRepoFetchOptions(
 	kubeClient k8sClient.Client,
 	repoUrl string,
 ) (*git.FetchOptions, error) {
+	remoteURL, err := transport.NewEndpoint(repoUrl)
+	if err != nil {
+		return nil, fmt.Errorf("invalid repository URL: %w", err)
+	}
 
 	method, skipTls, err := GetAuthMethod(ctx, repoCred, kubeClient, repoUrl)
 	if err != nil {
@@ -168,6 +173,7 @@ func GetRepoFetchOptions(
 		Force:           true,
 		Auth:            method,
 		InsecureSkipTLS: skipTls,
+		RemoteURL:       remoteURL.String(),
 	}, nil
 }
 
@@ -198,7 +204,7 @@ func NormalizeGitUrl(gitUrl string) string {
 // information loaded from the git config found based on the given config scope.
 // The function only takes into account HTTP URLs (not SSH).
 func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions | git.PullOptions](
-	scope config.Scope, options *T, repoURL string,
+	scope config.Scope, options *T,
 ) error {
 	gitConfig, err := config.LoadConfig(scope)
 	if err != nil {
@@ -210,32 +216,41 @@ func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions | git.Pull
 		return nil
 	}
 
-	httpSubSecKey := ""
+	// Extract repo URL from options URL or RemoteURL
+	repoURL := ""
+	switch any(*options).(type) {
+	case git.CloneOptions:
+		repoURL = any(options).(*git.CloneOptions).URL
+	case git.FetchOptions:
+		repoURL = any(options).(*git.FetchOptions).RemoteURL
+	case git.PullOptions:
+		repoURL = any(options).(*git.PullOptions).RemoteURL
+	}
 
+	// Parse repo URL
 	rURL, err := url.Parse(repoURL)
 	if err != nil {
 		return fmt.Errorf("error parsing repo URL '%s': %v", repoURL, err)
 	}
 
-	switch any(*options).(type) {
-	case git.CloneOptions:
-		insteadOf := fmt.Sprintf("%s://%s", rURL.Scheme, rURL.Host)
-		for k, v := range gitConfig.URLs {
-			if v.InsteadOf == insteadOf {
-				keyURL, err := url.Parse(k)
-				if err != nil {
-					return fmt.Errorf("invalid URL '%s' in git config: %v", k, err)
-				}
-
-				any(options).(*git.CloneOptions).URL = fmt.Sprintf("%s%s", k, rURL.Path)
-				httpSubSecKey = fmt.Sprintf("%s://%s", keyURL.Scheme, keyURL.Host)
-				break
+	// Find URL mapping (if any)
+	newURL := repoURL
+	httpSubSecKey := ""
+	insteadOf := fmt.Sprintf("%s://%s", rURL.Scheme, rURL.Host)
+	for k, v := range gitConfig.URLs {
+		if v.InsteadOf == insteadOf {
+			keyURL, err := url.Parse(k)
+			if err != nil {
+				return fmt.Errorf("invalid URL '%s' in git config: %v", k, err)
 			}
+
+			newURL = fmt.Sprintf("%s%s", k, rURL.Path)
+			httpSubSecKey = fmt.Sprintf("%s://%s", keyURL.Scheme, keyURL.Host)
+			break
 		}
-	case git.FetchOptions, git.PullOptions:
-		httpSubSecKey = fmt.Sprintf("%s://%s", rURL.Scheme, rURL.Host)
 	}
 
+	// Find authZ header (if any)
 	var authzHeader *AuthorizationHeader
 	if httpSection := gitConfig.Raw.Section("http"); httpSection != nil {
 		if subSection := httpSection.Subsection(httpSubSecKey); subSection != nil {
@@ -247,13 +262,21 @@ func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions | git.Pull
 		}
 	}
 
-	if authzHeader != nil {
-		switch any(*options).(type) {
-		case git.CloneOptions:
+	// Apply new URL and authZ header
+	switch any(*options).(type) {
+	case git.CloneOptions:
+		any(options).(*git.CloneOptions).URL = newURL
+		if authzHeader != nil {
 			any(options).(*git.CloneOptions).Auth = authzHeader
-		case git.FetchOptions:
+		}
+	case git.FetchOptions:
+		any(options).(*git.FetchOptions).RemoteURL = newURL
+		if authzHeader != nil {
 			any(options).(*git.FetchOptions).Auth = authzHeader
-		case git.PullOptions:
+		}
+	case git.PullOptions:
+		any(options).(*git.PullOptions).RemoteURL = newURL
+		if authzHeader != nil {
 			any(options).(*git.PullOptions).Auth = authzHeader
 		}
 	}

@@ -284,7 +284,7 @@ func fetchUpdates(ctx context.Context,
 		return err
 	}
 
-	err = gitShared.UpdateOptionsWithGitConfig(config.GlobalScope, pullOptions, gitSync.Spec.RepoUrl)
+	err = gitShared.UpdateOptionsWithGitConfig(config.GlobalScope, pullOptions)
 	if err != nil {
 		return fmt.Errorf("error updating pull options with git config: %v", err)
 	}
