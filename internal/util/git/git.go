@@ -200,20 +200,18 @@ func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions](
 	}
 
 	switch any(*options).(type) {
-	case git.CleanOptions:
-		{
-			insteadOf := fmt.Sprintf("%s://%s", rURL.Scheme, rURL.Host)
-			for k, v := range gitConfig.URLs {
-				if v.InsteadOf == insteadOf {
-					keyURL, err := url.Parse(k)
-					if err != nil {
-						return fmt.Errorf("invalid URL '%s' in git config: %v", k, err)
-					}
-
-					any(*options).(*git.CloneOptions).URL = fmt.Sprintf("%s%s", k, rURL.Path)
-					httpSubSecKey = fmt.Sprintf("%s://%s", keyURL.Scheme, keyURL.Host)
-					break
+	case git.CloneOptions:
+		insteadOf := fmt.Sprintf("%s://%s", rURL.Scheme, rURL.Host)
+		for k, v := range gitConfig.URLs {
+			if v.InsteadOf == insteadOf {
+				keyURL, err := url.Parse(k)
+				if err != nil {
+					return fmt.Errorf("invalid URL '%s' in git config: %v", k, err)
 				}
+
+				any(options).(*git.CloneOptions).URL = fmt.Sprintf("%s%s", k, rURL.Path)
+				httpSubSecKey = fmt.Sprintf("%s://%s", keyURL.Scheme, keyURL.Host)
+				break
 			}
 		}
 	case git.FetchOptions:
@@ -233,10 +231,10 @@ func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions](
 
 	if authzHeader != nil {
 		switch any(*options).(type) {
-		case git.CleanOptions:
-			any(*options).(*git.CloneOptions).Auth = authzHeader
+		case git.CloneOptions:
+			any(options).(*git.CloneOptions).Auth = authzHeader
 		case git.FetchOptions:
-			any(*options).(*git.FetchOptions).Auth = authzHeader
+			any(options).(*git.FetchOptions).Auth = authzHeader
 		}
 	}
 
