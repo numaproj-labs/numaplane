@@ -153,7 +153,9 @@ func (s *Syncer) Start(ctx context.Context) error {
 		e := s.gitSyncList.Front()
 		if key, ok := e.Value.(string); ok {
 			s.gitSyncList.MoveToBack(e)
+			startTime := time.Now()
 			keyCh <- key
+			s.metricsServer.ObserveWorkerQueueSyncWaitTime(time.Since(startTime))
 		}
 	}
 

@@ -12,18 +12,19 @@ import (
 )
 
 type MetricsServer struct {
-	syncCounter               *prometheus.CounterVec
-	gitSyncUpdateErrorCounter *prometheus.CounterVec
-	reconcileHistogram        *prometheus.HistogramVec
-	kubeRequestCounter        *prometheus.CounterVec
-	kubectlExecCounter        *prometheus.CounterVec
-	gitRequestCounter         *prometheus.CounterVec
-	gitRequestFailedCounter   *prometheus.CounterVec
-	gitRequestLatency         *prometheus.HistogramVec
-	monitoredKubeAPI          *prometheus.GaugeVec
-	kubeCachedResource        *prometheus.GaugeVec
-	kubeCacheFailed           *prometheus.CounterVec
-	hostname                  string
+	syncCounter                    *prometheus.CounterVec
+	workQueueSyncWaitTimeHistogram *prometheus.HistogramVec
+	gitSyncUpdateErrorCounter      *prometheus.CounterVec
+	reconcileHistogram             *prometheus.HistogramVec
+	kubeRequestCounter             *prometheus.CounterVec
+	kubectlExecCounter             *prometheus.CounterVec
+	gitRequestCounter              *prometheus.CounterVec
+	gitRequestFailedCounter        *prometheus.CounterVec
+	gitRequestLatency              *prometheus.HistogramVec
+	monitoredKubeAPI               *prometheus.GaugeVec
+	kubeCachedResource             *prometheus.GaugeVec
+	kubeCacheFailed                *prometheus.CounterVec
+	hostname                       string
 }
 
 var (
@@ -34,6 +35,15 @@ var (
 			Help: "Number of GitSync syncs.",
 		},
 		append(descAppDefaultLabels, "dest_namespace", "dest_cluster", "phase"),
+	)
+
+	workQueueSyncWaiTime = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "numaplane_workqueue_sync_wait_time_millisecond",
+			Help:    "Work queue sync wait time for reconcile",
+			Buckets: []float64{1, 2, 3, 4, 5},
+		},
+		[]string{},
 	)
 
 	gitSyncUpdateErrorCounter = prometheus.NewCounterVec(
@@ -106,6 +116,7 @@ func NewMetricsServer() (*MetricsServer, error) {
 	}
 	// Register custom metrics with the global prometheus registry
 	metrics.Registry.MustRegister(syncCounter)
+	metrics.Registry.MustRegister(workQueueSyncWaiTime)
 	metrics.Registry.MustRegister(gitSyncUpdateErrorCounter)
 	metrics.Registry.MustRegister(reconcileHistogram)
 	metrics.Registry.MustRegister(kubeRequestCounter)
@@ -118,18 +129,19 @@ func NewMetricsServer() (*MetricsServer, error) {
 	metrics.Registry.MustRegister(kubeCacheFailed)
 
 	return &MetricsServer{
-		syncCounter:               syncCounter,
-		gitSyncUpdateErrorCounter: gitSyncUpdateErrorCounter,
-		reconcileHistogram:        reconcileHistogram,
-		kubeRequestCounter:        kubeRequestCounter,
-		kubectlExecCounter:        kubectlExecCounter,
-		gitRequestCounter:         gitRequestCounter,
-		gitRequestFailedCounter:   gitRequestFailedCounter,
-		gitRequestLatency:         gitRequestLatency,
-		monitoredKubeAPI:          monitoredKubeAPI,
-		kubeCachedResource:        kubeCachedResource,
-		kubeCacheFailed:           kubeCacheFailed,
-		hostname:                  hostname,
+		syncCounter:                    syncCounter,
+		workQueueSyncWaitTimeHistogram: workQueueSyncWaiTime,
+		gitSyncUpdateErrorCounter:      gitSyncUpdateErrorCounter,
+		reconcileHistogram:             reconcileHistogram,
+		kubeRequestCounter:             kubeRequestCounter,
+		kubectlExecCounter:             kubectlExecCounter,
+		gitRequestCounter:              gitRequestCounter,
+		gitRequestFailedCounter:        gitRequestFailedCounter,
+		gitRequestLatency:              gitRequestLatency,
+		monitoredKubeAPI:               monitoredKubeAPI,
+		kubeCachedResource:             kubeCachedResource,
+		kubeCacheFailed:                kubeCacheFailed,
+		hostname:                       hostname,
 	}, nil
 }
 
@@ -139,6 +151,11 @@ func (m *MetricsServer) IncSync(gitSync *v1alpha1.GitSync, state gitopsSyncCommo
 		return
 	}
 	m.syncCounter.WithLabelValues(gitSync.Name, gitSync.Namespace, gitSync.Spec.Destination.Namespace, gitSync.Spec.Destination.Cluster, string(state)).Inc()
+}
+
+// ObserveWorkerQueueSyncWaitTime increments the sync counter for an application
+func (m *MetricsServer) ObserveWorkerQueueSyncWaitTime(duration time.Duration) {
+	m.workQueueSyncWaitTimeHistogram.WithLabelValues().Observe(float64(duration.Milliseconds()))
 }
 
 // InGitSyncUpdateError increments the sync counter for git sync status update failure
