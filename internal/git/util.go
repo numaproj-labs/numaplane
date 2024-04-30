@@ -214,13 +214,11 @@ func isRootDir(path string) bool {
 // by default it will use /tmp as base directory
 // unless LOCAL_REPO_PATH env is set.
 func getLocalRepoPath(gitSync *v1alpha1.GitSync) string {
-	baseDir := os.Getenv("LOCAL_REPO_PATH")
+	// baseDir is persistent volume path on the cluster node
+	// TODO // should we get it from config variable ?
+	baseDir := "/etc/gitrepo"
 	repoUrl := strconv.FormatUint(xxhash.Sum64([]byte(gitSync.Spec.RepoUrl)), 16)
-	if baseDir != "" {
-		return fmt.Sprintf("%s/%s/%s", baseDir, gitSync.Name, repoUrl)
-	} else {
-		return fmt.Sprintf("/tmp/%s/%s", gitSync.Name, repoUrl)
-	}
+	return fmt.Sprintf("%s/%s/%s", baseDir, gitSync.Name, repoUrl)
 }
 
 func GetCurrentBranch(r *git.Repository) (string, error) {
