@@ -44,7 +44,12 @@ func CloneRepo(
 		return nil, fmt.Errorf("error getting the clone options: %v", err)
 	}
 
-	err = gitShared.UpdateOptionsWithGitConfig(config.GlobalScope, cloneOptions)
+	gitConfig, err := config.LoadConfig(config.GlobalScope)
+	if err != nil {
+		return nil, fmt.Errorf("error loading git config: %v", err)
+	}
+
+	err = gitShared.UpdateOptionsWithGitConfig(gitConfig, cloneOptions)
 	if err != nil {
 		return nil, fmt.Errorf("error updating clone options with git config: %v", err)
 	}
@@ -289,7 +294,12 @@ func fetchUpdates(ctx context.Context,
 		return err
 	}
 
-	err = gitShared.UpdateOptionsWithGitConfig(config.GlobalScope, pullOptions)
+	gitConfig, err := config.LoadConfig(config.GlobalScope)
+	if err != nil {
+		return fmt.Errorf("error loading git config: %v", err)
+	}
+
+	err = gitShared.UpdateOptionsWithGitConfig(gitConfig, pullOptions)
 	if err != nil {
 		return fmt.Errorf("error updating pull options with git config: %v", err)
 	}

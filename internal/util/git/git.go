@@ -200,18 +200,21 @@ func NormalizeGitUrl(gitUrl string) string {
 	return normalizedUrl
 }
 
-// UpdateOptionsWithGitConfig updates the given clone or fetch options object with
-// information loaded from the git config found based on the given config scope.
+// UpdateOptionsWithGitConfig updates the given git options object with
+// information coming from the git config provided.
 // The function only takes into account HTTP URLs (not SSH).
 func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions | git.PullOptions](
-	scope config.Scope, options *T,
+	gitConfig *config.Config, options *T,
 ) error {
-	gitConfig, err := config.LoadConfig(scope)
-	if err != nil {
-		return fmt.Errorf("error loading git config: %v", err)
+	if options == nil {
+		return nil
 	}
 
-	// Check if LoadConfig resulted in an empty/new config (maybe because the git config file was not setup)
+	if gitConfig == nil {
+		return nil
+	}
+
+	// If the gitConfig does not include the fields of interest, do not make changes to the options
 	if len(gitConfig.URLs) == 0 && gitConfig.Raw == nil {
 		return nil
 	}

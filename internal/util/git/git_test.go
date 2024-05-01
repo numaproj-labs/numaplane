@@ -2,9 +2,13 @@ package git
 
 import (
 	"context"
+	"errors"
 	"log"
 	"testing"
 
+	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	gitHttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -369,4 +373,115 @@ func TestHTTPAuthMethodFile(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "someuser", basicAuth.Username)
 	assert.Equal(t, "my-password", basicAuth.Password)
+}
+
+// NOTE: FetchOptions and PullOptions would be tested similarly except that the URL field would be RemoteURL instead.
+func TestUpdateOptionsWithGitConfigForCloneOptions(t *testing.T) {
+	testCases := []struct {
+		name              string
+		gitConfigFilePath string
+		inputOptions      *git.CloneOptions
+		expectedError     error
+		expectedOptions   *git.CloneOptions
+	}{
+		{
+			name:              "Valid case mapping 1",
+			gitConfigFilePath: "./testdata/gitconfig/gitconfig-valid",
+			inputOptions: &git.CloneOptions{
+				URL: "https://github.mock-1.com/orgname/reponame",
+			},
+			expectedError: nil,
+			expectedOptions: &git.CloneOptions{
+				URL: "https://proxy-1.com/v1/proxy/orgname/reponame",
+				Auth: &AuthorizationHeader{
+					Key:   "Authorization",
+					Value: " token-proxy-1",
+				},
+			},
+		},
+		{
+			name:              "Valid case mapping 2",
+			gitConfigFilePath: "./testdata/gitconfig/gitconfig-valid",
+			inputOptions: &git.CloneOptions{
+				URL: "https://github.mock-2.com/orgname/reponame",
+			},
+			expectedError: nil,
+			expectedOptions: &git.CloneOptions{
+				URL: "https://proxy-2.com/v1/proxy/orgname/reponame",
+				Auth: &AuthorizationHeader{
+					Key:   "Authorization",
+					Value: " token-proxy-2",
+				},
+			},
+		},
+		{
+			name:              "No URL mappings nor HTTP config in gitconfig",
+			gitConfigFilePath: "./testdata/gitconfig/gitconfig-nourlauth",
+			inputOptions: &git.CloneOptions{
+				URL: "https://github.mock-1.com/orgname/reponame",
+			},
+			expectedError: nil,
+			expectedOptions: &git.CloneOptions{
+				URL:  "https://github.mock-1.com/orgname/reponame",
+				Auth: nil,
+			},
+		},
+		{
+			name:              "Invalid input URL",
+			gitConfigFilePath: "./testdata/gitconfig/gitconfig-valid",
+			inputOptions: &git.CloneOptions{
+				URL: " htp:/invalidurl",
+			},
+			expectedError:   errors.New("error parsing repo URL ' htp:/invalidurl': parse \" htp:/invalidurl\": first path segment in URL cannot contain colon"),
+			expectedOptions: nil,
+		},
+		{
+			name:              "URL mapping but no HTTP config in gitconfig",
+			gitConfigFilePath: "./testdata/gitconfig/gitconfig-urlonly",
+			inputOptions: &git.CloneOptions{
+				URL:  "https://github.mock-1.com/orgname/reponame",
+				Auth: &gitHttp.BasicAuth{Username: "user", Password: "pw"},
+			},
+			expectedError: nil,
+			expectedOptions: &git.CloneOptions{
+				URL:  "https://proxy-1.com/v1/proxy/orgname/reponame",
+				Auth: &gitHttp.BasicAuth{Username: "user", Password: "pw"},
+			},
+		},
+		{
+			name:              "No input options",
+			gitConfigFilePath: "./testdata/gitconfig/gitconfig-valid",
+			inputOptions:      nil,
+			expectedError:     nil,
+			expectedOptions:   nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Read test case config file
+			file, err := osfs.Default.Open(tc.gitConfigFilePath)
+			if err != nil {
+				t.Errorf("error opening gitconfig file '%s': %v", tc.gitConfigFilePath, err)
+			}
+			defer file.Close()
+
+			gitConfig, err := config.ReadConfig(file)
+			if err != nil {
+				t.Errorf("error reading gitconfig file '%s': %v", tc.gitConfigFilePath, err)
+			}
+
+			err = UpdateOptionsWithGitConfig(gitConfig, tc.inputOptions)
+
+			// Assert error if error is expected or assert URL and Auth fields if no error is expected
+			if tc.expectedError != nil {
+				assert.ErrorContains(t, err, tc.expectedError.Error())
+			} else {
+				if tc.inputOptions != nil {
+					assert.Equal(t, tc.expectedOptions.URL, tc.inputOptions.URL)
+					assert.Equal(t, tc.expectedOptions.Auth, tc.inputOptions.Auth)
+				}
+			}
+		})
+	}
 }
