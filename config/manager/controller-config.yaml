@@ -6,7 +6,6 @@ metadata:
 data:
   config.yaml: |
     syncTimeIntervalMs: 30000
-    autoHealEnabled: true
     includedResources: "group=apps,kind=Deployment;\
     group=,kind=ConfigMap;group=,kind=Secret;group=,kind=ServiceAccount;\
     group=numaflow.numaproj.io,kind=;\

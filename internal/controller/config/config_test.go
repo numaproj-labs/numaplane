@@ -31,7 +31,8 @@ func TestLoadConfigMatchValues(t *testing.T) {
 
 	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
 	assert.Equal(t, 30000, config.SyncTimeIntervalMs, "SyncTimeIntervalMs does not match")
-	assert.Equal(t, true, config.AutoHealEnabled, "AutoHealEnabled does not match")
+	assert.Equal(t, false, config.AutoHealDisabled, "AutoHealDisabled does not match")
+	assert.Equal(t, false, config.AutomatedSyncDisabled, "AutomatedSyncDisabled does not match")
 	assert.Equal(t, false, config.CascadeDeletion, "CascadeDeletion Field does not match")
 	assert.Equal(t, "group=apps,kind=Deployment;"+
 		"group=,kind=ConfigMap;group=,kind=Secret;group=,kind=ServiceAccount;group=,kind=Namespace;"+
