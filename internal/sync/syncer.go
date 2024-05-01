@@ -213,7 +213,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	}
 
 	numaLogger.SetLevel(globalConfig.LogLevel)
-	numaLogger.Debugf("New log level=%d\n", globalConfig.LogLevel)
+	numaLogger.Infof("New log level=%d\n", globalConfig.LogLevel)
 	ctx = logger.WithLogger(ctx, numaLogger)
 
 	// startTime used for calculating metrics

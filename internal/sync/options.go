@@ -11,7 +11,7 @@ type Option func(*options)
 
 func defaultOptions() *options {
 	return &options{
-		workers:      1, //20,
+		workers:      20,
 		taskInterval: 30000,
 	}
 }

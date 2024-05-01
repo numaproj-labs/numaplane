@@ -58,9 +58,7 @@ var logrVerbosityToZerologLevelMap = map[int]zerolog.Level{
 	VerboseLevel: -2,
 }
 
-var (
-	loggerKey = "logger"
-)
+type loggerKey struct{}
 
 // NumaLogger is the struct containing a pointer to a logr.Logger instance.
 type NumaLogger struct {
@@ -128,13 +126,13 @@ func newNumaLogger(writer *io.Writer, level *int) *NumaLogger {
 // WithLogger returns a copy of parent context in which the
 // value associated with logger key is the supplied logger.
 func WithLogger(ctx context.Context, logger *NumaLogger) context.Context {
-	return context.WithValue(ctx, loggerKey, logger)
+	return context.WithValue(ctx, loggerKey{}, logger)
 }
 
 // FromContext returns the logger in the context.
 // If there is no logger in context, a new one is created.
 func FromContext(ctx context.Context) *NumaLogger {
-	if logger, ok := ctx.Value(loggerKey).(*NumaLogger); ok {
+	if logger, ok := ctx.Value(loggerKey{}).(*NumaLogger); ok {
 		//fmt.Printf("deletethis: found logger.LogrLogger: %+v\n", logger.LogrLogger)
 		return logger
 	}
