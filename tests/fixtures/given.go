@@ -215,6 +215,8 @@ func (g *Given) InitializeGitRepo(directory string) *Given {
 
 func (g *Given) ChangeBranch() *Given {
 
+	g.t.Log("Checking out different branch..")
+
 	repoNum := TrimRepoUrl(g.gitSync.Spec.RepoUrl)
 	localPathToRepo := filepath.Join(localPath, repoNum)
 
@@ -232,12 +234,12 @@ func (g *Given) ChangeBranch() *Given {
 
 	err = wt.Checkout(&git.CheckoutOptions{
 		Branch: plumbing.NewBranchReferenceName(g.gitSync.Spec.TargetRevision),
-		Create: true,
 	})
 	if err != nil {
-		if err == git.ErrBranchExists {
+		if strings.Contains(err.Error(), "reference not found") {
 			err = wt.Checkout(&git.CheckoutOptions{
 				Branch: plumbing.NewBranchReferenceName(g.gitSync.Spec.TargetRevision),
+				Create: true,
 			})
 			if err != nil {
 				g.t.Fatal(err)
@@ -246,6 +248,8 @@ func (g *Given) ChangeBranch() *Given {
 			g.t.Fatal(err)
 		}
 	}
+
+	g.t.Logf("Successfully checked out branch %s", g.gitSync.Spec.TargetRevision)
 
 	return g
 }

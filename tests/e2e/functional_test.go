@@ -281,6 +281,7 @@ func (s *FunctionalSuite) TestHelm() {
 
 }
 
+// test behavior when changing targetRevision of existing GitSync
 func (s *FunctionalSuite) TestNonMainBranch() {
 
 	// start at master branch
@@ -306,10 +307,23 @@ func (s *FunctionalSuite) TestNonMainBranch() {
 
 	w.Wait(30 * time.Second)
 
-	// update deployment manifest with {replicas: 5}
+	// update deployment manifest with {replicas: 5} on test branch
 	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(30 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().CheckCommitStatus()
+
+	// verify change has occurred
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 5)
+
+	// switch back to master branch
+	w = s.Given().GitSync("@testdata/gitsync.yaml").ChangeBranch().
+		When().
+		UpdateGitSyncAndWait()
+
+	w.Wait(30 * time.Second)
+
+	// verify that resource has been healed back to the master branch state
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 3)
 
 }
 
