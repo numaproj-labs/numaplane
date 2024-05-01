@@ -1,0 +1,4 @@
+[url "https://proxy-1.com/v1/proxy"]
+  insteadOf = https://github.mock-1.com
+[url "https://proxy-2.com/v1/proxy"]
+  insteadOf = https://github.mock-2.com
