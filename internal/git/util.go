@@ -39,7 +39,6 @@ func CloneRepo(
 ) (*git.Repository, error) {
 	numaLogger := logger.FromContext(ctx).WithValues("GitSync name", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
 	gitCredentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
-	fmt.Printf("deletethis: git credentials associated with URL=%+v\n", gitCredentials)
 	numaLogger.Debugf("git credentials associated with URL=%+v", gitCredentials)
 
 	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)

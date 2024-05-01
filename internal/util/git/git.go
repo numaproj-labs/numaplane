@@ -41,7 +41,6 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 		case "http", "https":
 			if cred := repoCred.HTTPCredential; cred != nil {
 				numaLogger.Debugf("using HTTP credential: %+v", repoCred.HTTPCredential)
-				fmt.Printf("deletethis: using HTTP credential: %+v\n", repoCred.HTTPCredential)
 				password, err := getSecretValue(ctx, kubeClient, cred.Password)
 				if err != nil {
 					return nil, false, fmt.Errorf("failed to get HTTP credential: %w", err)
@@ -56,7 +55,6 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 		case "ssh":
 			if cred := repoCred.SSHCredential; cred != nil {
 				numaLogger.Debugf("using SSH credential: %+v", repoCred.SSHCredential)
-				fmt.Printf("deletethis: using SSH credential: %+v\n", repoCred.SSHCredential)
 				sshKey, err := getSecretValue(ctx, kubeClient, cred.SSHKey)
 				if err != nil {
 					return nil, false, fmt.Errorf("Failed to get SSH credential: %w", err)
@@ -90,14 +88,12 @@ func getSecretValue(ctx context.Context, kubeClient k8sClient.Client, secretSour
 			return "", fmt.Errorf("failed to get secret %+v from K8S Secret: %w", *secretSource.FromKubernetesSecret, err)
 		}
 		numaLogger.Debugf("Successfully got secret %+v from K8S Secret", *secretSource.FromKubernetesSecret)
-		fmt.Printf("deletethis: Successfully got secret %+v from K8S Secret\n", *secretSource.FromKubernetesSecret)
 	} else if secretSource.FromFile != nil {
 		secretValue, err = secretSource.FromFile.GetSecretValue()
 		if err != nil {
 			return "", fmt.Errorf("failed to get secret %+v from file: %w", *secretSource.FromFile, err)
 		}
 		numaLogger.Debugf("Successfully got secret %+v from file", *secretSource.FromFile)
-		fmt.Printf("deletethis: Successfully got secret %+v from file\n", *secretSource.FromFile)
 	} else {
 		return "", fmt.Errorf("invalid SecretSource: either FromKubernetesSecret or FromFile should be specified: %+v", secretSource)
 	}

@@ -205,21 +205,16 @@ func (s *Syncer) run(ctx context.Context, id int, keyCh <-chan string) {
 // Function runOnce implements the logic of each synchronization.
 func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 
-	fmt.Printf("deletethis: ctx=%+v\n", ctx)
 	numaLogger := logger.FromContext(ctx).WithValues("worker", worker, "gitSyncKey", key)
-	fmt.Printf("deletethis: before numaLogger=%+v\n", *numaLogger.LogrLogger)
-	numaLogger.Debug("deletethis: prior to updating")
-	numaLogger.Debugf("deletethis: Debugf call\n")
+	//numaLogger.Debug("deletethis: test 1")
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
 		numaLogger.Error(err, "error getting the global config")
 	}
 
 	numaLogger.SetLevel(globalConfig.LogLevel)
-	fmt.Printf("deletethis: after setting level numaLogger=%+v\n", *numaLogger.LogrLogger)
-	fmt.Printf("deletethis: level=%d\n", globalConfig.LogLevel)
+	numaLogger.Debugf("New log level=%d\n", globalConfig.LogLevel)
 	ctx = logger.WithLogger(ctx, numaLogger)
-	fmt.Printf("deletethis: after context numaLogger=%+v\n", logger.FromContext(ctx).LogrLogger)
 
 	// startTime used for calculating metrics
 	startTime := time.Now()

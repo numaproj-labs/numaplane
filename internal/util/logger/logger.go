@@ -135,11 +135,10 @@ func WithLogger(ctx context.Context, logger *NumaLogger) context.Context {
 // If there is no logger in context, a new one is created.
 func FromContext(ctx context.Context) *NumaLogger {
 	if logger, ok := ctx.Value(loggerKey).(*NumaLogger); ok {
-		fmt.Printf("deletethis: found logger: %+v\n", logger.LogrLogger)
+		//fmt.Printf("deletethis: found logger.LogrLogger: %+v\n", logger.LogrLogger)
 		return logger
 	}
 
-	fmt.Printf("deletethis: didn't find logger\n")
 	return New()
 }
 
@@ -213,7 +212,7 @@ func (nl *NumaLogger) Infof(msg string, args ...any) {
 // Debug logs a debug-level message with optional key/value pairs.
 func (nl *NumaLogger) Debug(msg string, keysAndValues ...any) {
 	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
-	fmt.Printf("deletethis: is level 1 enabled?: %v\n", nl.LogrLogger.GetSink().Enabled(1))
+	//fmt.Printf("deletethis: is level 1 enabled?: %v\n", nl.LogrLogger.GetSink().Enabled(1))
 
 	nl.LogrLogger.GetSink().Info(DebugLevel-infoLevelShift, msg, keysAndValues...)
 }
