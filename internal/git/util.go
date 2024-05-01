@@ -44,6 +44,11 @@ func CloneRepo(
 		return nil, fmt.Errorf("error getting the clone options: %v", err)
 	}
 
+	err = gitShared.UpdateOptionsWithGitConfig(config.GlobalScope, cloneOptions)
+	if err != nil {
+		return nil, fmt.Errorf("error updating clone options with git config: %v", err)
+	}
+
 	return cloneRepo(ctx, gitSync, cloneOptions, metricServer)
 }
 
