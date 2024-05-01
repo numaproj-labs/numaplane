@@ -464,7 +464,12 @@ func TestUpdateOptionsWithGitConfigForCloneOptions(t *testing.T) {
 			if err != nil {
 				t.Errorf("error opening gitconfig file '%s': %v", tc.gitConfigFilePath, err)
 			}
-			defer file.Close()
+			defer func() {
+				err := file.Close()
+				if err != nil {
+					t.Errorf("error closing gitconfig file '%s': %v", file.Name(), err)
+				}
+			}()
 
 			gitConfig, err := config.ReadConfig(file)
 			if err != nil {
