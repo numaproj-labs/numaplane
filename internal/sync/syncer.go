@@ -132,7 +132,7 @@ func (s *Syncer) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(logger.WithLogger(ctx, numaLogger))
 	defer cancel()
 
-	err := s.stateCache.Init(&numaLogger)
+	err := s.stateCache.Init(numaLogger)
 	if err != nil {
 		return err
 	}
@@ -204,9 +204,25 @@ func (s *Syncer) run(ctx context.Context, id int, keyCh <-chan string) {
 
 // Function runOnce implements the logic of each synchronization.
 func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
+
+	fmt.Printf("deletethis: ctx=%+v\n", ctx)
+	numaLogger := logger.FromContext(ctx).WithValues("worker", worker, "gitSyncKey", key)
+	fmt.Printf("deletethis: before numaLogger=%+v\n", *numaLogger.LogrLogger)
+	numaLogger.Debug("deletethis: prior to updating")
+	numaLogger.Debugf("deletethis: Debugf call\n")
+	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
+	if err != nil {
+		numaLogger.Error(err, "error getting the global config")
+	}
+
+	numaLogger.SetLevel(globalConfig.LogLevel)
+	fmt.Printf("deletethis: after setting level numaLogger=%+v\n", *numaLogger.LogrLogger)
+	fmt.Printf("deletethis: level=%d\n", globalConfig.LogLevel)
+	ctx = logger.WithLogger(ctx, numaLogger)
+	fmt.Printf("deletethis: after context numaLogger=%+v\n", logger.FromContext(ctx).LogrLogger)
+
 	// startTime used for calculating metrics
 	startTime := time.Now()
-	numaLogger := logger.FromContext(ctx).WithValues("worker", worker, "gitSyncKey", key)
 	numaLogger.Debugf("Working on key: %s.", key)
 	strs := strings.Split(key, "/")
 	if len(strs) != 2 {
@@ -238,14 +254,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		return nil
 	}
 
-	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
-	if err != nil {
-		numaLogger.Error(err, "error getting the global config")
-	}
-
 	autoHeal := globalConfig.AutoHealEnabled
-
-	numaLogger.SetLevel(globalConfig.LogLevel)
 
 	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig, s.metricsServer)
 	if err != nil {
@@ -260,7 +269,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		Namespace: gitSync.Namespace,
 		Name:      gitSync.Name,
 	}
-	lastSyncedCommitHash, err := getCommitStatus(ctx, s.client, namespacedName, &numaLogger)
+	lastSyncedCommitHash, err := getCommitStatus(ctx, s.client, namespacedName, numaLogger)
 	if err != nil {
 		return fmt.Errorf("failed to get the current commit status of key %q, %w", key, err)
 	}
@@ -277,7 +286,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	}
 
 	synced := false
-	syncState, syncMessage := s.sync(gitSync, uns, &numaLogger)
+	syncState, syncMessage := s.sync(gitSync, uns, numaLogger)
 	if syncState.Successful() {
 		synced = true
 		numaLogger.Info("GitSync object is successfully synced.")
@@ -292,7 +301,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		s.StopWatching(key)
 		return nil
 	} else {
-		return updateCommitStatus(ctx, s.client, &numaLogger, s.metricsServer, namespacedName, commitHash, synced, syncMessage)
+		return updateCommitStatus(ctx, s.client, numaLogger, s.metricsServer, namespacedName, commitHash, synced, syncMessage)
 	}
 }
 
