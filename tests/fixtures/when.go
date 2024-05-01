@@ -227,7 +227,7 @@ func (w *When) ModifyResource(apiVersion, resourceType, resource, patch string) 
 	return w
 }
 
-// update Numaplane controller configmap to enable/disable autohealing
+// UpdateAutoHealConfig update Numaplane controller configmap to enable/disable autohealing
 func (w *When) UpdateAutoHealConfig(autoHealEnabled bool) *When {
 
 	ctx := context.Background()
@@ -243,10 +243,10 @@ func (w *When) UpdateAutoHealConfig(autoHealEnabled bool) *When {
 
 	// configure autoHealEnabled to desired case
 	if !autoHealEnabled {
-		cm.Data["config.yaml"] = strings.Replace(config, "autoHealEnabled: true", "autoHealEnabled: false", 1)
+		cm.Data["config.yaml"] = strings.Replace(config, "autoHealDisabled: false", "autoHealDisabled: true", 1)
 		w.t.Log("Autohealing disabled successfully")
 	} else {
-		cm.Data["config.yaml"] = strings.Replace(config, "autoHealEnabled: false", "autoHealEnabled: true", 1)
+		cm.Data["config.yaml"] = strings.Replace(config, "autoHealDisabled: true", "autoHealDisabled: false", 1)
 		w.t.Log("Autohealing enabled successfully")
 	}
 
