@@ -217,7 +217,6 @@ $(ENVTEST): $(LOCALBIN)
 gitserver:
 		cd tests/gitserver && \
 		 docker buildx build \
-		--no-cache \
 		--build-arg REPO_COUNT=$(REPO_COUNT) \
 		--platform $(PLATFORMS) \
 		-t $(GITSERVER_IMAGE) \

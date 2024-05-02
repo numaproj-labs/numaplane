@@ -46,7 +46,7 @@ RUN for i in $(seq 1 $REPO_COUNT); do \
     chmod +x "/var/www/git/repo$i.git/hooks/post-receive"; \
     done
 
-#creating repositories which donot require authentication and can be accessed from http://localhost:8080/public-git
+#creating repositories which don't require authentication and can be accessed from http://localhost:8080/public-git
 RUN for i in $(seq 1 $REPO_COUNT); do \
     mkdir -p "/var/www/public-git/repo$i.git" && \
     git init --bare "/var/www/public-git/repo$i.git" && \
@@ -62,19 +62,24 @@ RUN mkdir /auth && \
     echo "<VirtualHost *:80>\n\
     SetEnv GIT_PROJECT_ROOT /var/www/git\n\
     SetEnv GIT_HTTP_EXPORT_ALL\n\
+    SetEnv REMOTE_USER=$REDIRECT_REMOTE_USER\n\
     ScriptAlias /git/ /usr/lib/git-core/git-http-backend/\n\
     ScriptAlias /public-git/ /usr/lib/git-core/git-http-backend/\n\
     ScriptAlias /create /usr/lib/cgi-bin/create_repo.cgi\n\
+    <Directory /usr/lib/git-core>\n\
+            Options +ExecCGI\n\
+            Require all granted\n\
+        </Directory>\n\
     <Location /git>\n\
     AuthType Basic\n\
     AuthName \"Git Access\"\n\
     AuthUserFile /auth/.htpasswd\n\
     Require valid-user\n\
     </Location>\n\
-    <Location /public-git >\n\
-        Satisfy Any\n\
-        Allow from all\n\
-    </Location>\n\
+     <LocationMatch \"^/public-git/.*\">\n\
+          Satisfy Any\n\
+          Allow from all\n\
+        </LocationMatch>\n\
     </VirtualHost>\n\
     <VirtualHost *:443>\n\
     SSLEngine on\n\
@@ -90,10 +95,10 @@ RUN mkdir /auth && \
     AuthUserFile /auth/.htpasswd\n\
     Require valid-user\n\
     </Location>\n\
-     <Location /public-git >\n\
-        Satisfy Any\n\
-        Allow from all\n\
-    </Location>\n\
+     <LocationMatch \"^/public-git/.*\">\n\
+          Satisfy Any\n\
+          Allow from all\n\
+        </LocationMatch>\n\
     </VirtualHost>" > /etc/apache2/sites-available/000-default.conf
 
 
@@ -122,7 +127,7 @@ RUN for i in $(seq 1 $REPO_COUNT); do \
 #to access http://localhost:8080/git/repo2.git http://localhost:8080/git/repo1.git
 
 
-# Creating a non bare git repo  which donot require  authentication with working directory as per the RepoCount variable and pushing the changes
+# Creating a non bare git repo  which don't require  authentication with working directory as per the RepoCount variable and pushing the changes
 # to the bare repository created in /var/www/git
 RUN for i in $(seq 1 $REPO_COUNT); do \
     mkdir /tmp/public-git-repo$i && \
