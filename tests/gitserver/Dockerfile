@@ -30,6 +30,7 @@ RUN a2enmod ssl && \
     a2ensite default-ssl
 
 
+
 # this ownership part is important such that we can be able to create git repos with the api by making the www-data user the owner of the folder
 RUN mkdir -p /var/www/git && \
     chown -R www-data:www-data /var/www/git
