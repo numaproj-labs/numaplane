@@ -23,6 +23,11 @@ import (
 // TODO: extend to trim URLs for ssh/https
 func TrimRepoUrl(repoUrl string) string {
 
-	return strings.TrimPrefix(repoUrl, "http://localgitserver-service.numaplane-system.svc.cluster.local/git/")
+	// check if repo is public
+	if strings.Contains(repoUrl, "gitopen") {
+		return strings.TrimPrefix(repoUrl, "http://localgitserver-service.numaplane-system.svc.cluster.local/gitopen/")
+	} else {
+		return strings.TrimPrefix(repoUrl, "http://localgitserver-service.numaplane-system.svc.cluster.local/git/")
+	}
 
 }
