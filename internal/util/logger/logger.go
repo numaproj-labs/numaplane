@@ -11,6 +11,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/numaproj-labs/numaplane/internal/common"
+
+	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/rs/zerolog"
 )
 
@@ -138,6 +140,20 @@ func FromContext(ctx context.Context) *NumaLogger {
 	}
 
 	return New()
+}
+
+func RefreshLogger(ctx context.Context) *NumaLogger {
+	numaLogger := FromContext(ctx)
+	//numaLogger.Debug("deletethis: test 1")
+	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
+	if err != nil {
+		numaLogger.Error(err, "error getting the global config")
+	}
+
+	numaLogger.SetLevel(globalConfig.LogLevel)
+	numaLogger.Infof("New log level=%d\n", globalConfig.LogLevel)
+	ctx = WithLogger(ctx, numaLogger)
+	return numaLogger
 }
 
 // WithName appends a given name to the logger.
