@@ -36,9 +36,10 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 
+	cp "github.com/otiai10/copy"
+
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
-	cp "github.com/otiai10/copy"
 )
 
 var (
@@ -55,7 +56,7 @@ var (
 	// the GitSync controller uses a different URL configured in GitSync yaml.
 	localPath         = "./local"
 	localGitUrl       = "http://localhost:8080/git/%s"
-	localPublicGitUrl = "http://localhost:8080/gitopen/%s"
+	localPublicGitUrl = "http://localhost:8080/public-git/%s"
 )
 
 type Given struct {
@@ -262,7 +263,7 @@ func (g *Given) cloneRepo(ctx context.Context) (*git.Repository, error) {
 
 	repoNum := TrimRepoUrl(g.gitSync.Spec.RepoUrl)
 
-	if strings.Contains(g.gitSync.Spec.RepoUrl, "gitopen") {
+	if strings.Contains(g.gitSync.Spec.RepoUrl, "public-git") {
 		cloneOpts = git.CloneOptions{URL: fmt.Sprintf(localPublicGitUrl, repoNum)}
 	} else {
 		cloneOpts = git.CloneOptions{URL: fmt.Sprintf(localGitUrl, repoNum), Auth: auth}

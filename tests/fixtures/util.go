@@ -24,8 +24,8 @@ import (
 func TrimRepoUrl(repoUrl string) string {
 
 	// check if repo is public
-	if strings.Contains(repoUrl, "gitopen") {
-		return strings.TrimPrefix(repoUrl, "http://localgitserver-service.numaplane-system.svc.cluster.local/gitopen/")
+	if strings.Contains(repoUrl, "public-git") {
+		return strings.TrimPrefix(repoUrl, "http://localgitserver-service.numaplane-system.svc.cluster.local/public-git/")
 	} else {
 		return strings.TrimPrefix(repoUrl, "http://localgitserver-service.numaplane-system.svc.cluster.local/git/")
 	}
