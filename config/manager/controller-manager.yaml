@@ -93,4 +93,4 @@ spec:
             name: numaplane-controller-config
         - name: repo-volume
           persistentVolumeClaim:
-            claimName: repo-pvc
+            claimName: numaplane-repo-pvc

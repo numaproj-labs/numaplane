@@ -442,7 +442,7 @@ kind: PersistentVolume
 metadata:
   labels:
     type: local
-  name: repo-pv
+  name: numaplane-repo-pv
 spec:
   accessModes:
   - ReadWriteOnce
@@ -450,12 +450,12 @@ spec:
     storage: 5Gi
   hostPath:
     path: /tmp
-  storageClassName: manual
+  storageClassName: standard
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: repo-pvc
+  name: numaplane-repo-pvc
   namespace: numaplane-system
 spec:
   accessModes:
@@ -463,7 +463,7 @@ spec:
   resources:
     requests:
       storage: 5Gi
-  storageClassName: manual
+  storageClassName: standard
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -534,4 +534,4 @@ spec:
         name: config-volume
       - name: repo-volume
         persistentVolumeClaim:
-          claimName: repo-pvc
+          claimName: numaplane-repo-pvc

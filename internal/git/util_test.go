@@ -183,7 +183,7 @@ func Test_cloneRepo(t *testing.T) {
 	t.Parallel()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			localRepoPath := getLocalRepoPath(tc.gitSync)
+			localRepoPath := getLocalRepoPath(tc.gitSync, context.Background())
 			err := os.RemoveAll(localRepoPath)
 			assert.Nil(t, err)
 			cloneOptions := &git.CloneOptions{
@@ -346,7 +346,7 @@ func Test_GetLatestManifests(t *testing.T) {
 	for _, tc := range testCases {
 
 		t.Run(tc.name, func(t *testing.T) {
-			localRepoPath := getLocalRepoPath(tc.gitSync)
+			localRepoPath := getLocalRepoPath(tc.gitSync, context.Background())
 			err := os.RemoveAll(localRepoPath)
 			assert.Nil(t, err)
 			cloneOptions := &git.CloneOptions{
