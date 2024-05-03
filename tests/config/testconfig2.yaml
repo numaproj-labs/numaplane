@@ -1,5 +1,4 @@
 clusterName: "staging-usw2-k8s"
 syncTimeIntervalMs: 30000
-autoHealEnabled: true
 cascadeDeletion: false
 persistentRepoClonePath: "/tmp"

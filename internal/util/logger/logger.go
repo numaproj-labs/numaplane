@@ -163,7 +163,7 @@ func (nl NumaLogger) WithCallDepth(depth int) NumaLogger {
 
 // Error logs an error with a message and optional key/value pairs.
 func (nl NumaLogger) Error(err error, msg string, keysAndValues ...any) {
-	nl.LogrLogger.Error(err, msg, keysAndValues...)
+	nl.LogrLogger.WithCallDepth(1).Error(err, msg, keysAndValues...)
 }
 
 // Errorf logs an error with a formatted message with args.

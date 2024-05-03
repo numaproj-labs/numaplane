@@ -243,7 +243,10 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		numaLogger.Error(err, "error getting the global config")
 	}
 
-	autoHeal := globalConfig.AutoHealEnabled
+	// If automated sync is off, skip the syncing
+	if globalConfig.AutomatedSyncDisabled {
+		return nil
+	}
 
 	numaLogger.SetLevel(globalConfig.LogLevel)
 
@@ -266,7 +269,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	}
 	// If auto heal is not enabled and the target commit hash is the same as last sync,
 	// skip the syncing.
-	if !autoHeal && lastSyncedCommitHash != nil && lastSyncedCommitHash.Hash == commitHash {
+	if globalConfig.AutoHealDisabled && lastSyncedCommitHash != nil && lastSyncedCommitHash.Hash == commitHash {
 		numaLogger.Info("Skip the syncing as there are no changes and auto heal is turned off.")
 		return nil
 	}

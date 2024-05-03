@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/golang/mock/gomock"
@@ -191,11 +190,7 @@ func Test_cloneRepo(t *testing.T) {
 				URL: tc.gitSync.Spec.RepoUrl,
 			}
 
-			fetchOptions := &git.FetchOptions{
-				RefSpecs: []config.RefSpec{"refs/*:refs/*"},
-				Force:    true,
-			}
-			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, cloneOptions, fetchOptions, metric)
+			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, cloneOptions, metric)
 			assert.NoError(t, cloneErr)
 			if tc.hasErr {
 				assert.NotNil(t, err)
@@ -354,11 +349,8 @@ func Test_GetLatestManifests(t *testing.T) {
 			cloneOptions := &git.CloneOptions{
 				URL: tc.gitSync.Spec.RepoUrl,
 			}
-			fetchOptions := &git.FetchOptions{
-				RefSpecs: []config.RefSpec{"refs/*:refs/*"},
-				Force:    true,
-			}
-			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, cloneOptions, fetchOptions, metric)
+
+			r, cloneErr := cloneRepo(context.Background(), tc.gitSync, cloneOptions, metric)
 			assert.Nil(t, cloneErr)
 
 			// To break the continuous check of repo update, added the context timeout.
@@ -460,11 +452,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 
 	gitSync := newGitSync("test", repoUrL, "gitClone", "master")
 
-	fetchOptions := &git.FetchOptions{
-		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
-		Force:    true,
-	}
-	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions, metric)
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
@@ -495,11 +483,7 @@ func TestGitCloneRepoSshLocalGitServerFileCredential(t *testing.T) {
 
 	gitSync := newGitSync("test", repoUrL, "gitClone", "master")
 
-	fetchOptions := &git.FetchOptions{
-		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
-		Force:    true,
-	}
-	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions, metric)
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
@@ -541,11 +525,7 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
 	gitSync := newGitSync("test", repoUrL, "gitCloned", "master")
 
-	fetchOptions := &git.FetchOptions{
-		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
-		Force:    true,
-	}
-	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions, metric)
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
@@ -591,11 +571,7 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 	gitSync := newGitSync("test", repoUrL, "gitCloned", "master")
 	log.Println(cloneOptions)
 
-	fetchOptions := &git.FetchOptions{
-		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
-		Force:    true,
-	}
-	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, fetchOptions, metric)
+	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
 	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
