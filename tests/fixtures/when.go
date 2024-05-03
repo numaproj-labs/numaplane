@@ -172,10 +172,16 @@ func (w *When) PushToGitRepo(directory string, fileNames []string, remove bool) 
 	}
 
 	// git push to remote
-	err = repo.Push(&git.PushOptions{
-		RemoteName: "origin",
-		Auth:       auth,
-	})
+	if strings.Contains(w.gitSync.Spec.RepoUrl, "public-git") {
+		err = repo.Push(&git.PushOptions{
+			RemoteName: "origin",
+		})
+	} else {
+		err = repo.Push(&git.PushOptions{
+			RemoteName: "origin",
+			Auth:       auth,
+		})
+	}
 	if err != nil {
 		w.t.Fatal(err)
 	}
