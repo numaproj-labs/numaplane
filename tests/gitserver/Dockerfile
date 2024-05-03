@@ -46,14 +46,14 @@ RUN for i in $(seq 1 $REPO_COUNT); do \
     chmod +x "/var/www/git/repo$i.git/hooks/post-receive"; \
     done
 
-#creating repositories which donot require authentication and can be accessed from http://localhost:8080/gitopen
+#creating repositories which donot require authentication and can be accessed from http://localhost:8080/public-git
 RUN for i in $(seq 1 $REPO_COUNT); do \
-    mkdir -p "/var/www/gitopen/repo$i.git" && \
-    git init --bare "/var/www/gitopen/repo$i.git" && \
-    chown -R www-data:www-data "/var/www/gitopen/repo$i.git"; \
-    echo "#!/bin/sh" > "/var/www/gitopen/repo$i.git/hooks/post-receive" && \
-    echo "chown -R www-data:www-data ." >> "/var/www/gitopen/repo$i.git/hooks/post-receive" && \
-    chmod +x "/var/www/gitopen/repo$i.git/hooks/post-receive"; \
+    mkdir -p "/var/www/public-git/repo$i.git" && \
+    git init --bare "/var/www/public-git/repo$i.git" && \
+    chown -R www-data:www-data "/var/www/public-git/repo$i.git"; \
+    echo "#!/bin/sh" > "/var/www/public-git/repo$i.git/hooks/post-receive" && \
+    echo "chown -R www-data:www-data ." >> "/var/www/public-git/repo$i.git/hooks/post-receive" && \
+    chmod +x "/var/www/public-git/repo$i.git/hooks/post-receive"; \
     done
 
 # Setup Apache for Git HTTP and HTTPS access with Basic authentication
@@ -62,16 +62,21 @@ RUN mkdir /auth && \
     echo "<VirtualHost *:80>\n\
     SetEnv GIT_PROJECT_ROOT /var/www/git\n\
     SetEnv GIT_HTTP_EXPORT_ALL\n\
+    SetEnv REMOTE_USER=$REDIRECT_REMOTE_USER\n\
     ScriptAlias /git/ /usr/lib/git-core/git-http-backend/\n\
-    ScriptAlias /gitopen/ /usr/lib/git-core/git-http-backend/\n\
+    ScriptAlias /public-git/ /usr/lib/git-core/git-http-backend/\n\
     ScriptAlias /create /usr/lib/cgi-bin/create_repo.cgi\n\
+     <Directory /usr/lib/git-core>\n\
+                Options +ExecCGI\n\
+                Require all granted\n\
+            </Directory>\n\
     <Location /git>\n\
     AuthType Basic\n\
     AuthName \"Git Access\"\n\
     AuthUserFile /auth/.htpasswd\n\
     Require valid-user\n\
     </Location>\n\
-    <LocationMatch \"^/gitopen\">\n\
+    <LocationMatch \"^/public-git/.*\">\n\
         Satisfy Any\n\
         Allow from all\n\
     </LocationMatch>\n\
@@ -81,16 +86,22 @@ RUN mkdir /auth && \
     SSLCertificateFile /etc/ssl/certs/ssl-cert-snakeoil.pem\n\
     SSLCertificateKeyFile /etc/ssl/private/ssl-cert-snakeoil.key\n\
     SetEnv GIT_PROJECT_ROOT /var/www/git\n\
+    SetEnv REMOTE_USER=$REDIRECT_REMOTE_USER\n\
     SetEnv GIT_HTTP_EXPORT_ALL\n\
     ScriptAlias /git/ /usr/lib/git-core/git-http-backend/\n\
-    ScriptAlias /gitopen/ /usr/lib/git-core/git-http-backend/\n\
+    ScriptAlias /public-git/ /usr/lib/git-core/git-http-backend/\n\
+    ScriptAlias /create /usr/lib/cgi-bin/create_repo.cgi\n\
+    <Directory /usr/lib/git-core>\n\
+                Options +ExecCGI\n\
+                Require all granted\n\
+            </Directory>\n\
     <Location /git>\n\
     AuthType Basic\n\
     AuthName \"Git Access\"\n\
     AuthUserFile /auth/.htpasswd\n\
     Require valid-user\n\
     </Location>\n\
-     <LocationMatch \"^/gitopen\">\n\
+     <LocationMatch \"^/public-git/.*\">\n\
         Satisfy Any\n\
         Allow from all\n\
     </LocationMatch>\n\
@@ -125,17 +136,17 @@ RUN for i in $(seq 1 $REPO_COUNT); do \
 # Creating a non bare git repo  which donot require  authentication with working directory as per the RepoCount variable and pushing the changes
 # to the bare repository created in /var/www/git
 RUN for i in $(seq 1 $REPO_COUNT); do \
-    mkdir /tmp/gitopen-repo$i && \
-    cd /tmp/gitopen-repo$i && \
+    mkdir /tmp/public-git-repo$i && \
+    cd /tmp/public-git-repo$i && \
     git init && \
     git config --global user.email "you@example.com" && \
     git config --global user.name "Your Name" && \
     echo "Local Repo" > readme.md && \
     git add readme.md && \
     git commit -m "Initial commit" && \
-    git push /var/www/gitopen/repo$i.git master;\
+    git push /var/www/public-git/repo$i.git master;\
     done
-#to access http://localhost:8080/gitopen/repo2.git http://localhost:8080/gitopen/repo1.git
+#to access http://localhost:8080/public-git/repo2.git http://localhost:8080/public-git/repo1.git
 
 # Copy the start script into the container and set permissions
 COPY start.sh /start.sh
