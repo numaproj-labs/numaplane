@@ -29,3 +29,6 @@ Dockerfile.cross
 
 # tmp directory built for e2e test
 tests/e2e/local
+tests/e2e-gitserver/Dockerfile
+tests/e2e-gitserver/gitscript.sh
+tests/e2e-gitserver/start.sh
