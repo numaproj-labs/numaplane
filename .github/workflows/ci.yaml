@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       gitserver:
-        image: quay.io/numaio/localgitserver
+        image: quay.io/numaio/numaplane-e2e-gitserver
         ports:
           - 2222:22
           - 8443:443
