@@ -443,7 +443,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 			Key:             "sshKey",
 		}}},
 	}
-	repoUrL := "ssh://root@localhost:2222/var/www/public-git/repo1.git"
+	repoUrL := "ssh://root@localhost:2222/var/www/git/repo1.git"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL)
 	assert.NoError(t, err)
 	assert.NotNil(t, cloneOptions)
@@ -474,7 +474,7 @@ func TestGitCloneRepoSshLocalGitServerFileCredential(t *testing.T) {
 			Key:          "sshKey",
 		}}},
 	}
-	repoUrL := "ssh://root@localhost:2222/var/www/public-git/repo1.git"
+	repoUrL := "ssh://root@localhost:2222/var/www/git/repo1.git"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL)
 	assert.NoError(t, err)
 	assert.NotNil(t, cloneOptions)
@@ -519,7 +519,7 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 			},
 		},
 	}
-	repoUrL := "http://localhost:8080/public-git/repo1.git"
+	repoUrL := "http://localhost:8080/git/repo1.git"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL)
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
@@ -564,7 +564,7 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 
 		},
 	}
-	repoUrL := "https://localhost:8443/public-git/repo1.git"
+	repoUrL := "https://localhost:8443/git/repo1.git"
 	cloneOptions, err := gitshared.GetRepoCloneOptions(context.Background(), credential, client, repoUrL)
 	assert.NoError(t, err)
 	assert.IsType(t, &git.CloneOptions{}, cloneOptions)
