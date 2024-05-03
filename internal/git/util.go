@@ -75,8 +75,10 @@ func GetLatestManifests(
 		return "", nil, err
 	}
 
-	localRepoPath := getLocalRepoPath(gitSync, ctx)
-
+	localRepoPath, err := getLocalRepoPath(gitSync)
+	if err != nil {
+		return "", nil, err
+	}
 	// deployablePath will be the path of cloned repository + the path while needs to be deployed.
 	deployablePath := localRepoPath + "/" + gitSync.Spec.Path
 	// validate the existence of path.
@@ -213,19 +215,18 @@ func isRootDir(path string) bool {
 // getLocalRepoPath will return the local path where repo will be cloned,
 // by default it will use /tmp as base directory
 // unless LOCAL_REPO_PATH env is set.
-func getLocalRepoPath(gitSync *v1alpha1.GitSync, ctx context.Context) string {
+func getLocalRepoPath(gitSync *v1alpha1.GitSync) (string, error) {
 	// baseDir is persistent volume path on the cluster node
-	numaLogger := logger.FromContext(ctx).WithValues("GitSync name", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
-
 	baseDir := "/tmp"
 	config, err := controllerConfig.GetConfigManagerInstance().GetConfig()
-	// Only logging the error
-	numaLogger.Errorf(err, "error getting the controller config ")
+	if err != nil {
+		return "", fmt.Errorf("error getting config manager for repoLocalPath %s", err)
+	}
 	if config.PersistentRepoClonePath != "" {
 		baseDir = config.PersistentRepoClonePath
 	}
 	repoUrl := strconv.FormatUint(xxhash.Sum64([]byte(gitSync.Spec.RepoUrl)), 16)
-	return fmt.Sprintf("%s/%s/%s", baseDir, gitSync.Name, repoUrl)
+	return fmt.Sprintf("%s/%s/%s", baseDir, gitSync.Name, repoUrl), nil
 }
 
 func GetCurrentBranch(r *git.Repository) (string, error) {
@@ -292,7 +293,10 @@ func cloneRepo(
 	fetchOptions *git.FetchOptions,
 	metricServer *metrics.MetricsServer,
 ) (*git.Repository, error) {
-	path := getLocalRepoPath(gitSync, ctx)
+	path, err := getLocalRepoPath(gitSync)
+	if err != nil {
+		return nil, err
+	}
 
 	defer func() {
 		metricServer.IncGitRequest()
