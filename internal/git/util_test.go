@@ -182,8 +182,9 @@ func Test_cloneRepo(t *testing.T) {
 	t.Parallel()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			localRepoPath := getLocalRepoPath(tc.gitSync)
-			err := os.RemoveAll(localRepoPath)
+			localRepoPath, err := getLocalRepoPath(tc.gitSync)
+			assert.Nil(t, err)
+			err = os.RemoveAll(localRepoPath)
 			assert.Nil(t, err)
 			cloneOptions := &git.CloneOptions{
 				URL: tc.gitSync.Spec.RepoUrl,
@@ -341,8 +342,9 @@ func Test_GetLatestManifests(t *testing.T) {
 	for _, tc := range testCases {
 
 		t.Run(tc.name, func(t *testing.T) {
-			localRepoPath := getLocalRepoPath(tc.gitSync)
-			err := os.RemoveAll(localRepoPath)
+			localRepoPath, err := getLocalRepoPath(tc.gitSync)
+			assert.Nil(t, err)
+			err = os.RemoveAll(localRepoPath)
 			assert.Nil(t, err)
 			cloneOptions := &git.CloneOptions{
 				URL: tc.gitSync.Spec.RepoUrl,
@@ -453,7 +455,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
-	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
+	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
 	assert.NoError(t, err)
 	err = os.RemoveAll("gitClone")
 	assert.NoError(t, err)
@@ -484,7 +486,7 @@ func TestGitCloneRepoSshLocalGitServerFileCredential(t *testing.T) {
 	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
-	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
+	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
 	assert.NoError(t, err)
 	err = os.RemoveAll("gitClone")
 	assert.NoError(t, err)
@@ -526,7 +528,7 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
-	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
+	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
 	assert.NoError(t, err)
 	err = os.RemoveAll("gitCloned")
 	assert.NoError(t, err)
@@ -572,7 +574,7 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
-	err = FileExists(repo, "data.yaml") // data.yaml default file exists in docker git
+	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
 	assert.NoError(t, err)
 	err = os.RemoveAll("gitCloned")
 	assert.NoError(t, err)

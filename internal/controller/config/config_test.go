@@ -30,6 +30,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Nil(t, err, "Failed to load configuration")
 
 	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
+	assert.Equal(t, "/tmp", config.PersistentRepoClonePath, "ClusterName does not match")
 	assert.Equal(t, 30000, config.SyncTimeIntervalMs, "SyncTimeIntervalMs does not match")
 	assert.Equal(t, false, config.AutoHealDisabled, "AutoHealDisabled does not match")
 	assert.Equal(t, false, config.AutomatedSyncDisabled, "AutomatedSyncDisabled does not match")
