@@ -136,15 +136,26 @@ func WithLogger(ctx context.Context, logger *NumaLogger) context.Context {
 func FromContext(ctx context.Context) *NumaLogger {
 	if logger, ok := ctx.Value(loggerKey{}).(*NumaLogger); ok {
 		//fmt.Printf("deletethis: found logger.LogrLogger: %+v\n", logger.LogrLogger)
-		return logger
+		return logger.DeepCopy()
 	}
 
 	return New()
 }
 
-func RefreshLogger(ctx context.Context) *NumaLogger {
-	numaLogger := FromContext(ctx)
-	//numaLogger.Debug("deletethis: test 1")
+func (in *NumaLogger) DeepCopy() *NumaLogger {
+	if in == nil {
+		return nil
+	}
+	out := new(NumaLogger)
+	out.LogrLogger = new(logr.Logger)
+	*(out.LogrLogger) = *(in.LogrLogger)
+	return out
+}
+
+func RefreshLogger(ctx *context.Context) *NumaLogger {
+	numaLogger := FromContext(*ctx)
+
+	// get the log level
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
 		numaLogger.Error(err, "error getting the global config")
@@ -152,7 +163,7 @@ func RefreshLogger(ctx context.Context) *NumaLogger {
 
 	numaLogger.SetLevel(globalConfig.LogLevel)
 	numaLogger.Infof("New log level=%d\n", globalConfig.LogLevel)
-	ctx = WithLogger(ctx, numaLogger)
+	*ctx = WithLogger(*ctx, numaLogger)
 	return numaLogger
 }
 
