@@ -126,7 +126,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // reconcile does the real logic
 func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSync) error {
-	numaLogger := logger.FromContext(ctx).WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name))
+	numaLogger := logger.RefreshLogger(&ctx).WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name))
 
 	if !gitSync.Spec.ContainsClusterDestination(r.clusterName) {
 		gitSync.Status.MarkNotApplicable("ClusterMismatch", "This cluster isn't a destination")
@@ -155,6 +155,8 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 		numaLogger.Error(err, "Validation failed", "GitSync", gitSync)
 		gitSync.Status.MarkFailed("InvalidSpec", err.Error())
 		return err
+	} else {
+		numaLogger.Debug("validation successful", "GitSync", gitSync)
 	}
 
 	// add Finalizer so we can ensure that we take appropriate action when CRD is deleted
