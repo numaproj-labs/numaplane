@@ -335,7 +335,6 @@ func cloneRepo(
 	cloneOptions *git.CloneOptions,
 	metricServer *metrics.MetricsServer,
 ) (*git.Repository, error) {
-	numaLogger := logger.FromContext(ctx)
 	path, err := getLocalRepoPath(gitSync)
 	if err != nil {
 		return nil, err
@@ -347,7 +346,6 @@ func cloneRepo(
 	r, err := git.PlainCloneContext(ctx, path, false, cloneOptions)
 	if err != nil {
 		if errors.Is(err, git.ErrRepositoryAlreadyExists) {
-			numaLogger.Info("repository already exists in the persistent storage ,not cloning it again ")
 			// Open the existing repo and return it.
 			existingRepo, openErr := git.PlainOpen(path)
 			if openErr != nil {
