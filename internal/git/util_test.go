@@ -455,7 +455,7 @@ AAAECl1AymWUHNdRiOu2r2dg97arF3S32bE5zcPTqynwyw50HAtto0bVGTAUATJhiDTjKa
 	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
-	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
+	err = FileExists(repo, "readme.md") // readme.md default file exists in docker git
 	assert.NoError(t, err)
 	err = os.RemoveAll("gitClone")
 	assert.NoError(t, err)
@@ -486,7 +486,7 @@ func TestGitCloneRepoSshLocalGitServerFileCredential(t *testing.T) {
 	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
-	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
+	err = FileExists(repo, "readme.md") // readme.md default file exists in docker git
 	assert.NoError(t, err)
 	err = os.RemoveAll("gitClone")
 	assert.NoError(t, err)
@@ -528,7 +528,8 @@ func TestGitCloneRepoHTTPLocalGitServer(t *testing.T) {
 	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
-	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
+
+	err = FileExists(repo, "readme.md") // readme.md default file exists in docker git
 	assert.NoError(t, err)
 	err = os.RemoveAll("gitCloned")
 	assert.NoError(t, err)
@@ -574,7 +575,8 @@ func TestGitCloneRepoHTTPSLocalGitServer(t *testing.T) {
 	repo, err := cloneRepo(context.Background(), gitSync, cloneOptions, metric)
 	assert.NoError(t, err)
 	assert.NotNil(t, repo)
-	err = FileExists(repo, "readme.md") // data.yaml default file exists in docker git
+
+	err = FileExists(repo, "readme.md") // readme.md default file exists in docker git
 	assert.NoError(t, err)
 	err = os.RemoveAll("gitCloned")
 	assert.NoError(t, err)

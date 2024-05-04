@@ -36,9 +36,10 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 
+	cp "github.com/otiai10/copy"
+
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
-	cp "github.com/otiai10/copy"
 )
 
 var (
@@ -53,8 +54,9 @@ var (
 	}
 	// localGitUrl is set for local development/testing,
 	// the GitSync controller uses a different URL configured in GitSync yaml.
-	localPath   = "./local"
-	localGitUrl = "http://localhost:8080/git/%s"
+	localPath         = "./local"
+	localGitUrl       = "http://localhost:8080/git/%s"
+	localPublicGitUrl = "http://localhost:8080/public-git/%s"
 )
 
 type Given struct {
@@ -257,9 +259,15 @@ func (g *Given) ChangeBranch() *Given {
 // clone repository unless it's already been cloned
 func (g *Given) cloneRepo(ctx context.Context) (*git.Repository, error) {
 
+	var cloneOpts git.CloneOptions
+
 	repoNum := TrimRepoUrl(g.gitSync.Spec.RepoUrl)
 
-	cloneOpts := git.CloneOptions{URL: fmt.Sprintf(localGitUrl, repoNum), Auth: auth}
+	if strings.Contains(g.gitSync.Spec.RepoUrl, "public-git") {
+		cloneOpts = git.CloneOptions{URL: fmt.Sprintf(localPublicGitUrl, repoNum)}
+	} else {
+		cloneOpts = git.CloneOptions{URL: fmt.Sprintf(localGitUrl, repoNum), Auth: auth}
+	}
 
 	// local/repo(num).git/(path)
 	localPathToRepo := filepath.Join(localPath, repoNum)
