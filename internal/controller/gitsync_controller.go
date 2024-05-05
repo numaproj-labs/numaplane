@@ -78,7 +78,7 @@ func NewGitSyncReconciler(
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	numaLogger := logger.FromContext(ctx)
+	ctx, numaLogger := logger.RefreshLogger(ctx)
 
 	// get the GitSync CR - if not found, it may have been deleted in the past
 	gitSync := &apiv1.GitSync{}
@@ -126,8 +126,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // reconcile does the real logic
 func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSync) error {
-	ctx, numaLogger := logger.RefreshLogger(ctx)
-	numaLogger = numaLogger.WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name))
+	numaLogger := logger.FromContext(ctx).WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name))
 
 	if !gitSync.Spec.ContainsClusterDestination(r.clusterName) {
 		gitSync.Status.MarkNotApplicable("ClusterMismatch", "This cluster isn't a destination")
