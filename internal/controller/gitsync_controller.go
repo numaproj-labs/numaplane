@@ -126,7 +126,8 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // reconcile does the real logic
 func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSync) error {
-	numaLogger := logger.RefreshLogger(&ctx).WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name))
+	ctx, numaLogger := logger.RefreshLogger(ctx)
+	numaLogger = numaLogger.WithValues("gitsync", fmt.Sprintf("%s/%s", gitSync.Namespace, gitSync.Name))
 
 	if !gitSync.Spec.ContainsClusterDestination(r.clusterName) {
 		gitSync.Status.MarkNotApplicable("ClusterMismatch", "This cluster isn't a destination")

@@ -142,6 +142,25 @@ func FromContext(ctx context.Context) *NumaLogger {
 	return New()
 }
 
+// RefreshLogger gets logger from context and updates it with the current log level from config,
+// returning the new context
+func RefreshLogger(ctx context.Context) (context.Context, *NumaLogger) {
+	numaLogger := FromContext(ctx)
+
+	// get the log level
+	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
+	if err != nil {
+		numaLogger.Error(err, "error getting the global config")
+	}
+
+	// update the logger with the new log level
+	numaLogger.SetLevel(globalConfig.LogLevel)
+	numaLogger.Infof("log level=%d\n", globalConfig.LogLevel)
+	// update the context with the new logger
+	ctx = WithLogger(ctx, numaLogger)
+	return ctx, numaLogger
+}
+
 func (in *NumaLogger) DeepCopy() *NumaLogger {
 	if in == nil {
 		return nil
@@ -150,21 +169,6 @@ func (in *NumaLogger) DeepCopy() *NumaLogger {
 	out.LogrLogger = new(logr.Logger)
 	*(out.LogrLogger) = *(in.LogrLogger)
 	return out
-}
-
-func RefreshLogger(ctx *context.Context) *NumaLogger {
-	numaLogger := FromContext(*ctx)
-
-	// get the log level
-	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
-	if err != nil {
-		numaLogger.Error(err, "error getting the global config")
-	}
-
-	numaLogger.SetLevel(globalConfig.LogLevel)
-	numaLogger.Infof("New log level=%d\n", globalConfig.LogLevel)
-	*ctx = WithLogger(*ctx, numaLogger)
-	return numaLogger
 }
 
 // WithName appends a given name to the logger.

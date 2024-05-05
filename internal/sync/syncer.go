@@ -205,7 +205,8 @@ func (s *Syncer) run(ctx context.Context, id int, keyCh <-chan string) {
 // Function runOnce implements the logic of each synchronization.
 func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 
-	numaLogger := logger.RefreshLogger(&ctx).WithValues("worker", worker, "gitSyncKey", key)
+	ctx, numaLogger := logger.RefreshLogger(ctx)
+	numaLogger = numaLogger.WithValues("worker", worker, "gitSyncKey", key)
 
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
