@@ -1,6 +1,6 @@
 clusterName: "staging-usw2-k8s"
 syncTimeIntervalMs: 30000
-autoHealEnabled: true
+autoHealDisabled: false
 cascadeDeletion: false
 includedResources: "group=apps,kind=Deployment;\
 group=,kind=ConfigMap;group=,kind=Secret;group=,kind=ServiceAccount;group=,kind=Namespace;\

@@ -99,50 +99,14 @@ func (s *FunctionalSuite) TestNumaflowGitSync() {
 // GitSync testing with basic k8s objects
 func (s *FunctionalSuite) TestBasicGitSync() {
 
-	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
-		When().
-		CreateGitSyncAndWait()
-	defer w.DeleteGitSyncAndWait()
+	s.testBasicGitSync("@testdata/gitsync.yaml")
 
-	// verify basics resources are created
-	w.Wait(30 * time.Second)
-	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
-	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
-	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
-	// these resources are defined in the same file
-	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
-	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
+}
 
-	w.Expect().CheckCommitStatus()
+// GitSync testing with basic k8s objects using a public repo
+func (s *FunctionalSuite) TestPublicRepo() {
 
-	// update deployment manifest with {replicas: 5}
-	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(30 * time.Second)
-	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
-	w.Expect().CheckCommitStatus()
-
-	// verify that resource has received changed and others have not been modified
-	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 5)
-	w.Expect().VerifyResourceState("v1", "configmaps", "test-config", "data", "clusterName", "staging-usw2-k8s")
-
-	// add another resource to multiple-resources file
-	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
-	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
-	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
-	w.Expect().ResourcesExist("v1", "secrets", []string{"multi-secret"})
-	w.Expect().CheckCommitStatus()
-
-	// removing secret from multiple-resources file should cause it to be deleted
-	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
-	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
-	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
-	w.Expect().ResourcesDontExist("v1", "secrets", []string{"multi-secret"})
-	w.Expect().CheckCommitStatus()
-
-	// deleting file with multiple resources will delete all resources in it
-	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, true).Wait(30 * time.Second)
-	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"multi-deploy"})
-	w.Expect().ResourcesDontExist("v1", "configmaps", []string{"multi-config"})
-	w.Expect().CheckCommitStatus()
+	s.testBasicGitSync("@testdata/public-gitsync.yaml")
 
 }
 
@@ -278,6 +242,101 @@ func (s *FunctionalSuite) TestHelm() {
 
 	// verify change has occurred
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "new-deploy", "spec", "replicas", 3)
+
+}
+
+// test behavior when changing targetRevision of existing GitSync
+func (s *FunctionalSuite) TestNonMainBranch() {
+
+	// start at master branch
+	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	// verify basics resources are created
+	w.Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
+	// these resources are defined in the same file
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
+	w.Expect().CheckCommitStatus()
+
+	// switch to test branch
+	w = s.Given().GitSync("@testdata/branch-gitsync.yaml").ChangeBranch().
+		When().
+		UpdateGitSyncAndWait()
+
+	w.Wait(30 * time.Second)
+
+	// update deployment manifest with {replicas: 5} on test branch
+	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
+	w.Expect().CheckCommitStatus()
+
+	// verify change has occurred
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 5)
+
+	// switch back to master branch
+	w = s.Given().GitSync("@testdata/gitsync.yaml").ChangeBranch().
+		When().
+		UpdateGitSyncAndWait()
+
+	w.Wait(30 * time.Second)
+
+	// verify that resource has been healed back to the master branch state
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 3)
+
+}
+
+func (s *FunctionalSuite) testBasicGitSync(gitSync string) {
+
+	w := s.Given().GitSync(gitSync).InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	// verify basics resources are created
+	w.Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
+	// these resources are defined in the same file
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
+
+	w.Expect().CheckCommitStatus()
+
+	// update deployment manifest with {replicas: 5}
+	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
+	w.Expect().CheckCommitStatus()
+
+	// verify that resource has received changed and others have not been modified
+	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 5)
+	w.Expect().VerifyResourceState("v1", "configmaps", "test-config", "data", "clusterName", "staging-usw2-k8s")
+
+	// add another resource to multiple-resources file
+	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"multi-secret"})
+	w.Expect().CheckCommitStatus()
+
+	// removing secret from multiple-resources file should cause it to be deleted
+	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
+	w.Expect().ResourcesDontExist("v1", "secrets", []string{"multi-secret"})
+	w.Expect().CheckCommitStatus()
+
+	// deleting file with multiple resources will delete all resources in it
+	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, true).Wait(30 * time.Second)
+	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"multi-deploy"})
+	w.Expect().ResourcesDontExist("v1", "configmaps", []string{"multi-config"})
+	w.Expect().CheckCommitStatus()
 
 }
 

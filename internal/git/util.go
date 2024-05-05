@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 
 	argoGit "github.com/argoproj/argo-cd/v2/util/git"
@@ -43,14 +44,20 @@ func CloneRepo(
 
 	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)
 	if err != nil {
-		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
+		return nil, fmt.Errorf("error getting the clone options: %v", err)
 	}
 
-	fetchOptions, err := gitShared.GetRepoFetchOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)
+	gitConfig, err := config.LoadConfig(config.GlobalScope)
 	if err != nil {
-		return nil, fmt.Errorf("error getting  the  clone options: %v", err)
+		return nil, fmt.Errorf("error loading git config: %v", err)
 	}
-	return cloneRepo(ctx, gitSync, cloneOptions, fetchOptions, metricServer)
+
+	err = gitShared.UpdateOptionsWithGitConfig(gitConfig, cloneOptions)
+	if err != nil {
+		return nil, fmt.Errorf("error updating clone options with git config: %v", err)
+	}
+
+	return cloneRepo(ctx, gitSync, cloneOptions, metricServer)
 }
 
 // GetLatestManifests gets the latest manifests from the Git repository.
@@ -184,7 +191,7 @@ func getLatestCommitHash(repo *git.Repository, refName string) (*plumbing.Hash, 
 	if err != nil {
 		return nil, err
 	}
-	return commitHash, err
+	return commitHash, nil
 }
 
 // getCommitTreeAtPath retrieves a specific tree (or subtree) located at a given path within a specific commit in a Git repository
@@ -245,7 +252,8 @@ func GetCurrentBranch(r *git.Repository) (string, error) {
 // fetchUpdates fetches the remote branch and updates the local changes, returning nil if already up-to-date or an error otherwise.
 func fetchUpdates(ctx context.Context,
 	client k8sClient.Client,
-	gitSync *v1alpha1.GitSync, repo *git.Repository,
+	gitSync *v1alpha1.GitSync,
+	repo *git.Repository,
 	metricServer *metrics.MetricsServer,
 ) error {
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
@@ -256,13 +264,47 @@ func fetchUpdates(ctx context.Context,
 	credentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
 
 	branch, err := GetCurrentBranch(repo)
-	if err != nil {
-		return err
+	// Only fetch all and checkout to the new branch if there is an
+	// error or the branch has changed.
+	if err != nil || branch != gitSync.Spec.TargetRevision {
+		fetchOptions, err := gitShared.GetRepoFetchOptions(ctx, credentials, client, gitSync.Spec.RepoUrl)
+		if err != nil {
+			return fmt.Errorf("error getting the fetch options: %v", err)
+		}
+
+		// No need to fetch the references if the target revision is already main or master (branches)
+		if gitSync.Spec.TargetRevision != "main" && gitSync.Spec.TargetRevision != "master" {
+			// fetch all references
+			err = fetchAll(repo, fetchOptions)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Perform checkout to the specified reference after a successful clone
+		if checkoutErr := checkoutRepo(repo, gitSync.Spec.TargetRevision); checkoutErr != nil {
+			return checkoutErr
+		}
+
+		branch, err = GetCurrentBranch(repo)
+		if err != nil {
+			return err
+		}
 	}
 
 	pullOptions, err := gitShared.GetRepoPullOptions(ctx, credentials, client, gitSync.Spec.RepoUrl, branch)
 	if err != nil {
 		return err
+	}
+
+	gitConfig, err := config.LoadConfig(config.GlobalScope)
+	if err != nil {
+		return fmt.Errorf("error loading git config: %v", err)
+	}
+
+	err = gitShared.UpdateOptionsWithGitConfig(gitConfig, pullOptions)
+	if err != nil {
+		return fmt.Errorf("error updating pull options with git config: %v", err)
 	}
 
 	worktree, err := repo.Worktree()
@@ -287,7 +329,6 @@ func cloneRepo(
 	ctx context.Context,
 	gitSync *v1alpha1.GitSync,
 	cloneOptions *git.CloneOptions,
-	fetchOptions *git.FetchOptions,
 	metricServer *metrics.MetricsServer,
 ) (*git.Repository, error) {
 	path := getLocalRepoPath(gitSync)
@@ -306,20 +347,6 @@ func cloneRepo(
 			return existingRepo, nil
 		}
 		return nil, err
-	}
-
-	// No need to fetch the references if the target revision is already main or master (branches)
-	if gitSync.Spec.TargetRevision != "main" && gitSync.Spec.TargetRevision != "master" {
-		// fetch all references
-		err = fetchAll(r, fetchOptions)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Perform checkout to the specified reference after a successful clone
-	if checkoutErr := checkoutRepo(r, gitSync.Spec.TargetRevision); checkoutErr != nil {
-		return nil, checkoutErr
 	}
 
 	return r, nil

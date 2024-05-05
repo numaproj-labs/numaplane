@@ -246,7 +246,10 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		return nil
 	}
 
-	autoHeal := globalConfig.AutoHealEnabled
+	// If automated sync is off, skip the syncing
+	if globalConfig.AutomatedSyncDisabled {
+		return nil
+	}
 
 	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig, s.metricsServer)
 	if err != nil {
@@ -267,7 +270,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	}
 	// If auto heal is not enabled and the target commit hash is the same as last sync,
 	// skip the syncing.
-	if !autoHeal && lastSyncedCommitHash != nil && lastSyncedCommitHash.Hash == commitHash {
+	if globalConfig.AutoHealDisabled && lastSyncedCommitHash != nil && lastSyncedCommitHash.Hash == commitHash {
 		numaLogger.Info("Skip the syncing as there are no changes and auto heal is turned off.")
 		return nil
 	}

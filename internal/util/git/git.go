@@ -3,6 +3,8 @@ package git
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -19,6 +21,23 @@ import (
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
+
+type AuthorizationHeader struct {
+	Key   string
+	Value string
+}
+
+func (h AuthorizationHeader) String() string {
+	return fmt.Sprintf("%s: %s", h.Key, h.Value)
+}
+
+func (h AuthorizationHeader) Name() string {
+	return "extraheader"
+}
+
+func (h AuthorizationHeader) SetAuth(r *http.Request) {
+	r.Header.Set(h.Key, h.Value)
+}
 
 // GetAuthMethod returns an authMethod for both cloning and fetching from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
 func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (transport.AuthMethod, bool, error) {
@@ -122,7 +141,7 @@ func GetRepoCloneOptions(ctx context.Context, repoCred *apiv1.RepoCredential, ku
 // GetRepoPullOptions creates git.PullOptions for pull updates from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
 func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string, refName string) (*git.PullOptions, error) {
 	// check to ensure proper repository url is passed
-	_, err := transport.NewEndpoint(repoUrl)
+	remoteURL, err := transport.NewEndpoint(repoUrl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid repository URL: %w", err)
 	}
@@ -136,6 +155,7 @@ func GetRepoPullOptions(ctx context.Context, repoCred *apiv1.RepoCredential, kub
 		InsecureSkipTLS: skipTls,
 		RemoteName:      "origin",
 		ReferenceName:   plumbing.NewBranchReferenceName(refName),
+		RemoteURL:       remoteURL.String(),
 	}, nil
 }
 
@@ -147,6 +167,10 @@ func GetRepoFetchOptions(
 	kubeClient k8sClient.Client,
 	repoUrl string,
 ) (*git.FetchOptions, error) {
+	remoteURL, err := transport.NewEndpoint(repoUrl)
+	if err != nil {
+		return nil, fmt.Errorf("invalid repository URL: %w", err)
+	}
 
 	method, skipTls, err := GetAuthMethod(ctx, repoCred, kubeClient, repoUrl)
 	if err != nil {
@@ -158,6 +182,7 @@ func GetRepoFetchOptions(
 		Force:           true,
 		Auth:            method,
 		InsecureSkipTLS: skipTls,
+		RemoteURL:       remoteURL.String(),
 	}, nil
 }
 
@@ -182,4 +207,91 @@ func NormalizeGitUrl(gitUrl string) string {
 	normalizedUrl := fmt.Sprintf("%s/%s", parsedUrl.Host, strings.Trim(parsedUrl.Path, "/"))
 	normalizedUrl = strings.Trim(normalizedUrl, "/")
 	return normalizedUrl
+}
+
+// UpdateOptionsWithGitConfig updates the given git options object with
+// information coming from the git config provided.
+// The function only takes into account HTTP URLs (not SSH).
+func UpdateOptionsWithGitConfig[T git.CloneOptions | git.FetchOptions | git.PullOptions](
+	gitConfig *config.Config, options *T,
+) error {
+	if options == nil {
+		return nil
+	}
+
+	if gitConfig == nil {
+		return nil
+	}
+
+	// If the gitConfig does not include the fields of interest, do not make changes to the options
+	if len(gitConfig.URLs) == 0 && gitConfig.Raw == nil {
+		return nil
+	}
+
+	// Extract repo URL from options URL or RemoteURL
+	repoURL := ""
+	switch any(*options).(type) {
+	case git.CloneOptions:
+		repoURL = any(options).(*git.CloneOptions).URL
+	case git.FetchOptions:
+		repoURL = any(options).(*git.FetchOptions).RemoteURL
+	case git.PullOptions:
+		repoURL = any(options).(*git.PullOptions).RemoteURL
+	}
+
+	// Parse repo URL
+	rURL, err := url.Parse(repoURL)
+	if err != nil {
+		return fmt.Errorf("error parsing repo URL '%s': %v", repoURL, err)
+	}
+
+	// Find URL mapping (if any)
+	newURL := repoURL
+	httpSubSecKey := ""
+	insteadOf := fmt.Sprintf("%s://%s", rURL.Scheme, rURL.Host)
+	for k, v := range gitConfig.URLs {
+		if v.InsteadOf == insteadOf {
+			keyURL, err := url.Parse(k)
+			if err != nil {
+				return fmt.Errorf("invalid URL '%s' in git config: %v", k, err)
+			}
+
+			newURL = fmt.Sprintf("%s%s", k, rURL.Path)
+			httpSubSecKey = fmt.Sprintf("%s://%s", keyURL.Scheme, keyURL.Host)
+			break
+		}
+	}
+
+	// Find authZ header (if any)
+	var authzHeader *AuthorizationHeader
+	if httpSection := gitConfig.Raw.Section("http"); httpSection != nil {
+		if subSection := httpSection.Subsection(httpSubSecKey); subSection != nil {
+			if option := subSection.Option("extraheader"); strings.HasPrefix(option, "Authorization:") {
+				if before, after, found := strings.Cut(option, ":"); found {
+					authzHeader = &AuthorizationHeader{Key: before, Value: after}
+				}
+			}
+		}
+	}
+
+	// Apply new URL and authZ header
+	switch any(*options).(type) {
+	case git.CloneOptions:
+		any(options).(*git.CloneOptions).URL = newURL
+		if authzHeader != nil {
+			any(options).(*git.CloneOptions).Auth = authzHeader
+		}
+	case git.FetchOptions:
+		any(options).(*git.FetchOptions).RemoteURL = newURL
+		if authzHeader != nil {
+			any(options).(*git.FetchOptions).Auth = authzHeader
+		}
+	case git.PullOptions:
+		any(options).(*git.PullOptions).RemoteURL = newURL
+		if authzHeader != nil {
+			any(options).(*git.PullOptions).Auth = authzHeader
+		}
+	}
+
+	return nil
 }
