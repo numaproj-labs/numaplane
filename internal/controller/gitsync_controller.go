@@ -78,7 +78,9 @@ func NewGitSyncReconciler(
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx, numaLogger := logger.RefreshLogger(ctx)
+	logger.RefreshBaseLoggerLevel()
+	numaLogger := logger.GetBaseLogger().WithName("reconciler").WithValues("gitsync", req.NamespacedName)
+	ctx = logger.WithLogger(ctx, numaLogger)
 
 	// get the GitSync CR - if not found, it may have been deleted in the past
 	gitSync := &apiv1.GitSync{}
@@ -121,6 +123,8 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	numaLogger.Debug("reconciliation successful")
+
 	return ctrl.Result{}, nil
 }
 
@@ -155,8 +159,6 @@ func (r *GitSyncReconciler) reconcile(ctx context.Context, gitSync *apiv1.GitSyn
 		numaLogger.Error(err, "Validation failed", "GitSync", gitSync)
 		gitSync.Status.MarkFailed("InvalidSpec", err.Error())
 		return err
-	} else {
-		numaLogger.Debug("validation successful", "GitSync", gitSync)
 	}
 
 	// add Finalizer so we can ensure that we take appropriate action when CRD is deleted

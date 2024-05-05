@@ -6,9 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
-
-	"runtime/debug"
 
 	"github.com/go-logr/logr"
 
@@ -62,6 +61,45 @@ var logrVerbosityToZerologLevelMap = map[int]zerolog.Level{
 
 type loggerKey struct{}
 
+var (
+	baseLogger      *NumaLogger = New()
+	baseLoggerMutex sync.RWMutex
+)
+
+func SetBaseLogger(nl *NumaLogger) {
+	baseLoggerMutex.Lock()
+	defer baseLoggerMutex.Unlock()
+
+	baseLogger = nl.DeepCopy()
+}
+
+// Get the standard NumaLogger with current Log Level - deep copy it in case user modifies it
+func GetBaseLogger() *NumaLogger {
+	baseLoggerMutex.RLock()
+	defer baseLoggerMutex.RUnlock()
+	return baseLogger.DeepCopy()
+}
+
+func RefreshBaseLoggerLevel() {
+
+	// get the log level from the config
+	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
+	if err != nil {
+		baseLogger.Error(err, "error getting the global config")
+	}
+
+	// if it changed, propagate it to our Base Logger
+	if globalConfig.LogLevel != baseLogger.LogLevel {
+
+		baseLoggerMutex.Lock()
+		defer baseLoggerMutex.Unlock()
+
+		// update the logger with the new log level
+		baseLogger.SetLevel(globalConfig.LogLevel)
+		baseLogger.Infof("log level=%d\n", globalConfig.LogLevel)
+	}
+}
+
 // NumaLogger is the struct containing a pointer to a logr.Logger instance.
 type NumaLogger struct {
 	LogrLogger *logr.Logger
@@ -94,7 +132,7 @@ func New() *NumaLogger {
 	}
 	lvl := globalConfig.LogLevel
 
-	fmt.Printf("deletethis: level=%d\n", lvl)
+	//fmt.Printf("deletethis: level=%d\n", lvl)
 
 	return newNumaLogger(&w, &lvl)
 }
@@ -139,12 +177,6 @@ func newNumaLogger(writer *io.Writer, level *int) *NumaLogger {
 // WithLogger returns a copy of parent context in which the
 // value associated with logger key is the supplied logger.
 func WithLogger(ctx context.Context, logger *NumaLogger) context.Context {
-
-	if logger.LogLevel == 0 {
-		fmt.Printf("deletethis: WithLgger() call stack with logger at 0 log level:")
-		debug.PrintStack()
-	}
-
 	return context.WithValue(ctx, loggerKey{}, logger.DeepCopy())
 }
 
@@ -152,20 +184,14 @@ func WithLogger(ctx context.Context, logger *NumaLogger) context.Context {
 // If there is no logger in context, a new one is created.
 func FromContext(ctx context.Context) *NumaLogger {
 	if logger, ok := ctx.Value(loggerKey{}).(*NumaLogger); ok {
-		fmt.Printf("deletethis: FromContext(): found logger at level %d\n", logger.LogLevel)
-		debug.PrintStack()
 		return logger.DeepCopy()
 	}
-
-	nl := New()
-
-	fmt.Printf("deletethis: FromContext(): didn't find logger but now its level is %d\n", nl.LogLevel)
-	return nl
+	return New()
 }
 
 // RefreshLogger gets logger from context and updates it with the current log level from config,
 // returning the new context
-func RefreshLogger(ctx context.Context) (context.Context, *NumaLogger) {
+/*func RefreshLogger(ctx context.Context) (context.Context, *NumaLogger) {
 	numaLogger := FromContext(ctx)
 
 	// get the log level
@@ -184,7 +210,7 @@ func RefreshLogger(ctx context.Context) (context.Context, *NumaLogger) {
 	}
 
 	return ctx, numaLogger
-}
+}*/
 
 func (in *NumaLogger) DeepCopy() *NumaLogger {
 	if in == nil {

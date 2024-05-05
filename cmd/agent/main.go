@@ -52,6 +52,7 @@ func main() {
 	}
 
 	numaLogger.SetLevel(config.LogLevel)
+	logger.SetBaseLogger(numaLogger)
 
 	numaLogger.Infof("config: %+v", config)
 

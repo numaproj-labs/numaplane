@@ -125,14 +125,14 @@ func (s *Syncer) StopWatching(key string) {
 // Start function starts the synchronizer worker group.
 // Each worker keeps picking up tasks (which contains GitSync keys) to sync the resources.
 func (s *Syncer) Start(ctx context.Context) error {
-	numaLogger := logger.FromContext(ctx).WithName("synchronizer")
-	logger.WithLogger(ctx, numaLogger)
-	ctx, numaLogger = logger.RefreshLogger(ctx) // refresh log level to what's in the config
+
+	numaLogger := logger.GetBaseLogger().WithName("synchronizer")
+	ctx = logger.WithLogger(ctx, numaLogger)
 
 	numaLogger.Info("Starting synchronizer...")
 
 	keyCh := make(chan string)
-	ctx, cancel := context.WithCancel(logger.WithLogger(ctx, numaLogger))
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	err := s.stateCache.Init(numaLogger)
@@ -208,8 +208,9 @@ func (s *Syncer) run(ctx context.Context, id int, keyCh <-chan string) {
 // Function runOnce implements the logic of each synchronization.
 func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 
-	ctx, numaLogger := logger.RefreshLogger(ctx)
-	numaLogger = numaLogger.WithValues("worker", worker, "gitSyncKey", key)
+	logger.RefreshBaseLoggerLevel()
+	numaLogger := logger.GetBaseLogger().WithName("synchronizer").WithValues("worker", worker, "gitSyncKey", key)
+	ctx = logger.WithLogger(ctx, numaLogger)
 
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
