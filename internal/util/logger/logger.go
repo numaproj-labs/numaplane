@@ -240,8 +240,6 @@ func (nl *NumaLogger) Infof(msg string, args ...any) {
 // Debug logs a debug-level message with optional key/value pairs.
 func (nl *NumaLogger) Debug(msg string, keysAndValues ...any) {
 	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
-	//fmt.Printf("deletethis: is level 1 enabled?: %v\n", nl.LogrLogger.GetSink().Enabled(1))
-
 	nl.LogrLogger.GetSink().Info(DebugLevel-infoLevelShift, msg, keysAndValues...)
 }
 
