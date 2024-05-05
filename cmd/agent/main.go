@@ -56,6 +56,6 @@ func main() {
 	numaLogger.Infof("config: %+v", config)
 
 	// create a new AgentSyncer
-	syncer := agent.NewAgentSyncer(&numaLogger)
+	syncer := agent.NewAgentSyncer(numaLogger)
 	syncer.Run(ctx)
 }

@@ -135,7 +135,6 @@ func WithLogger(ctx context.Context, logger *NumaLogger) context.Context {
 // If there is no logger in context, a new one is created.
 func FromContext(ctx context.Context) *NumaLogger {
 	if logger, ok := ctx.Value(loggerKey{}).(*NumaLogger); ok {
-		//fmt.Printf("deletethis: found logger.LogrLogger: %+v\n", logger.LogrLogger)
 		return logger.DeepCopy()
 	}
 
