@@ -6,11 +6,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
+	"runtime/debug"
+
 	"github.com/go-logr/logr"
-	"github.com/numaproj-labs/numaplane/internal/common"
 
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/rs/zerolog"
@@ -65,6 +65,7 @@ type loggerKey struct{}
 // NumaLogger is the struct containing a pointer to a logr.Logger instance.
 type NumaLogger struct {
 	LogrLogger *logr.Logger
+	LogLevel   int
 }
 
 // LogSink implements logr.LogSink using zerolog as base logger.
@@ -79,13 +80,23 @@ type LogSink struct {
 func New() *NumaLogger {
 	w := io.Writer(os.Stdout)
 
-	lvlStr := os.Getenv(common.EnvLogLevel)
-	lvlInt, err := strconv.Atoi(lvlStr)
+	//lvlStr := os.Getenv(common.EnvLogLevel) // TODO: why do we have this defined as both environment variable and configmap?
+	//lvlInt, err := strconv.Atoi(lvlStr)
+	//if err != nil {
+	//	return newNumaLogger(&w, nil)
+	//}
+
+	// get the log level
+	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
+		fmt.Println("error using global config to get log level: " + err.Error())
 		return newNumaLogger(&w, nil)
 	}
+	lvl := globalConfig.LogLevel
 
-	return newNumaLogger(&w, &lvlInt)
+	fmt.Printf("deletethis: level=%d\n", lvl)
+
+	return newNumaLogger(&w, &lvl)
 }
 
 // newNumaLogger returns a new NumaLogger with a logr.Logger instance with a default setup for zerolog.
@@ -122,23 +133,34 @@ func newNumaLogger(writer *io.Writer, level *int) *NumaLogger {
 	sink := &LogSink{l: &zl}
 	ll := logr.New(sink).WithName(loggerDefaultName)
 
-	return &NumaLogger{&ll}
+	return &NumaLogger{&ll, lvl}
 }
 
 // WithLogger returns a copy of parent context in which the
 // value associated with logger key is the supplied logger.
 func WithLogger(ctx context.Context, logger *NumaLogger) context.Context {
-	return context.WithValue(ctx, loggerKey{}, logger)
+
+	if logger.LogLevel == 0 {
+		fmt.Printf("deletethis: WithLgger() call stack with logger at 0 log level:")
+		debug.PrintStack()
+	}
+
+	return context.WithValue(ctx, loggerKey{}, logger.DeepCopy())
 }
 
 // FromContext returns the logger in the context.
 // If there is no logger in context, a new one is created.
 func FromContext(ctx context.Context) *NumaLogger {
 	if logger, ok := ctx.Value(loggerKey{}).(*NumaLogger); ok {
+		fmt.Printf("deletethis: FromContext(): found logger at level %d\n", logger.LogLevel)
+		debug.PrintStack()
 		return logger.DeepCopy()
 	}
 
-	return New()
+	nl := New()
+
+	fmt.Printf("deletethis: FromContext(): didn't find logger but now its level is %d\n", nl.LogLevel)
+	return nl
 }
 
 // RefreshLogger gets logger from context and updates it with the current log level from config,
@@ -152,11 +174,15 @@ func RefreshLogger(ctx context.Context) (context.Context, *NumaLogger) {
 		numaLogger.Error(err, "error getting the global config")
 	}
 
-	// update the logger with the new log level
-	numaLogger.SetLevel(globalConfig.LogLevel)
-	numaLogger.Infof("log level=%d\n", globalConfig.LogLevel)
-	// update the context with the new logger
-	ctx = WithLogger(ctx, numaLogger)
+	originalLogLevel := numaLogger.LogLevel
+	if globalConfig.LogLevel != originalLogLevel {
+		// update the logger with the new log level
+		numaLogger.SetLevel(globalConfig.LogLevel)
+		numaLogger.Infof("new log level=%d, previous=%d", globalConfig.LogLevel, originalLogLevel)
+		// update the context with the new logger
+		ctx = WithLogger(ctx, numaLogger)
+	}
+
 	return ctx, numaLogger
 }
 
@@ -261,6 +287,7 @@ func (nl *NumaLogger) Verbosef(msg string, args ...any) {
 
 // SetLevel sets/changes the log level.
 func (nl *NumaLogger) SetLevel(level int) {
+	nl.LogLevel = level
 	sink := nl.LogrLogger.GetSink().(*LogSink)
 	zl := setLoggerLevel(sink.l, level)
 	sink.l = &zl

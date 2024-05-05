@@ -126,6 +126,9 @@ func (s *Syncer) StopWatching(key string) {
 // Each worker keeps picking up tasks (which contains GitSync keys) to sync the resources.
 func (s *Syncer) Start(ctx context.Context) error {
 	numaLogger := logger.FromContext(ctx).WithName("synchronizer")
+	logger.WithLogger(ctx, numaLogger)
+	ctx, numaLogger = logger.RefreshLogger(ctx) // refresh log level to what's in the config
+
 	numaLogger.Info("Starting synchronizer...")
 
 	keyCh := make(chan string)
