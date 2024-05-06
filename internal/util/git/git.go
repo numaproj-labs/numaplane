@@ -17,6 +17,7 @@ import (
 
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
+	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
@@ -40,6 +41,8 @@ func (h AuthorizationHeader) SetAuth(r *http.Request) {
 
 // GetAuthMethod returns an authMethod for both cloning and fetching from a repo with HTTP, SSH, or TLS credentials from Kubernetes secrets.
 func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClient k8sClient.Client, repoUrl string) (transport.AuthMethod, bool, error) {
+	numaLogger := logger.FromContext(ctx).WithValues("repoUrl", repoUrl)
+
 	scheme, err := GetURLScheme(repoUrl)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to parse URL scheme: %w", err)
@@ -56,6 +59,7 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 		switch scheme {
 		case "http", "https":
 			if cred := repoCred.HTTPCredential; cred != nil {
+				numaLogger.Debugf("using HTTP credential: %+v", repoCred.HTTPCredential)
 				password, err := getSecretValue(ctx, kubeClient, cred.Password)
 				if err != nil {
 					return nil, false, fmt.Errorf("failed to get HTTP credential: %w", err)
@@ -69,6 +73,7 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 
 		case "ssh":
 			if cred := repoCred.SSHCredential; cred != nil {
+				numaLogger.Debugf("using SSH credential: %+v", repoCred.SSHCredential)
 				sshKey, err := getSecretValue(ctx, kubeClient, cred.SSHKey)
 				if err != nil {
 					return nil, false, fmt.Errorf("Failed to get SSH credential: %w", err)
@@ -92,6 +97,8 @@ func GetAuthMethod(ctx context.Context, repoCred *apiv1.RepoCredential, kubeClie
 
 // get a secret value, either from a File or from a Kubernetes Secret
 func getSecretValue(ctx context.Context, kubeClient k8sClient.Client, secretSource v1alpha1.SecretSource) (string, error) {
+	numaLogger := logger.FromContext(ctx)
+
 	var secretValue string
 	var err error
 	if secretSource.FromKubernetesSecret != nil {
@@ -99,11 +106,13 @@ func getSecretValue(ctx context.Context, kubeClient k8sClient.Client, secretSour
 		if err != nil {
 			return "", fmt.Errorf("failed to get secret %+v from K8S Secret: %w", *secretSource.FromKubernetesSecret, err)
 		}
+		numaLogger.Debugf("Successfully got secret %+v from K8S Secret", *secretSource.FromKubernetesSecret)
 	} else if secretSource.FromFile != nil {
 		secretValue, err = secretSource.FromFile.GetSecretValue()
 		if err != nil {
 			return "", fmt.Errorf("failed to get secret %+v from file: %w", *secretSource.FromFile, err)
 		}
+		numaLogger.Debugf("Successfully got secret %+v from file", *secretSource.FromFile)
 	} else {
 		return "", fmt.Errorf("invalid SecretSource: either FromKubernetesSecret or FromFile should be specified: %+v", secretSource)
 	}

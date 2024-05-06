@@ -110,7 +110,7 @@ func newLiveStateCache(
 	numaLogger := logger.New().WithName("live state cache")
 	return &liveStateCache{
 		cluster: cluster,
-		logger:  &numaLogger,
+		logger:  numaLogger,
 	}
 }
 
