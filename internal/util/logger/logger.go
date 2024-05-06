@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -61,45 +60,6 @@ var logrVerbosityToZerologLevelMap = map[int]zerolog.Level{
 
 type loggerKey struct{}
 
-var (
-	baseLogger      *NumaLogger = New()
-	baseLoggerMutex sync.RWMutex
-)
-
-func SetBaseLogger(nl *NumaLogger) {
-	baseLoggerMutex.Lock()
-	defer baseLoggerMutex.Unlock()
-
-	baseLogger = nl.DeepCopy()
-}
-
-// Get the standard NumaLogger with current Log Level - deep copy it in case user modifies it
-func GetBaseLogger() *NumaLogger {
-	baseLoggerMutex.RLock()
-	defer baseLoggerMutex.RUnlock()
-	return baseLogger.DeepCopy()
-}
-
-func RefreshBaseLoggerLevel() {
-
-	// get the log level from the config
-	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
-	if err != nil {
-		baseLogger.Error(err, "error getting the global config")
-	}
-
-	// if it changed, propagate it to our Base Logger
-	if globalConfig.LogLevel != baseLogger.LogLevel {
-
-		baseLoggerMutex.Lock()
-		defer baseLoggerMutex.Unlock()
-
-		// update the logger with the new log level
-		baseLogger.SetLevel(globalConfig.LogLevel)
-		baseLogger.Infof("log level=%d\n", globalConfig.LogLevel)
-	}
-}
-
 // NumaLogger is the struct containing a pointer to a logr.Logger instance.
 type NumaLogger struct {
 	LogrLogger *logr.Logger
@@ -118,12 +78,6 @@ type LogSink struct {
 func New() *NumaLogger {
 	w := io.Writer(os.Stdout)
 
-	//lvlStr := os.Getenv(common.EnvLogLevel) // TODO: why do we have this defined as both environment variable and configmap?
-	//lvlInt, err := strconv.Atoi(lvlStr)
-	//if err != nil {
-	//	return newNumaLogger(&w, nil)
-	//}
-
 	// get the log level
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
@@ -131,8 +85,6 @@ func New() *NumaLogger {
 		return newNumaLogger(&w, nil)
 	}
 	lvl := globalConfig.LogLevel
-
-	//fmt.Printf("deletethis: level=%d\n", lvl)
 
 	return newNumaLogger(&w, &lvl)
 }
@@ -188,29 +140,6 @@ func FromContext(ctx context.Context) *NumaLogger {
 	}
 	return New()
 }
-
-// RefreshLogger gets logger from context and updates it with the current log level from config,
-// returning the new context
-/*func RefreshLogger(ctx context.Context) (context.Context, *NumaLogger) {
-	numaLogger := FromContext(ctx)
-
-	// get the log level
-	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
-	if err != nil {
-		numaLogger.Error(err, "error getting the global config")
-	}
-
-	originalLogLevel := numaLogger.LogLevel
-	if globalConfig.LogLevel != originalLogLevel {
-		// update the logger with the new log level
-		numaLogger.SetLevel(globalConfig.LogLevel)
-		numaLogger.Infof("new log level=%d, previous=%d", globalConfig.LogLevel, originalLogLevel)
-		// update the context with the new logger
-		ctx = WithLogger(ctx, numaLogger)
-	}
-
-	return ctx, numaLogger
-}*/
 
 func (in *NumaLogger) DeepCopy() *NumaLogger {
 	if in == nil {

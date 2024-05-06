@@ -78,8 +78,10 @@ func NewGitSyncReconciler(
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// update the Base Logger's level according to the Numaplane Config
 	logger.RefreshBaseLoggerLevel()
 	numaLogger := logger.GetBaseLogger().WithName("reconciler").WithValues("gitsync", req.NamespacedName)
+	// update the context with this Logger so downstream users can incorporate these values in the logs
 	ctx = logger.WithLogger(ctx, numaLogger)
 
 	// get the GitSync CR - if not found, it may have been deleted in the past

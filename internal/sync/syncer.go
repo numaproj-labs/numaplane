@@ -208,8 +208,10 @@ func (s *Syncer) run(ctx context.Context, id int, keyCh <-chan string) {
 // Function runOnce implements the logic of each synchronization.
 func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 
+	// update the Base Logger's level according to the Numaplane Config
 	logger.RefreshBaseLoggerLevel()
 	numaLogger := logger.GetBaseLogger().WithName("synchronizer").WithValues("worker", worker, "gitSyncKey", key)
+	// update the context with this Logger so downstream users can incorporate these values in the logs
 	ctx = logger.WithLogger(ctx, numaLogger)
 
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
