@@ -99,14 +99,36 @@ func (s *FunctionalSuite) TestNumaflowGitSync() {
 // GitSync testing with basic k8s objects
 func (s *FunctionalSuite) TestBasicGitSync() {
 
-	s.testBasicGitSync("@testdata/gitsync.yaml")
+	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	s.testBasicGitSync(w)
 
 }
 
 // GitSync testing with basic k8s objects using a public repo
 func (s *FunctionalSuite) TestPublicRepo() {
 
-	s.testBasicGitSync("@testdata/public-gitsync.yaml")
+	w := s.Given().GitSync("@testdata/public-gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	s.testBasicGitSync(w)
+
+}
+
+func (s *FunctionalSuite) TestGitCredentialFromFile() {
+
+	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		UpdateRepoCredentialConfig().
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	s.testBasicGitSync(w)
 
 }
 
@@ -291,12 +313,7 @@ func (s *FunctionalSuite) TestNonMainBranch() {
 
 }
 
-func (s *FunctionalSuite) testBasicGitSync(gitSync string) {
-
-	w := s.Given().GitSync(gitSync).InitializeGitRepo("basic-resources/initial-commit").
-		When().
-		CreateGitSyncAndWait()
-	defer w.DeleteGitSyncAndWait()
+func (s *FunctionalSuite) testBasicGitSync(w *When) {
 
 	// verify basics resources are created
 	w.Wait(30 * time.Second)

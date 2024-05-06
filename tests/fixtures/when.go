@@ -19,6 +19,7 @@ package fixtures
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -34,6 +35,11 @@ import (
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 	planepkg "github.com/numaproj-labs/numaplane/pkg/client/clientset/versioned/typed/numaplane/v1alpha1"
 	cp "github.com/otiai10/copy"
+)
+
+const (
+	fromFile   = `fromFile:\n        yamlFilePath: \"/etc/credentials.yaml\"\n        key: \"http-cred\"`
+	fromSecret = `fromKubernetesSecret:        name: "http-creds"        key: "password"        namespace: "numaplane-system"`
 )
 
 type When struct {
@@ -266,6 +272,36 @@ func (w *When) UpdateAutoHealConfig(autoHealEnabled bool) *When {
 	w.t.Log("Config updated")
 
 	return w
+}
+
+func (w *When) UpdateRepoCredentialConfig() *When {
+
+	ctx := context.Background()
+
+	cm, err := w.kubeClient.CoreV1().ConfigMaps("numaplane-system").
+		Get(ctx, "numaplane-controller-config", metav1.GetOptions{})
+	if err != nil {
+		w.t.Fatalf("Failed to get configmap numaplane-controller-config")
+	}
+
+	newConfig, err := os.ReadFile("manifests/file-config.yaml")
+	if err != nil {
+		w.t.Fatal()
+	}
+
+	cm.Data["config.yaml"] = string(newConfig)
+
+	// apply update to configmap
+	_, err = w.kubeClient.CoreV1().ConfigMaps("numaplane-system").
+		Update(ctx, cm, metav1.UpdateOptions{})
+	if err != nil {
+		w.t.Fatal()
+	}
+
+	w.t.Log("Config updated")
+
+	return w
+
 }
 
 func (w *When) Wait(timeout time.Duration) *When {
