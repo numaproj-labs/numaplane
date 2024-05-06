@@ -38,7 +38,10 @@ func CloneRepo(
 	globalConfig controllerConfig.GlobalConfig,
 	metricServer *metrics.MetricsServer,
 ) (*git.Repository, error) {
+	numaLogger := logger.FromContext(ctx).WithValues("gitSyncName", gitSync.Name, "repo", gitSync.Spec.RepoUrl)
 	gitCredentials := gitShared.FindCredByUrl(gitSync.Spec.RepoUrl, globalConfig)
+	numaLogger.Debugf("git credentials associated with URL=%+v", gitCredentials)
+
 	cloneOptions, err := gitShared.GetRepoCloneOptions(ctx, gitCredentials, client, gitSync.Spec.RepoUrl)
 	if err != nil {
 		return nil, fmt.Errorf("error getting the clone options: %v", err)
