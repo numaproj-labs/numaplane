@@ -61,6 +61,23 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
 
+	// Load Config For the pod
+	configManager := config.GetConfigManagerInstance()
+	err := configManager.LoadConfig(func(err error) {
+		numaLogger.Error(err, "Failed to reload global configuration file")
+	}, configPath, "config", "yaml")
+	if err != nil {
+		numaLogger.Fatal(err, "Failed to load config file")
+	}
+
+	config, err := configManager.GetConfig()
+	if err != nil {
+		numaLogger.Fatal(err, "Failed to get config")
+	}
+
+	numaLogger.SetLevel(config.LogLevel)
+	logger.SetBaseLogger(numaLogger)
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -82,22 +99,6 @@ func main() {
 	if err != nil {
 		numaLogger.Fatal(err, "Unable to get a controller-runtime manager")
 	}
-
-	// Load Config For the pod
-	configManager := config.GetConfigManagerInstance()
-	err = configManager.LoadConfig(func(err error) {
-		numaLogger.Error(err, "Failed to reload global configuration file")
-	}, configPath, "config", "yaml")
-	if err != nil {
-		numaLogger.Fatal(err, "Failed to load config file")
-	}
-
-	config, err := configManager.GetConfig()
-	if err != nil {
-		numaLogger.Fatal(err, "Failed to get config")
-	}
-
-	numaLogger.SetLevel(config.LogLevel)
 
 	interval := config.SyncTimeIntervalMs
 	metricServer, err := metrics.NewMetricsServer()

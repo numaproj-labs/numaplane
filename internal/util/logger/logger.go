@@ -6,11 +6,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/numaproj-labs/numaplane/internal/common"
+
+	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/rs/zerolog"
 )
 
@@ -63,6 +63,7 @@ type loggerKey struct{}
 // NumaLogger is the struct containing a pointer to a logr.Logger instance.
 type NumaLogger struct {
 	LogrLogger *logr.Logger
+	LogLevel   int
 }
 
 // LogSink implements logr.LogSink using zerolog as base logger.
@@ -74,22 +75,24 @@ type LogSink struct {
 
 // New returns a new NumaLogger with a logr.Logger instance with a
 // default setup for zerolog, os.Stdout writer, and info level.
-func New() NumaLogger {
+func New() *NumaLogger {
 	w := io.Writer(os.Stdout)
 
-	lvlStr := os.Getenv(common.EnvLogLevel)
-	lvlInt, err := strconv.Atoi(lvlStr)
+	// get the log level
+	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
+		fmt.Println("error using global config to get log level: " + err.Error())
 		return newNumaLogger(&w, nil)
 	}
+	lvl := globalConfig.LogLevel
 
-	return newNumaLogger(&w, &lvlInt)
+	return newNumaLogger(&w, &lvl)
 }
 
 // newNumaLogger returns a new NumaLogger with a logr.Logger instance with a default setup for zerolog.
 // The writer argument sets the output the logs will be written to. If it is nil, os.Stdout will be used.
 // The level argument sets the log level value for this logger instance.
-func newNumaLogger(writer *io.Writer, level *int) NumaLogger {
+func newNumaLogger(writer *io.Writer, level *int) *NumaLogger {
 	// Set some zerolog customization
 	zerolog.MessageFieldName = messageFieldName
 	zerolog.TimestampFieldName = timestampFieldName
@@ -120,59 +123,72 @@ func newNumaLogger(writer *io.Writer, level *int) NumaLogger {
 	sink := &LogSink{l: &zl}
 	ll := logr.New(sink).WithName(loggerDefaultName)
 
-	return NumaLogger{&ll}
+	return &NumaLogger{&ll, lvl}
 }
 
 // WithLogger returns a copy of parent context in which the
 // value associated with logger key is the supplied logger.
-func WithLogger(ctx context.Context, logger NumaLogger) context.Context {
-	return context.WithValue(ctx, loggerKey{}, logger)
+func WithLogger(ctx context.Context, logger *NumaLogger) context.Context {
+	return context.WithValue(ctx, loggerKey{}, logger.DeepCopy())
 }
 
 // FromContext returns the logger in the context.
 // If there is no logger in context, a new one is created.
-func FromContext(ctx context.Context) NumaLogger {
-	if logger, ok := ctx.Value(loggerKey{}).(NumaLogger); ok {
-		return logger
+func FromContext(ctx context.Context) *NumaLogger {
+	if logger, ok := ctx.Value(loggerKey{}).(*NumaLogger); ok {
+		return logger.DeepCopy()
 	}
-
 	return New()
 }
 
+func (in *NumaLogger) DeepCopy() *NumaLogger {
+	if in == nil {
+		return nil
+	}
+	out := new(NumaLogger)
+	out.LogLevel = in.LogLevel
+	out.LogrLogger = new(logr.Logger)
+	*(out.LogrLogger) = *(in.LogrLogger)
+	return out
+}
+
 // WithName appends a given name to the logger.
-func (nl NumaLogger) WithName(name string) NumaLogger {
+func (nl *NumaLogger) WithName(name string) *NumaLogger {
+	out := *nl
 	ll := nl.LogrLogger.WithName(name)
-	nl.LogrLogger = &ll
-	return nl
+	out.LogrLogger = &ll
+	return &out
 }
 
 // WithValues appends additional key/value pairs to the logger.
-func (nl NumaLogger) WithValues(keysAndValues ...any) NumaLogger {
+func (nl *NumaLogger) WithValues(keysAndValues ...any) *NumaLogger {
+	out := *nl
 	ll := nl.LogrLogger.WithValues(keysAndValues)
-	nl.LogrLogger = &ll
-	return nl
+	out.LogrLogger = &ll
+	return &out
 }
 
 // WithCallDepth returns a Logger instance that offsets the call stack by the
 // specified number of frames when logging call site information.
-func (nl NumaLogger) WithCallDepth(depth int) NumaLogger {
+func (nl *NumaLogger) WithCallDepth(depth int) *NumaLogger {
+	out := *nl
 	ll := nl.LogrLogger.WithCallDepth(depth)
-	nl.LogrLogger = &ll
-	return nl
+	out.LogrLogger = &ll
+	return &out
 }
 
 // Error logs an error with a message and optional key/value pairs.
-func (nl NumaLogger) Error(err error, msg string, keysAndValues ...any) {
+func (nl *NumaLogger) Error(err error, msg string, keysAndValues ...any) {
 	nl.LogrLogger.WithCallDepth(1).Error(err, msg, keysAndValues...)
 }
 
 // Errorf logs an error with a formatted message with args.
-func (nl NumaLogger) Errorf(err error, msg string, args ...any) {
+func (nl *NumaLogger) Errorf(err error, msg string, args ...any) {
 	nl.WithCallDepth(1).Error(err, fmt.Sprintf(msg, args...))
 }
 
 // Fatal logs an error with a message and optional key/value pairs. Then, exits with code 1.
-func (nl NumaLogger) Fatal(err error, msg string, keysAndValues ...any) {
+func (nl *NumaLogger) Fatal(err error, msg string, keysAndValues ...any) {
 	keysAndValues = append(keysAndValues, "error", err)
 	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
 	nl.LogrLogger.GetSink().Info(FatalLevel-infoLevelShift, msg, keysAndValues...)
@@ -180,56 +196,57 @@ func (nl NumaLogger) Fatal(err error, msg string, keysAndValues ...any) {
 }
 
 // Fatalf logs an error with a formatted message with args. Then, exits with code 1.
-func (nl NumaLogger) Fatalf(err error, msg string, args ...any) {
+func (nl *NumaLogger) Fatalf(err error, msg string, args ...any) {
 	nl.WithCallDepth(1).Fatal(err, fmt.Sprintf(msg, args...))
 }
 
 // Warn logs a warning-level message with optional key/value pairs.
-func (nl NumaLogger) Warn(msg string, keysAndValues ...any) {
+func (nl *NumaLogger) Warn(msg string, keysAndValues ...any) {
 	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
 	nl.LogrLogger.GetSink().Info(WarnLevel-infoLevelShift, msg, keysAndValues...)
 }
 
 // Warn logs a warning-level formatted message with args.
-func (nl NumaLogger) Warnf(msg string, args ...any) {
+func (nl *NumaLogger) Warnf(msg string, args ...any) {
 	nl.WithCallDepth(1).Warn(fmt.Sprintf(msg, args...))
 }
 
 // Info logs an info-level message with optional key/value pairs.
-func (nl NumaLogger) Info(msg string, keysAndValues ...any) {
+func (nl *NumaLogger) Info(msg string, keysAndValues ...any) {
 	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
 	nl.LogrLogger.GetSink().Info(InfoLevel-infoLevelShift, msg, keysAndValues...)
 }
 
 // Infof logs an info-level formatted message with args.
-func (nl NumaLogger) Infof(msg string, args ...any) {
+func (nl *NumaLogger) Infof(msg string, args ...any) {
 	nl.WithCallDepth(1).Info(fmt.Sprintf(msg, args...))
 }
 
 // Debug logs a debug-level message with optional key/value pairs.
-func (nl NumaLogger) Debug(msg string, keysAndValues ...any) {
+func (nl *NumaLogger) Debug(msg string, keysAndValues ...any) {
 	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
 	nl.LogrLogger.GetSink().Info(DebugLevel-infoLevelShift, msg, keysAndValues...)
 }
 
 // Debugf logs a debug-level formatted message with args.
-func (nl NumaLogger) Debugf(msg string, args ...any) {
+func (nl *NumaLogger) Debugf(msg string, args ...any) {
 	nl.WithCallDepth(1).Debug(fmt.Sprintf(msg, args...))
 }
 
 // Verbose logs a verbose-level message with optional key/value pairs.
-func (nl NumaLogger) Verbose(msg string, keysAndValues ...any) {
+func (nl *NumaLogger) Verbose(msg string, keysAndValues ...any) {
 	// NOTE: -infoLevelShift is needed to offset the `level += infoLevelShift` in the LogSink Info implementation
 	nl.LogrLogger.GetSink().Info(VerboseLevel-infoLevelShift, msg, keysAndValues...)
 }
 
 // Verbosef logs a verbose-level formatted message with args.
-func (nl NumaLogger) Verbosef(msg string, args ...any) {
+func (nl *NumaLogger) Verbosef(msg string, args ...any) {
 	nl.WithCallDepth(1).Verbose(fmt.Sprintf(msg, args...))
 }
 
 // SetLevel sets/changes the log level.
 func (nl *NumaLogger) SetLevel(level int) {
+	nl.LogLevel = level
 	sink := nl.LogrLogger.GetSink().(*LogSink)
 	zl := setLoggerLevel(sink.l, level)
 	sink.l = &zl
