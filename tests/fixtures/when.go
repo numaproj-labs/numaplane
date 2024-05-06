@@ -37,11 +37,6 @@ import (
 	cp "github.com/otiai10/copy"
 )
 
-const (
-	fromFile   = `fromFile:\n        yamlFilePath: \"/etc/credentials.yaml\"\n        key: \"http-cred\"`
-	fromSecret = `fromKubernetesSecret:        name: "http-creds"        key: "password"        namespace: "numaplane-system"`
-)
-
 type When struct {
 	t             *testing.T
 	restConfig    *rest.Config
