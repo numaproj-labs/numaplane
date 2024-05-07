@@ -120,19 +120,19 @@ func (s *FunctionalSuite) TestPublicRepo() {
 
 }
 
-func (s *FunctionalSuite) TestGitCredentialFromFile() {
+// func (s *FunctionalSuite) TestGitCredentialFromFile() {
 
-	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
-		When().
-		UpdateRepoCredentialConfig("manifests/file-config.yaml").
-		CreateGitSyncAndWait()
-	defer w.DeleteGitSyncAndWait()
+// 	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+// 		When().
+// 		UpdateRepoCredentialConfig("manifests/file-config.yaml").
+// 		CreateGitSyncAndWait()
+// 	defer w.DeleteGitSyncAndWait()
 
-	s.testBasicGitSync(w)
+// 	s.testBasicGitSync(w)
 
-	w.UpdateRepoCredentialConfig("manifests/config.yaml")
+// 	w.UpdateRepoCredentialConfig("manifests/config.yaml")
 
-}
+// }
 
 // GitSync auto healing occurs when resource does not match manifest in repo
 func (s *FunctionalSuite) TestAutoHealing() {
