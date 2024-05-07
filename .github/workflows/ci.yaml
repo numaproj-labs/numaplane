@@ -102,7 +102,7 @@ jobs:
         env:
           GOPATH: /home/runner/go
         run: |
-          KUBECONFIG=~/.kube/numaplane-e2e-config VERSION=${{ github.sha }} DOCKER_PUSH=true make start
+          KUBECONFIG=~/.kube/numaplane-e2e-config VERSION=${{ github.sha }} DOCKER_PUSH=true make start-e2e
       - name: Run tests
         env:
           GOPATH: /home/runner/go
