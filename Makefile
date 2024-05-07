@@ -234,7 +234,7 @@ cleanup-e2e:
 	$(KUBECTL) delete -n numaplane-e2e cm --all
 	$(KUBECTL) delete -n numaplane-e2e secret --all
 	$(KUBECTL) delete -n numaplane-e2e all --all
-	$(KUBECTL) delete -n numaplane-system replicaset --all
+	$(KUBECTL) delete -n numaplane-system pod --all
 
 
 .PHONY: start-e2e
