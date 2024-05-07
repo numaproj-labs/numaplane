@@ -1,5 +1,5 @@
 clusterName: "staging-usw2-k8s"
-syncTimeIntervalMs: 30000
+syncTimeIntervalMs: 10000
 autoHealDisabled: false
 cascadeDeletion: false
 includedResources: "group=apps,kind=Deployment;\
