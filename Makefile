@@ -242,6 +242,7 @@ start-e2e: numaflow-crd cleanup-e2e image
 	$(KUBECTL) apply -f tests/e2e/manifests/numaplane-ns.yaml
 	$(KUBECTL) apply -n numaplane-system -k ./tests/e2e-gitserver
 	$(KUBECTL) kustomize tests/e2e/manifests | sed 's/CLUSTER_NAME_VALUE/$(CLUSTER_NAME)/g' | sed 's@quay.io/numaproj/@$(IMAGE_NAMESPACE)/@' | sed 's/$(IMG):$(BASE_VERSION)/$(IMG):$(VERSION)/' | $(KUBECTL) apply -f -
+	$(KUBECTL) get -n numaplane-system pods
 	$(KUBECTL) wait -n numaplane-system pod localgitserver-0 --for=condition=Ready
 
 test-e2e:
