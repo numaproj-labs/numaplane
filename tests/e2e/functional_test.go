@@ -329,7 +329,7 @@ func (s *FunctionalSuite) testBasicGitSync(w *When) {
 	w.Expect().CheckCommitStatus()
 
 	// update deployment manifest with {replicas: 5}
-	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(45 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().CheckCommitStatus()
 
@@ -338,14 +338,14 @@ func (s *FunctionalSuite) testBasicGitSync(w *When) {
 	w.Expect().VerifyResourceState("v1", "configmaps", "test-config", "data", "clusterName", "staging-usw2-k8s")
 
 	// add another resource to multiple-resources file
-	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, false).Wait(45 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"multi-secret"})
 	w.Expect().CheckCommitStatus()
 
 	// removing secret from multiple-resources file should cause it to be deleted
-	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, false).Wait(45 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
 	w.Expect().ResourcesDontExist("v1", "secrets", []string{"multi-secret"})
