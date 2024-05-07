@@ -120,8 +120,10 @@ func (s *FunctionalSuite) TestPublicRepo() {
 
 }
 
+// GitSync testing using credentials from file mounted to deployment instead of k8s secret
 func (s *FunctionalSuite) TestGitCredentialFromFile() {
 
+	// initialize repo and update config to use fromFile
 	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
 		When().
 		UpdateRepoCredentialConfig("manifests/file-config.yaml").

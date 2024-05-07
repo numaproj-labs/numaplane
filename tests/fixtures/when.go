@@ -269,6 +269,7 @@ func (w *When) UpdateAutoHealConfig(autoHealEnabled bool) *When {
 	return w
 }
 
+// UpdateRepoCredentialConfig updates Numaplane controller configmap
 func (w *When) UpdateRepoCredentialConfig(config string) *When {
 
 	ctx := context.Background()
@@ -279,11 +280,14 @@ func (w *When) UpdateRepoCredentialConfig(config string) *When {
 		w.t.Fatalf("Failed to get configmap numaplane-controller-config")
 	}
 
+	w.t.Log("Updating config..")
+
 	newConfig, err := os.ReadFile(config)
 	if err != nil {
 		w.t.Fatal()
 	}
 
+	// set config.yaml to new settings
 	cm.Data["config.yaml"] = string(newConfig)
 
 	// apply update to configmap
