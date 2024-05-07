@@ -124,11 +124,13 @@ func (s *FunctionalSuite) TestGitCredentialFromFile() {
 
 	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
 		When().
-		UpdateRepoCredentialConfig().
+		UpdateRepoCredentialConfig("manifests/file-config.yaml").
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
 
 	s.testBasicGitSync(w)
+
+	w.UpdateRepoCredentialConfig("manifests/config.yaml")
 
 }
 
