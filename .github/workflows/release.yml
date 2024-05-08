@@ -66,37 +66,10 @@ jobs:
       - name: Container build and push with arm64/amd64
         run: make image docker-push IMAGE_FULL_PATH=${{ secrets.QUAYIO_ORG }}/numaplane:${{ steps.version.outputs.VERSION }} CONTAINER_TOOL=docker
 
-  Bom:
-    runs-on: ubuntu-latest
-    if: github.repository == 'numaproj-labs/numaplane'
-    needs: [ build-push-linux-multi ]
-    steps:
-      # https://stackoverflow.com/questions/58033366/how-to-get-current-branch-within-github-actions
-      - run: |
-          if [ ${GITHUB_REF##*/} = main ]; then
-           echo "VERSION=latest" >> $GITHUB_ENV
-          else
-            echo "VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
-          fi
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-      - uses: actions/checkout@v4
-      - run: go install sigs.k8s.io/bom/cmd/bom@v0.2.0
-      - run: go install github.com/spdx/spdx-sbom-generator/cmd/generator@v0.0.13
-      - run: generator -o /tmp -p .
-      - run: bom generate --image ${{ secrets.QUAYIO_ORG }}/numaplane:${{ steps.version.outputs.VERSION }} -o /tmp/numaplane.spdx
-      # pack the boms into one file to make it easy to download
-      - run: cd /tmp && tar -zcf sbom.tar.gz *.spdx
-      - uses: actions/upload-artifact@v3
-        with:
-          name: sbom.tar.gz
-          path: /tmp/sbom.tar.gz
-
   Release:
     runs-on: ubuntu-latest
     if: github.repository == 'numaproj-labs/numaplane'
-    needs: [ build-push-linux-multi, Bom ]
+    needs: [ build-push-linux-multi ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -107,10 +80,6 @@ jobs:
           else
             echo "VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
           fi
-      - uses: actions/download-artifact@v3
-        with:
-          name: sbom.tar.gz
-          path: /tmp
       - name: Registry Login
         uses: docker/login-action@v2
         with:
@@ -123,6 +92,5 @@ jobs:
         with:
           files: |
             manifests/*.yaml
-            /tmp/sbom.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
