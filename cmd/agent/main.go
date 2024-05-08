@@ -52,10 +52,11 @@ func main() {
 	}
 
 	numaLogger.SetLevel(config.LogLevel)
+	logger.SetBaseLogger(numaLogger)
 
 	numaLogger.Infof("config: %+v", config)
 
 	// create a new AgentSyncer
-	syncer := agent.NewAgentSyncer(&numaLogger)
+	syncer := agent.NewAgentSyncer(numaLogger)
 	syncer.Run(ctx)
 }

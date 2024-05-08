@@ -99,14 +99,55 @@ func (s *FunctionalSuite) TestNumaflowGitSync() {
 // GitSync testing with basic k8s objects
 func (s *FunctionalSuite) TestBasicGitSync() {
 
-	s.testBasicGitSync("@testdata/gitsync.yaml")
+	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	s.testBasicGitSync(w)
 
 }
 
 // GitSync testing with basic k8s objects using a public repo
 func (s *FunctionalSuite) TestPublicRepo() {
 
-	s.testBasicGitSync("@testdata/public-gitsync.yaml")
+	w := s.Given().GitSync("@testdata/public-gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	s.testBasicGitSync(w)
+
+}
+
+// GitSync testing using credentials from file mounted to deployment instead of k8s secret
+func (s *FunctionalSuite) TestGitCredentialFromYAMLFile() {
+
+	// initialize repo and update config to use fromFile
+	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		UpdateRepoCredentialConfig("manifests/from-yaml-config.yaml").
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	s.testBasicGitSync(w)
+
+	w.UpdateRepoCredentialConfig("manifests/config.yaml")
+
+}
+
+func (s *FunctionalSuite) TestGitCredentialFromJSONFile() {
+
+	// initialize repo and update config to use fromFile
+	w := s.Given().GitSync("@testdata/gitsync.yaml").InitializeGitRepo("basic-resources/initial-commit").
+		When().
+		UpdateRepoCredentialConfig("manifests/from-json-config.yaml").
+		CreateGitSyncAndWait()
+	defer w.DeleteGitSyncAndWait()
+
+	s.testBasicGitSync(w)
+
+	w.UpdateRepoCredentialConfig("manifests/config.yaml")
 
 }
 
@@ -291,12 +332,7 @@ func (s *FunctionalSuite) TestNonMainBranch() {
 
 }
 
-func (s *FunctionalSuite) testBasicGitSync(gitSync string) {
-
-	w := s.Given().GitSync(gitSync).InitializeGitRepo("basic-resources/initial-commit").
-		When().
-		CreateGitSyncAndWait()
-	defer w.DeleteGitSyncAndWait()
+func (s *FunctionalSuite) testBasicGitSync(w *When) {
 
 	// verify basics resources are created
 	w.Wait(30 * time.Second)
@@ -310,7 +346,7 @@ func (s *FunctionalSuite) testBasicGitSync(gitSync string) {
 	w.Expect().CheckCommitStatus()
 
 	// update deployment manifest with {replicas: 5}
-	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(45 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().CheckCommitStatus()
 
@@ -319,7 +355,7 @@ func (s *FunctionalSuite) testBasicGitSync(gitSync string) {
 	w.Expect().VerifyResourceState("v1", "configmaps", "test-config", "data", "clusterName", "staging-usw2-k8s")
 
 	// add another resource to multiple-resources file
-	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, false).Wait(45 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"multi-secret"})

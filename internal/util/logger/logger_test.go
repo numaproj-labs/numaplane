@@ -20,7 +20,7 @@ type LogJSON struct {
 	FieldB  string `json:"fieldB,omitempty"`
 }
 
-func mock(level *int) (NumaLogger, *bytes.Buffer) {
+func mock(level *int) (*NumaLogger, *bytes.Buffer) {
 	var buf bytes.Buffer
 	w := io.Writer(&buf)
 
