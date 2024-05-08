@@ -3,6 +3,8 @@ kind: Kustomization
 
 resources:
   - ../../../config/default
+  - yaml-credential.yaml
+  - json-credential.yaml
   - secret.yaml
 
 patches:
@@ -13,6 +15,47 @@ patches:
     target:
       kind: Deployment
       name: numaplane-controller-manager
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts/-
+        value:
+          name: yaml-credential
+          mountPath: /etc/credentials.yaml
+          subPath: credentials.yaml
+    target:
+      kind: Deployment
+      name: numaplane-controller-manager
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/volumes/-
+        value:
+          name: yaml-credential
+          configMap:
+            name: yaml-credential
+    target:
+      kind: Deployment
+      name: numaplane-controller-manager
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts/-
+        value:
+          name: json-credential
+          mountPath: /etc/credentials.json
+          subPath: credentials.json
+    target:
+      kind: Deployment
+      name: numaplane-controller-manager
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/volumes/-
+        value:
+          name: json-credential
+          configMap:
+            name: json-credential
+    target:
+      kind: Deployment
+      name: numaplane-controller-manager  
+
   - patch: |-
       - op: add
         path: /rules/2/resources/-

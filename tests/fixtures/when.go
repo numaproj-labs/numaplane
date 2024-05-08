@@ -19,6 +19,7 @@ package fixtures
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -266,6 +267,40 @@ func (w *When) UpdateAutoHealConfig(autoHealEnabled bool) *When {
 	w.t.Log("Config updated")
 
 	return w
+}
+
+// UpdateRepoCredentialConfig updates Numaplane controller configmap
+func (w *When) UpdateRepoCredentialConfig(config string) *When {
+
+	ctx := context.Background()
+
+	cm, err := w.kubeClient.CoreV1().ConfigMaps("numaplane-system").
+		Get(ctx, "numaplane-controller-config", metav1.GetOptions{})
+	if err != nil {
+		w.t.Fatalf("Failed to get configmap numaplane-controller-config")
+	}
+
+	w.t.Log("Updating config..")
+
+	newConfig, err := os.ReadFile(config)
+	if err != nil {
+		w.t.Fatal()
+	}
+
+	// set config.yaml to new settings
+	cm.Data["config.yaml"] = string(newConfig)
+
+	// apply update to configmap
+	_, err = w.kubeClient.CoreV1().ConfigMaps("numaplane-system").
+		Update(ctx, cm, metav1.UpdateOptions{})
+	if err != nil {
+		w.t.Fatal()
+	}
+
+	w.t.Log("Config updated")
+
+	return w
+
 }
 
 func (w *When) Wait(timeout time.Duration) *When {
