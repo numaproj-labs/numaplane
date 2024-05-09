@@ -30,7 +30,7 @@ func IsValidKubernetesNamespace(name string) bool {
 	return false
 }
 
-// GetGitSyncInstanceLabel returns the application instance name from annotation
+// GetGitSyncInstanceLabel returns the application instance name from label
 func GetGitSyncInstanceLabel(un *unstructured.Unstructured, key string) (string, error) {
 	labels, err := nestedNullableStringMap(un.Object, "metadata", "labels")
 	if err != nil {
