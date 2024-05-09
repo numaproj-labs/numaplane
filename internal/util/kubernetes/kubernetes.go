@@ -30,30 +30,31 @@ func IsValidKubernetesNamespace(name string) bool {
 	return false
 }
 
-// GetGitSyncInstanceAnnotation returns the application instance name from annotation
-func GetGitSyncInstanceAnnotation(un *unstructured.Unstructured, key string) (string, error) {
-	annotations, err := nestedNullableStringMap(un.Object, "metadata", "annotations")
+// GetGitSyncInstanceLabel returns the application instance name from label
+func GetGitSyncInstanceLabel(un *unstructured.Unstructured, key string) (string, error) {
+	labels, err := nestedNullableStringMap(un.Object, "metadata", "labels")
 	if err != nil {
-		return "", fmt.Errorf("failed to get annotations from target object %s %s/%s: %w", un.GroupVersionKind().String(), un.GetNamespace(), un.GetName(), err)
+		return "", fmt.Errorf("failed to get labels from target object %s %s/%s: %w", un.GroupVersionKind().String(), un.GetNamespace(), un.GetName(), err)
 	}
-	if annotations != nil {
-		return annotations[key], nil
+	if labels != nil {
+		return labels[key], nil
 	}
 	return "", nil
 }
 
-// SetGitSyncInstanceAnnotation sets the recommended app.kubernetes.io/instance annotation against an unstructured object
-func SetGitSyncInstanceAnnotation(target *unstructured.Unstructured, key, val string) error {
-	annotations, err := nestedNullableStringMap(target.Object, "metadata", "annotations")
-	if err != nil {
-		return fmt.Errorf("failed to get annotations from target object %s %s/%s: %w", target.GroupVersionKind().String(), target.GetNamespace(), target.GetName(), err)
-	}
+// SetGitSyncInstanceLabel sets the recommended app.kubernetes.io/instance label against an unstructured object
+func SetGitSyncInstanceLabel(target *unstructured.Unstructured, key, val string) error {
 
-	if annotations == nil {
-		annotations = make(map[string]string)
+	labels, err := nestedNullableStringMap(target.Object, "metadata", "labels")
+	if err != nil {
+		return fmt.Errorf("failed to get labels from target object %s %s/%s: %w", target.GroupVersionKind().String(), target.GetNamespace(), target.GetName(), err)
 	}
-	annotations[key] = val
-	target.SetAnnotations(annotations)
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[key] = val
+	target.SetLabels(labels)
+
 	return nil
 }
 
