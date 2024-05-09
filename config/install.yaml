@@ -533,4 +533,4 @@ spec:
         name: config-volume
       - name: repo-volume
         persistentVolumeClaim:
-          claimName: numaplane-repo-pvc
+          claimName: numaplane-efs-claim-data-1
