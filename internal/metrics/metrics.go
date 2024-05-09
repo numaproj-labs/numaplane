@@ -28,7 +28,8 @@ type MetricsServer struct {
 }
 
 var (
-	descAppDefaultLabels = []string{"name", "namespace"}
+	intuitLabel          = "intuit_alert"
+	descAppDefaultLabels = []string{intuitLabel, "name", "namespace"}
 	syncCounter          = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "numaplane_gitsync_sync_total",
@@ -43,7 +44,7 @@ var (
 			Help:    "Work queue sync wait time for reconcile",
 			Buckets: []float64{1, 2, 3, 4, 5},
 		},
-		[]string{},
+		[]string{intuitLabel},
 	)
 
 	gitSyncUpdateErrorCounter = prometheus.NewCounterVec(
@@ -59,7 +60,7 @@ var (
 			Name: "numaplane_gitsync_reconcile_duration_second",
 			Help: "GitSync reconciliation performance.",
 		},
-		[]string{"namespace", "dest_cluster"},
+		[]string{intuitLabel, "namespace", "dest_cluster"},
 	)
 
 	kubeRequestCounter = prometheus.NewCounterVec(
@@ -67,46 +68,46 @@ var (
 			Name: "numaplane_gitsync_kube_request_total",
 			Help: "Number of kubernetes requests executed during GitSync reconciliation.",
 		},
-		[]string{"response_code", "verb", "resource_kind", "resource_namespace"},
+		[]string{intuitLabel, "response_code", "verb", "resource_kind", "resource_namespace"},
 	)
 
 	kubectlExecCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "numaplane_kubectl_exec_total",
 		Help: "Number of kubectl executions",
-	}, []string{"hostname", "command"})
+	}, []string{intuitLabel, "hostname", "command"})
 
 	gitRequestCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "numaplane_git_request_total",
 		Help: "Number of git request",
-	}, []string{})
+	}, []string{intuitLabel})
 
 	gitRequestFailedCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "numaplane_git_request_failed_total",
 		Help: "Number of git request failed",
-	}, []string{})
+	}, []string{intuitLabel})
 
 	gitRequestLatency = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: "numaplane_git_request_latency",
 			Help: "Git request latency",
 		},
-		[]string{},
+		[]string{intuitLabel},
 	)
 
 	monitoredKubeAPI = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "numaplane_monitored_kube_api_total",
 		Help: "Number of monitored kubernetes API resources",
-	}, []string{})
+	}, []string{intuitLabel})
 
 	kubeCachedResource = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "numaplane_kube_cache_resource_total",
 		Help: "Number of kubernetes resource objects in the cache",
-	}, []string{})
+	}, []string{intuitLabel})
 
 	kubeCacheFailed = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "numaplane_kube_cache_error",
 		Help: "Error on fetching cluster cache",
-	}, []string{})
+	}, []string{intuitLabel})
 )
 
 func NewMetricsServer() (*MetricsServer, error) {
@@ -150,53 +151,53 @@ func (m *MetricsServer) IncSync(gitSync *v1alpha1.GitSync, state gitopsSyncCommo
 	if !state.Completed() {
 		return
 	}
-	m.syncCounter.WithLabelValues(gitSync.Name, gitSync.Namespace, gitSync.Spec.Destination.Namespace, gitSync.Spec.Destination.Cluster, string(state)).Inc()
+	m.syncCounter.WithLabelValues("true", gitSync.Name, gitSync.Namespace, gitSync.Spec.Destination.Namespace, gitSync.Spec.Destination.Cluster, string(state)).Inc()
 }
 
 // ObserveWorkerQueueSyncWaitTime increments the sync counter for an application
 func (m *MetricsServer) ObserveWorkerQueueSyncWaitTime(duration time.Duration) {
-	m.workQueueSyncWaitTimeHistogram.WithLabelValues().Observe(float64(duration.Milliseconds()))
+	m.workQueueSyncWaitTimeHistogram.WithLabelValues("true").Observe(float64(duration.Milliseconds()))
 }
 
 // InGitSyncUpdateError increments the sync counter for git sync status update failure
 func (m *MetricsServer) InGitSyncUpdateError(gitSync *v1alpha1.GitSync) {
-	m.gitSyncUpdateErrorCounter.WithLabelValues(gitSync.Name, gitSync.Namespace).Inc()
+	m.gitSyncUpdateErrorCounter.WithLabelValues("true", gitSync.Name, gitSync.Namespace).Inc()
 }
 
 // ObserveReconcile increments the reconciled counter for an application
 func (m *MetricsServer) ObserveReconcile(gitSync *v1alpha1.GitSync, duration time.Duration) {
-	m.reconcileHistogram.WithLabelValues(gitSync.Namespace, gitSync.Spec.Destination.Cluster).Observe(duration.Seconds())
+	m.reconcileHistogram.WithLabelValues("true", gitSync.Namespace, gitSync.Spec.Destination.Cluster).Observe(duration.Seconds())
 }
 
 // IncKubernetesRequest increments the kubernetes requests counter for an application
 func (m *MetricsServer) IncKubernetesRequest(statusCode, verb, resourceKind, resourceNamespace string) {
-	m.kubeRequestCounter.WithLabelValues(statusCode, verb, resourceKind, resourceNamespace).Inc()
+	m.kubeRequestCounter.WithLabelValues("true", statusCode, verb, resourceKind, resourceNamespace).Inc()
 }
 
 func (m *MetricsServer) IncKubectlExec(command string) {
-	m.kubectlExecCounter.WithLabelValues(m.hostname, command).Inc()
+	m.kubectlExecCounter.WithLabelValues("true", m.hostname, command).Inc()
 }
 
 func (m *MetricsServer) IncGitRequest() {
-	m.gitRequestCounter.WithLabelValues().Inc()
+	m.gitRequestCounter.WithLabelValues("true").Inc()
 }
 
 func (m *MetricsServer) IncGitRequestFailed() {
-	m.gitRequestFailedCounter.WithLabelValues().Inc()
+	m.gitRequestFailedCounter.WithLabelValues("true").Inc()
 }
 
 func (m *MetricsServer) ObserveGitRequestLatency(duration time.Duration) {
-	m.gitRequestLatency.WithLabelValues().Observe(duration.Seconds())
+	m.gitRequestLatency.WithLabelValues("true").Observe(duration.Seconds())
 }
 
 func (m *MetricsServer) SetMonitoredKubeAPI(apiRequest float64) {
-	m.monitoredKubeAPI.WithLabelValues().Set(apiRequest)
+	m.monitoredKubeAPI.WithLabelValues("true").Set(apiRequest)
 }
 
 func (m *MetricsServer) SetKubeCachedResource(cache float64) {
-	m.kubeCachedResource.WithLabelValues().Set(cache)
+	m.kubeCachedResource.WithLabelValues("true").Set(cache)
 }
 
 func (m *MetricsServer) IncKubeCacheFailed() {
-	m.kubeCacheFailed.WithLabelValues().Inc()
+	m.kubeCacheFailed.WithLabelValues("true").Inc()
 }
