@@ -167,7 +167,7 @@ func testDeploy() *appsv1.Deployment {
 			UID:               "3",
 			ResourceVersion:   "123",
 			CreationTimestamp: metav1.NewTime(testCreationTime),
-			Annotations: map[string]string{
+			Labels: map[string]string{
 				"numaplane.numaproj.io/tracking-id": testGitSyncName,
 			},
 		},
@@ -190,7 +190,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: my-app
-  annotations:
+  labels:
     numaplane.numaproj.io/tracking-id: my-gitsync`)
 
 	managedObjs, err := clusterCache.GetManagedLiveObjs(defaultGitSync, []*unstructured.Unstructured{targetDeploy})
