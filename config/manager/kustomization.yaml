@@ -6,6 +6,8 @@ resources:
 - controller-config.yaml
 - persistent-volume.yaml
 - persistent-volume-claim.yaml
+#- storageclass.yaml
+#- pvc-efs.yaml
 
 images:
 - name: quay.io/numaproj/numaplane-controller
