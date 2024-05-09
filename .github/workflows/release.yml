@@ -35,16 +35,6 @@ jobs:
         target: [ numaplane ]
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Setup Node-Cache
-        uses: actions/cache@v4
-        with:
-          path: ui/node_modules
-          key: ${{ runner.os }}-node-dep-v1-${{ hashFiles('**/yarn.lock') }}
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
@@ -62,9 +52,9 @@ jobs:
           if [ $tag = "main" ]; then
             tag="latest"
           fi
-          echo "::set-output name=VERSION::$tag"
+          echo "VERSION=$tag" >> $GITHUB_OUTPUT
       - name: Container build and push with arm64/amd64
-        run: make image docker-push IMAGE_FULL_PATH=${{ secrets.QUAYIO_ORG }}/numaplane:${{ steps.version.outputs.VERSION }} CONTAINER_TOOL=docker
+        run: make image docker-push IMAGE_FULL_PATH=${{ secrets.QUAYIO_ORG }}/numaplane-controller:${{ steps.version.outputs.VERSION }} CONTAINER_TOOL=docker
 
   Release:
     runs-on: ubuntu-latest
@@ -91,6 +81,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            manifests/*.yaml
+            config/*.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
