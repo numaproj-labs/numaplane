@@ -93,4 +93,4 @@ spec:
             name: numaplane-controller-config
         - name: repo-volume
           persistentVolumeClaim:
-            claimName: numaplane-efs-claim-data-1
+            claimName: numaplane-repo-pvc  #need to be changed as per the new pvc
