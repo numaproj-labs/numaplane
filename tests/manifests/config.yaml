@@ -4,7 +4,7 @@ cascadeDeletion: false
 includedResources: "group=apps,kind=Deployment;\
 group=,kind=ConfigMap;group=,kind=ServiceAccount;\
 group=numaflow.numaproj.io,kind=;\
-group=numaflow.numaproj.io,kind=;\
+group=numaplane.numaproj.io,kind=;\
 group=rbac.authorization.k8s.io,kind=RoleBinding;group=rbac.authorization.k8s.io,kind=Role"
 repoCredentials:
 - url: "github.com/numaproj-labs"
