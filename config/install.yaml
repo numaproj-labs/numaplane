@@ -494,8 +494,6 @@ spec:
         volumeMounts:
         - mountPath: /etc/numaplane
           name: config-volume
-        - mountPath: /tmp
-          name: repo-volume
       initContainers: []
       serviceAccountName: numaplane-sa
       terminationGracePeriodSeconds: 10
