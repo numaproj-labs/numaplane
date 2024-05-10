@@ -83,8 +83,6 @@ spec:
         volumeMounts: 
           - name: config-volume
             mountPath: /etc/numaplane
-          - name: repo-volume
-            mountPath: /tmp
       serviceAccountName: numaplane-sa
       terminationGracePeriodSeconds: 10
       volumes:
