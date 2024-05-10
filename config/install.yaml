@@ -436,34 +436,6 @@ metadata:
   name: numaplane-controller-config
   namespace: numaplane-system
 ---
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  labels:
-    type: local
-  name: numaplane-repo-pv
-spec:
-  accessModes:
-  - ReadWriteOnce
-  capacity:
-    storage: 5Gi
-  hostPath:
-    path: /tmp
-  storageClassName: standard
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: numaplane-repo-pvc
-  namespace: numaplane-system
-spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 5Gi
-  storageClassName: standard
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
