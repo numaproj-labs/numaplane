@@ -50,30 +50,30 @@ func TestIsValidKubernetesNamespace(t *testing.T) {
 	}
 }
 
-func TestGetGitSyncInstanceAnnotation(t *testing.T) {
+func TestGetGitSyncInstanceLabel(t *testing.T) {
 	yamlBytes, err := os.ReadFile("testdata/svc.yaml")
 	assert.Nil(t, err)
 	var obj unstructured.Unstructured
 	err = yaml.Unmarshal(yamlBytes, &obj)
 	assert.Nil(t, err)
-	err = SetGitSyncInstanceAnnotation(&obj, common.AnnotationKeyGitSyncInstance, "my-gitsync")
+	err = SetGitSyncInstanceLabel(&obj, common.LabelKeyGitSyncInstance, "my-gitsync")
 	assert.Nil(t, err)
 
-	annotation, err := GetGitSyncInstanceAnnotation(&obj, common.AnnotationKeyGitSyncInstance)
+	label, err := GetGitSyncInstanceLabel(&obj, common.LabelKeyGitSyncInstance)
 	assert.Nil(t, err)
-	assert.Equal(t, "my-gitsync", annotation)
+	assert.Equal(t, "my-gitsync", label)
 }
 
-func TestGetGitSyncInstanceAnnotationWithInvalidData(t *testing.T) {
+func TestGetGitSyncInstanceLabelWithInvalidData(t *testing.T) {
 	yamlBytes, err := os.ReadFile("testdata/svc-with-invalid-data.yaml")
 	assert.Nil(t, err)
 	var obj unstructured.Unstructured
 	err = yaml.Unmarshal(yamlBytes, &obj)
 	assert.Nil(t, err)
 
-	_, err = GetGitSyncInstanceAnnotation(&obj, "valid-annotation")
+	_, err = GetGitSyncInstanceLabel(&obj, "valid-label")
 	assert.Error(t, err)
-	assert.Equal(t, "failed to get annotations from target object /v1, Kind=Service /my-service: .metadata.annotations accessor error: contains non-string key in the map: <nil> is of the type <nil>, expected string", err.Error())
+	assert.Equal(t, "failed to get labels from target object /v1, Kind=Service /my-service: .metadata.labels accessor error: contains non-string key in the map: <nil> is of the type <nil>, expected string", err.Error())
 }
 
 func TestGetSecret(t *testing.T) {

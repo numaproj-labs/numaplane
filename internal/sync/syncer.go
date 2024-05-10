@@ -281,7 +281,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		return nil
 	}
 
-	uns, err := applyAnnotationAndNamespace(manifests, gitSyncName, gitSync.Spec.Destination.Namespace)
+	uns, err := applyLabelAndNamespace(manifests, gitSyncName, gitSync.Spec.Destination.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to parse the manifest of key %q, %w", key, err)
 	}
@@ -429,16 +429,19 @@ func (s *Syncer) getResourceOperations() (kube.ResourceOperations, func(), error
 	return ops, cleanup, nil
 }
 
-func applyAnnotationAndNamespace(manifests []*unstructured.Unstructured, gitSyncName, destinationNamespace string) ([]*unstructured.Unstructured, error) {
+// add label "numaplane.numaproj.io/tracking-id"=gitSyncName to select resources by GitSync
+func applyLabelAndNamespace(manifests []*unstructured.Unstructured, gitSyncName, destinationNamespace string) ([]*unstructured.Unstructured, error) {
+
 	uns := make([]*unstructured.Unstructured, 0)
 	for _, m := range manifests {
-		err := kubernetes.SetGitSyncInstanceAnnotation(m, common.AnnotationKeyGitSyncInstance, gitSyncName)
+		err := kubernetes.SetGitSyncInstanceLabel(m, common.LabelKeyGitSyncInstance, gitSyncName)
 		if err != nil {
 			return nil, err
 		}
 		m.SetNamespace(destinationNamespace)
 		uns = append(uns, m)
 	}
+
 	return uns, nil
 }
 

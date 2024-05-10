@@ -1,7 +1,7 @@
 apiVersion: numaflow.numaproj.io/v1alpha1
 kind: Pipeline
 metadata:
-  annotations:
+  labels:
     numaplane.numaproj.io/tracking-id: gitsync-example
   creationTimestamp: "2024-03-08T22:09:18Z"
   finalizers:
