@@ -6,5 +6,5 @@ resources:
 - controller-config.yaml
 
 images:
-- name: quay.io/numaio/numaplane-controller
+- name: quay.io/numaproj/numaplane-controller
   newTag: latest
