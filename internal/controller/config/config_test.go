@@ -38,7 +38,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Equal(t, "group=apps,kind=Deployment;"+
 		"group=,kind=ConfigMap;group=,kind=Secret;group=,kind=ServiceAccount;group=,kind=Namespace;"+
 		"group=numaflow.numaproj.io,kind=;"+
-		"group=numaflow.numaproj.io,kind=;"+
+		"group=numaplane.numaproj.io,kind=;"+
 		"group=rbac.authorization.k8s.io,kind=RoleBinding;group=rbac.authorization.k8s.io,kind=Role",
 		config.IncludedResources, "IncludedResources does not match")
 

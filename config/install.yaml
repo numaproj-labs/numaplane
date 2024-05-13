@@ -429,40 +429,12 @@ data:
     includedResources: "group=apps,kind=Deployment;\
     group=,kind=ConfigMap;group=,kind=Secret;group=,kind=ServiceAccount;\
     group=numaflow.numaproj.io,kind=;\
-    group=numaflow.numaproj.io,kind=;\
+    group=numaplane.numaproj.io,kind=;\
     group=rbac.authorization.k8s.io,kind=RoleBinding;group=rbac.authorization.k8s.io,kind=Role"
 kind: ConfigMap
 metadata:
   name: numaplane-controller-config
   namespace: numaplane-system
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  labels:
-    type: local
-  name: numaplane-repo-pv
-spec:
-  accessModes:
-  - ReadWriteOnce
-  capacity:
-    storage: 5Gi
-  hostPath:
-    path: /tmp
-  storageClassName: standard
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: numaplane-repo-pvc
-  namespace: numaplane-system
-spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 5Gi
-  storageClassName: standard
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -492,7 +464,7 @@ spec:
       containers:
       - args:
         - --health-probe-bind-address=:8081
-        - --metrics-bind-address=127.0.0.1:8080
+        - --metrics-bind-address=:8080
         - --leader-elect
         command:
         - /manager
@@ -522,8 +494,6 @@ spec:
         volumeMounts:
         - mountPath: /etc/numaplane
           name: config-volume
-        - mountPath: /tmp
-          name: repo-volume
       initContainers: []
       serviceAccountName: numaplane-sa
       terminationGracePeriodSeconds: 10
@@ -531,6 +501,3 @@ spec:
       - configMap:
           name: numaplane-controller-config
         name: config-volume
-      - name: repo-volume
-        persistentVolumeClaim:
-          claimName: numaplane-repo-pvc
