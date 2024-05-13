@@ -63,13 +63,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set Version
-        run: |
-          if [ ${GITHUB_REF##*/} = main ]; then
-            echo "VERSION=latest" >> $GITHUB_ENV
-          else
-            echo "VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
-          fi
       - name: Registry Login
         uses: docker/login-action@v2
         with:
