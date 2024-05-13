@@ -285,7 +285,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	}
 	// If auto heal is not enabled and the target commit hash is the same as last sync,
 	// skip the syncing.
-	if globalConfig.AutoHealDisabled && isChanged {
+	if globalConfig.AutoHealDisabled && !isChanged {
 		numaLogger.Info("Skip the syncing as there are no changes and auto heal is turned off.")
 		return nil
 	}
