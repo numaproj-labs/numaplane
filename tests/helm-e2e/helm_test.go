@@ -82,8 +82,6 @@ func (s *HelmSuite) TestAutoHealing() {
 		CreateGitSyncAndWait()
 	defer w.DeleteGitSyncAndWait()
 
-	// w.Wait(30 * time.Second)
-
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"gitsync-example-helm-test"})
 	w.Expect().CheckCommitStatus()
 
