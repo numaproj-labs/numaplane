@@ -234,9 +234,9 @@ func (c *liveStateCache) PopulateResourceInfo(un *unstructured.Unstructured, isR
 	return res, res.GitSyncName != "" || gvk.Kind == kube.CustomResourceDefinitionKind
 }
 
-// getGitSyncName gets the GitSync that owns the resource from an annotation in the resource
+// getGitSyncName gets the GitSync that owns the resource from a label in the resource
 func getGitSyncName(un *unstructured.Unstructured) string {
-	value, err := kubernetes.GetGitSyncInstanceAnnotation(un, common.AnnotationKeyGitSyncInstance)
+	value, err := kubernetes.GetGitSyncInstanceLabel(un, common.LabelKeyGitSyncInstance)
 	if err != nil {
 		return ""
 	}

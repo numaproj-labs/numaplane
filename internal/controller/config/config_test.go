@@ -30,6 +30,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Nil(t, err, "Failed to load configuration")
 
 	assert.Equal(t, "staging-usw2-k8s", config.ClusterName, "ClusterName does not match")
+	assert.Equal(t, "/tmp", config.PersistentRepoClonePath, "Persistent Repo Clone Path Doesn't match")
 	assert.Equal(t, 30000, config.SyncTimeIntervalMs, "SyncTimeIntervalMs does not match")
 	assert.Equal(t, false, config.AutoHealDisabled, "AutoHealDisabled does not match")
 	assert.Equal(t, false, config.AutomatedSyncDisabled, "AutomatedSyncDisabled does not match")
@@ -37,7 +38,7 @@ func TestLoadConfigMatchValues(t *testing.T) {
 	assert.Equal(t, "group=apps,kind=Deployment;"+
 		"group=,kind=ConfigMap;group=,kind=Secret;group=,kind=ServiceAccount;group=,kind=Namespace;"+
 		"group=numaflow.numaproj.io,kind=;"+
-		"group=numaflow.numaproj.io,kind=;"+
+		"group=numaplane.numaproj.io,kind=;"+
 		"group=rbac.authorization.k8s.io,kind=RoleBinding;group=rbac.authorization.k8s.io,kind=Role",
 		config.IncludedResources, "IncludedResources does not match")
 
