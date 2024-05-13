@@ -280,6 +280,9 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 		Name:      gitSync.Name,
 	}
 	isChanged, commitHash, manifests, err := watcher.CheckForChanges(ctx, s.client, gitSync, globalConfig, s.metricsServer, namespacedName)
+	if err != nil {
+		return fmt.Errorf("failed to check for the latest changes from the repo %q, %w", key, err)
+	}
 	// If auto heal is not enabled and the target commit hash is the same as last sync,
 	// skip the syncing.
 	if globalConfig.AutoHealDisabled && isChanged {
@@ -451,24 +454,24 @@ func applyLabelAndNamespace(manifests []*unstructured.Unstructured, gitSyncName,
 	return uns, nil
 }
 
-func getCommitStatus(
-	ctx context.Context,
-	kubeClient client.Client,
-	namespacedName types.NamespacedName,
-	numaLogger *logger.NumaLogger,
-) (*v1alpha1.CommitStatus, error) {
-	gitSync := &v1alpha1.GitSync{}
-	if err := kubeClient.Get(ctx, namespacedName, gitSync); err != nil {
-		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
-		if apierrors.IsNotFound(err) {
-			return nil, nil
-		} else {
-			numaLogger.Error(err, "Unable to get GitSync", "err")
-			return nil, err
-		}
-	}
-	return gitSync.Status.CommitStatus, nil
-}
+//func getCommitStatus(
+//	ctx context.Context,
+//	kubeClient client.Client,
+//	namespacedName types.NamespacedName,
+//	numaLogger *logger.NumaLogger,
+//) (*v1alpha1.CommitStatus, error) {
+//	gitSync := &v1alpha1.GitSync{}
+//	if err := kubeClient.Get(ctx, namespacedName, gitSync); err != nil {
+//		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
+//		if apierrors.IsNotFound(err) {
+//			return nil, nil
+//		} else {
+//			numaLogger.Error(err, "Unable to get GitSync", "err")
+//			return nil, err
+//		}
+//	}
+//	return gitSync.Status.CommitStatus, nil
+//}
 
 // updateCommitStatus will update the commit status in git sync CR.
 // If an error occurred while syncing the target state, then it
