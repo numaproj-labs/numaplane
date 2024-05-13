@@ -24,10 +24,10 @@ import (
 
 	"github.com/numaproj-labs/numaplane/internal/common"
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
-	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/metrics"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
+	"github.com/numaproj-labs/numaplane/internal/watcher"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
@@ -256,27 +256,33 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if globalConfig.AutomatedSyncDisabled {
 		return nil
 	}
+	/*
+		repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig, s.metricsServer)
+		if err != nil {
+			return fmt.Errorf("failed to clone the repo of key %q, %w", key, err)
+		}
+		commitHash, manifests, err := git.GetLatestManifests(ctx, repo, s.client, gitSync, s.metricsServer)
+		if err != nil {
+			return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
+		}
 
-	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig, s.metricsServer)
-	if err != nil {
-		return fmt.Errorf("failed to clone the repo of key %q, %w", key, err)
-	}
-	commitHash, manifests, err := git.GetLatestManifests(ctx, repo, s.client, gitSync, s.metricsServer)
-	if err != nil {
-		return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
-	}
-
+		namespacedName := types.NamespacedName{
+			Namespace: gitSync.Namespace,
+			Name:      gitSync.Name,
+		}
+		lastSyncedCommitHash, err := getCommitStatus(ctx, s.client, namespacedName, numaLogger)
+		if err != nil {
+			return fmt.Errorf("failed to get the current commit status of key %q, %w", key, err)
+		}
+	*/
 	namespacedName := types.NamespacedName{
 		Namespace: gitSync.Namespace,
 		Name:      gitSync.Name,
 	}
-	lastSyncedCommitHash, err := getCommitStatus(ctx, s.client, namespacedName, numaLogger)
-	if err != nil {
-		return fmt.Errorf("failed to get the current commit status of key %q, %w", key, err)
-	}
+	isChanged, commitHash, manifests, err := watcher.CheckForChanges(ctx, s.client, gitSync, globalConfig, s.metricsServer, namespacedName)
 	// If auto heal is not enabled and the target commit hash is the same as last sync,
 	// skip the syncing.
-	if globalConfig.AutoHealDisabled && lastSyncedCommitHash != nil && lastSyncedCommitHash.Hash == commitHash {
+	if globalConfig.AutoHealDisabled && isChanged {
 		numaLogger.Info("Skip the syncing as there are no changes and auto heal is turned off.")
 		return nil
 	}
