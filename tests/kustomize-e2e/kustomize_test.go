@@ -44,6 +44,9 @@ func (s *KustomizeSuite) TestKustomize() {
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"kustomize-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"kustomize-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"kustomize-secret"})
+	// these resources are defined in the same file
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
 	w.Expect().CheckCommitStatus()
 
 	// remove deployment resource from kustomization file
@@ -52,6 +55,12 @@ func (s *KustomizeSuite) TestKustomize() {
 	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"kustomize-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"kustomize-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"kustomize-secret"})
+	w.Expect().CheckCommitStatus()
+
+	w.PushToGitRepo("kustomize/modified", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
+	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
+	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
+	w.Expect().ResourcesExist("v1", "secrets", []string{"multi-secret"})
 	w.Expect().CheckCommitStatus()
 
 }
