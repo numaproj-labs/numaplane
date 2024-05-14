@@ -50,14 +50,14 @@ func (s *KustomizeSuite) TestKustomize() {
 	w.Expect().CheckCommitStatus()
 
 	// remove deployment resource from kustomization file
-	w.PushToGitRepo("kustomize/modified", []string{"kustomization.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("kustomize/modified", []string{"kustomization.yaml"}, false).Wait(10 * time.Second)
 	// verify that deployment should be deleted while other resources remain
 	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"kustomize-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"kustomize-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"kustomize-secret"})
 	w.Expect().CheckCommitStatus()
 
-	w.PushToGitRepo("kustomize/modified", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("kustomize/modified", []string{"multiple-resources.yaml"}, false).Wait(10 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"multi-secret"})
@@ -80,16 +80,16 @@ func (s *KustomizeSuite) TestAutoHealing() {
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "kustomize-deploy", "spec", "replicas", 3)
 
 	// apply patch to resource
-	w.ModifyResource("apps/v1", "deployments", "kustomize-deploy", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
+	w.ModifyResource("apps/v1", "deployments", "kustomize-deploy", `{"spec":{"replicas":4}}`).Wait(10 * time.Second)
 
 	// verify that resource has been "healed" by resetting replica count to 3
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "kustomize-deploy", "spec", "replicas", 3)
 
 	// disable autohealing
-	w.UpdateAutoHealConfig(false).Wait(30 * time.Second)
+	w.UpdateAutoHealConfig(false).Wait(60 * time.Second)
 
 	// apply patch to resource
-	w.ModifyResource("apps/v1", "deployments", "kustomize-deploy", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
+	w.ModifyResource("apps/v1", "deployments", "kustomize-deploy", `{"spec":{"replicas":4}}`).Wait(10 * time.Second)
 
 	// verify that resource has not been healed like previous
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "kustomize-deploy", "spec", "replicas", 4)

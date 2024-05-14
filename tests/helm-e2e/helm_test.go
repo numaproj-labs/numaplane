@@ -44,17 +44,17 @@ func (s *HelmSuite) TestHelm() {
 	w.Expect().CheckCommitStatus()
 
 	// remove deployment manifest from repo
-	w.PushToGitRepo("helm/initial-commit", []string{"templates/deployment.yaml"}, true).Wait(30 * time.Second)
+	w.PushToGitRepo("helm/initial-commit", []string{"templates/deployment.yaml"}, true).Wait(10 * time.Second)
 	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"gitsync-example-helm-test"})
 	w.Expect().CheckCommitStatus()
 
 	// adding new template to repo
-	w.PushToGitRepo("helm/modified", []string{"templates/new-deploy.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("helm/modified", []string{"templates/new-deploy.yaml"}, false).Wait(10 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"new-deploy"})
 	w.Expect().CheckCommitStatus()
 
 	// modifying the values.yaml target for helm
-	w.PushToGitRepo("helm/modified", []string{"values.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("helm/modified", []string{"values.yaml"}, false).Wait(10 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"new-deploy"})
 	w.Expect().CheckCommitStatus()
 
@@ -88,16 +88,16 @@ func (s *HelmSuite) TestAutoHealing() {
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "gitsync-example-helm-test", "spec", "replicas", 1)
 
 	// apply patch to resource
-	w.ModifyResource("apps/v1", "deployments", "gitsync-example-helm-test", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
+	w.ModifyResource("apps/v1", "deployments", "gitsync-example-helm-test", `{"spec":{"replicas":4}}`).Wait(10 * time.Second)
 
 	// verify that resource has been "healed" by resetting replica count to 3
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "gitsync-example-helm-test", "spec", "replicas", 1)
 
 	// disable autohealing
-	w.UpdateAutoHealConfig(false).Wait(30 * time.Second)
+	w.UpdateAutoHealConfig(false).Wait(60 * time.Second)
 
 	// apply patch to resource
-	w.ModifyResource("apps/v1", "deployments", "gitsync-example-helm-test", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
+	w.ModifyResource("apps/v1", "deployments", "gitsync-example-helm-test", `{"spec":{"replicas":4}}`).Wait(10 * time.Second)
 
 	// verify that resource has not been healed like previous
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "gitsync-example-helm-test", "spec", "replicas", 4)
