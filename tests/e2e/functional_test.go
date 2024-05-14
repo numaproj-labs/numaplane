@@ -61,14 +61,14 @@ func (s *FunctionalSuite) TestNumaflowGitSync() {
 
 	// pushing new pipeline file to repo
 	// wait is necessary as controller takes time to reconcile and sync properly
-	w.PushToGitRepo("numaflow/modified", []string{"http-pipeline.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("numaflow/modified", []string{"http-pipeline.yaml"}, false).Wait(10 * time.Second)
 
 	// verify that new pipeline has been created and GitSync is synced to newest commit
 	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"http-pipeline"})
 	w.Expect().CheckCommitStatus()
 
 	// edit existing pipeline in repo to have additional vertex and edge
-	w.PushToGitRepo("numaflow/modified", []string{"sample_pipeline.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("numaflow/modified", []string{"sample_pipeline.yaml"}, false).Wait(10 * time.Second)
 
 	// verify that spec of simple-pipeline was updated with new edge
 	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
@@ -76,20 +76,20 @@ func (s *FunctionalSuite) TestNumaflowGitSync() {
 	w.Expect().CheckCommitStatus()
 
 	// edit existing pipeline back to initial state
-	w.PushToGitRepo("numaflow/initial-commit", []string{"sample_pipeline.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("numaflow/initial-commit", []string{"sample_pipeline.yaml"}, false).Wait(10 * time.Second)
 
 	w.Expect().ResourcesExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
 	w.Expect().VerifyResourceState("numaflow.numaproj.io/v1alpha1", "pipelines", "simple-pipeline", "spec", "edge", initialEdges)
 
 	// remove pipeline manifest from repo
-	w.PushToGitRepo("numaflow/modified", []string{"http-pipeline.yaml"}, true).Wait(45 * time.Second)
+	w.PushToGitRepo("numaflow/modified", []string{"http-pipeline.yaml"}, true).Wait(10 * time.Second)
 
 	// verify that the pipeline has been deleted by GitSync and synced to current commit
 	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"http-pipeline"})
 	w.Expect().CheckCommitStatus()
 
 	// Remove Pipeline and ISBService
-	w.PushToGitRepo("numaflow/initial-commit", []string{"sample_pipeline.yaml", "isbsvc_jetstream.yaml"}, true).Wait(30 * time.Second)
+	w.PushToGitRepo("numaflow/initial-commit", []string{"sample_pipeline.yaml", "isbsvc_jetstream.yaml"}, true).Wait(10 * time.Second)
 	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "pipelines", []string{"simple-pipeline"})
 	w.Expect().ResourcesDontExist("numaflow.numaproj.io/v1alpha1", "interstepbufferservices", []string{"default"})
 	w.Expect().CheckCommitStatus()
@@ -166,16 +166,16 @@ func (s *FunctionalSuite) TestAutoHealing() {
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 3)
 
 	// apply patch to resource
-	w.ModifyResource("apps/v1", "deployments", "test-deploy", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
+	w.ModifyResource("apps/v1", "deployments", "test-deploy", `{"spec":{"replicas":4}}`).Wait(10 * time.Second)
 
 	// verify that resource has been "healed" by resetting replica count to 3
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 3)
 
 	// disable autohealing
-	w.UpdateAutoHealConfig(false).Wait(30 * time.Second)
+	w.UpdateAutoHealConfig(false).Wait(60 * time.Second)
 
 	// apply patch to resource
-	w.ModifyResource("apps/v1", "deployments", "test-deploy", `{"spec":{"replicas":4}}`).Wait(30 * time.Second)
+	w.ModifyResource("apps/v1", "deployments", "test-deploy", `{"spec":{"replicas":4}}`).Wait(10 * time.Second)
 
 	// verify that resource has not been healed like previous
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 4)
@@ -226,7 +226,7 @@ func (s *FunctionalSuite) TestNonMainBranch() {
 	defer w.DeleteGitSyncAndWait()
 
 	// verify basics resources are created
-	w.Wait(30 * time.Second)
+	w.Wait(10 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
@@ -240,10 +240,10 @@ func (s *FunctionalSuite) TestNonMainBranch() {
 		When().
 		UpdateGitSyncAndWait()
 
-	w.Wait(30 * time.Second)
+	w.Wait(10 * time.Second)
 
 	// update deployment manifest with {replicas: 5} on test branch
-	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(10 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().CheckCommitStatus()
 
@@ -255,7 +255,7 @@ func (s *FunctionalSuite) TestNonMainBranch() {
 		When().
 		UpdateGitSyncAndWait()
 
-	w.Wait(30 * time.Second)
+	w.Wait(10 * time.Second)
 
 	// verify that resource has been healed back to the master branch state
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 3)
@@ -265,7 +265,7 @@ func (s *FunctionalSuite) TestNonMainBranch() {
 func (s *FunctionalSuite) testBasicGitSync(w *When) {
 
 	// verify basics resources are created
-	w.Wait(30 * time.Second)
+	w.Wait(10 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"test-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"test-secret"})
@@ -276,7 +276,7 @@ func (s *FunctionalSuite) testBasicGitSync(w *When) {
 	w.Expect().CheckCommitStatus()
 
 	// update deployment manifest with {replicas: 5}
-	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(45 * time.Second)
+	w.PushToGitRepo("basic-resources/modified", []string{"deployment.yaml"}, false).Wait(10 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"test-deploy"})
 	w.Expect().CheckCommitStatus()
 
@@ -285,21 +285,21 @@ func (s *FunctionalSuite) testBasicGitSync(w *When) {
 	w.Expect().VerifyResourceState("v1", "configmaps", "test-config", "data", "clusterName", "staging-usw2-k8s")
 
 	// add another resource to multiple-resources file
-	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, false).Wait(45 * time.Second)
+	w.PushToGitRepo("basic-resources/modified", []string{"multiple-resources.yaml"}, false).Wait(10 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
 	w.Expect().ResourcesExist("v1", "secrets", []string{"multi-secret"})
 	w.Expect().CheckCommitStatus()
 
 	// removing secret from multiple-resources file should cause it to be deleted
-	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, false).Wait(30 * time.Second)
+	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, false).Wait(10 * time.Second)
 	w.Expect().ResourcesExist("apps/v1", "deployments", []string{"multi-deploy"})
 	w.Expect().ResourcesExist("v1", "configmaps", []string{"multi-config"})
 	w.Expect().ResourcesDontExist("v1", "secrets", []string{"multi-secret"})
 	w.Expect().CheckCommitStatus()
 
 	// deleting file with multiple resources will delete all resources in it
-	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, true).Wait(30 * time.Second)
+	w.PushToGitRepo("basic-resources/initial-commit", []string{"multiple-resources.yaml"}, true).Wait(10 * time.Second)
 	w.Expect().ResourcesDontExist("apps/v1", "deployments", []string{"multi-deploy"})
 	w.Expect().ResourcesDontExist("v1", "configmaps", []string{"multi-config"})
 	w.Expect().CheckCommitStatus()
