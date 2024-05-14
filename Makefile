@@ -246,7 +246,7 @@ start-e2e: numaflow-crd cleanup-e2e image
 test-e2e:
 test-%: start-e2e
 	go generate $(shell find ./tests/$* -name '*.go')
-	go test -v -timeout 25m -count 1 --tags test -p 1 ./tests/$*
+	go test -v -timeout 20m -count 1 --tags test -p 1 ./tests/$*
 	$(MAKE) cleanup-e2e
 
 restart-control-plane-components:
