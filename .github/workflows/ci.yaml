@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        case: [e2e]
+        case: [e2e, kustomize-e2e, helm-e2e]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3

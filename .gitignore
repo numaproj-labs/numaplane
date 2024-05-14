@@ -27,5 +27,7 @@ Dockerfile.cross
 *~
 **/.DS_Store
 
-# tmp directory built for e2e test
+# tmp directories built for e2e tests
 tests/e2e/local
+tests/kustomize-e2e/local
+tests/helm-e2e/local
