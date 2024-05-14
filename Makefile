@@ -10,7 +10,7 @@ VERSION ?= latest
 BASE_VERSION := latest
 # Default cluster name where numaplane get deployed, update it as needed.
 CLUSTER_NAME ?= staging-usw2-k8s
-IMAGE_NAMESPACE ?= quay.io/numaio
+IMAGE_NAMESPACE ?= quay.io/numaproj
 IMAGE_FULL_PATH ?= $(IMAGE_NAMESPACE)/$(IMG):$(VERSION)
 
 
