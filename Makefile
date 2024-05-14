@@ -230,7 +230,7 @@ gitserver:
 .PHONY: cleanup-e2e
 cleanup-e2e:
 	$(KUBECTL) delete -n numaplane-e2e isbsvc --all
-	$(KUBECTL) delete -n numaplane-e2e pipelines --all
+	$(KUBECTL) delete -n numaplane-e2e pipeline --all
 	$(KUBECTL) delete -n numaplane-e2e cm --all
 	$(KUBECTL) delete -n numaplane-e2e secret --all
 	$(KUBECTL) delete -n numaplane-e2e all --all
