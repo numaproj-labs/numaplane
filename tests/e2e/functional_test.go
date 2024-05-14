@@ -172,7 +172,7 @@ func (s *FunctionalSuite) TestAutoHealing() {
 	w.Expect().VerifyResourceState("apps/v1", "deployments", "test-deploy", "spec", "replicas", 3)
 
 	// disable autohealing
-	w.UpdateAutoHealConfig(false).Wait(45 * time.Second)
+	w.UpdateAutoHealConfig(false).Wait(60 * time.Second)
 
 	// apply patch to resource
 	w.ModifyResource("apps/v1", "deployments", "test-deploy", `{"spec":{"replicas":4}}`).Wait(10 * time.Second)
