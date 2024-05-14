@@ -234,14 +234,13 @@ cleanup-e2e:
 	$(KUBECTL) delete -n numaplane-e2e cm --all
 	$(KUBECTL) delete -n numaplane-e2e secret --all
 	$(KUBECTL) delete -n numaplane-e2e all --all
-	$(KUBECTL) delete -n numaplane-system pod --all
-
-
+	
 .PHONY: start-e2e
 start-e2e: numaflow-crd cleanup-e2e image
 	$(KUBECTL) apply -f tests/e2e/manifests/numaplane-ns.yaml
 	$(KUBECTL) apply -n numaplane-system -k ./tests/e2e-gitserver
 	$(KUBECTL) kustomize tests/e2e/manifests | sed 's/CLUSTER_NAME_VALUE/$(CLUSTER_NAME)/g' | sed 's@quay.io/numaproj/@$(IMAGE_NAMESPACE)/@' | sed 's/$(IMG):$(BASE_VERSION)/$(IMG):$(VERSION)/' | $(KUBECTL) apply -f -
+	$(MAKE) restart-control-plane-components
 	$(KUBECTL) wait -n numaplane-system pod --all --for=condition=Ready
 
 test-e2e:
@@ -249,6 +248,10 @@ test-%: start-e2e
 	go generate $(shell find ./tests/$* -name '*.go')
 	go test -v -timeout 25m -count 1 --tags test -p 1 ./tests/$*
 	$(MAKE) cleanup-e2e
+
+restart-control-plane-components:
+	$(KUBECTL) -n numaplane-system delete po -lapp.kubernetes.io/component=controller-manager,app.kubernetes.io/part-of=numaplane --ignore-not-found=true
+	$(KUBECTL) -n numaplane-system delete po localgitserver-0 --ignore-not-found=true
 
 numaflow-crd:
 ifeq ($(NUMAFLOW_CRDS), 0)
