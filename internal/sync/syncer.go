@@ -24,10 +24,10 @@ import (
 
 	"github.com/numaproj-labs/numaplane/internal/common"
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
-	"github.com/numaproj-labs/numaplane/internal/git"
 	"github.com/numaproj-labs/numaplane/internal/metrics"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
+	"github.com/numaproj-labs/numaplane/internal/watcher"
 	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
@@ -256,27 +256,36 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	if globalConfig.AutomatedSyncDisabled {
 		return nil
 	}
+	/*
+		repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig, s.metricsServer)
+		if err != nil {
+			return fmt.Errorf("failed to clone the repo of key %q, %w", key, err)
+		}
+		commitHash, manifests, err := git.GetLatestManifests(ctx, repo, s.client, gitSync, s.metricsServer)
+		if err != nil {
+			return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
+		}
 
-	repo, err := git.CloneRepo(ctx, s.client, gitSync, globalConfig, s.metricsServer)
-	if err != nil {
-		return fmt.Errorf("failed to clone the repo of key %q, %w", key, err)
-	}
-	commitHash, manifests, err := git.GetLatestManifests(ctx, repo, s.client, gitSync, s.metricsServer)
-	if err != nil {
-		return fmt.Errorf("failed to get the manifest of key %q, %w", key, err)
-	}
-
+		namespacedName := types.NamespacedName{
+			Namespace: gitSync.Namespace,
+			Name:      gitSync.Name,
+		}
+		lastSyncedCommitHash, err := getCommitStatus(ctx, s.client, namespacedName, numaLogger)
+		if err != nil {
+			return fmt.Errorf("failed to get the current commit status of key %q, %w", key, err)
+		}
+	*/
 	namespacedName := types.NamespacedName{
 		Namespace: gitSync.Namespace,
 		Name:      gitSync.Name,
 	}
-	lastSyncedCommitHash, err := getCommitStatus(ctx, s.client, namespacedName, numaLogger)
+	isChanged, commitHash, manifests, err := watcher.CheckForChanges(ctx, s.client, gitSync, globalConfig, s.metricsServer, namespacedName)
 	if err != nil {
-		return fmt.Errorf("failed to get the current commit status of key %q, %w", key, err)
+		return fmt.Errorf("failed to check for the latest changes from the repo %q, %w", key, err)
 	}
 	// If auto heal is not enabled and the target commit hash is the same as last sync,
 	// skip the syncing.
-	if globalConfig.AutoHealDisabled && lastSyncedCommitHash != nil && lastSyncedCommitHash.Hash == commitHash {
+	if globalConfig.AutoHealDisabled && !isChanged {
 		numaLogger.Info("Skip the syncing as there are no changes and auto heal is turned off.")
 		return nil
 	}
@@ -445,24 +454,24 @@ func applyLabelAndNamespace(manifests []*unstructured.Unstructured, gitSyncName,
 	return uns, nil
 }
 
-func getCommitStatus(
-	ctx context.Context,
-	kubeClient client.Client,
-	namespacedName types.NamespacedName,
-	numaLogger *logger.NumaLogger,
-) (*v1alpha1.CommitStatus, error) {
-	gitSync := &v1alpha1.GitSync{}
-	if err := kubeClient.Get(ctx, namespacedName, gitSync); err != nil {
-		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
-		if apierrors.IsNotFound(err) {
-			return nil, nil
-		} else {
-			numaLogger.Error(err, "Unable to get GitSync", "err")
-			return nil, err
-		}
-	}
-	return gitSync.Status.CommitStatus, nil
-}
+//func getCommitStatus(
+//	ctx context.Context,
+//	kubeClient client.Client,
+//	namespacedName types.NamespacedName,
+//	numaLogger *logger.NumaLogger,
+//) (*v1alpha1.CommitStatus, error) {
+//	gitSync := &v1alpha1.GitSync{}
+//	if err := kubeClient.Get(ctx, namespacedName, gitSync); err != nil {
+//		// if we aren't able to do a Get, then either it's been deleted in the past, or something else went wrong
+//		if apierrors.IsNotFound(err) {
+//			return nil, nil
+//		} else {
+//			numaLogger.Error(err, "Unable to get GitSync", "err")
+//			return nil, err
+//		}
+//	}
+//	return gitSync.Status.CommitStatus, nil
+//}
 
 // updateCommitStatus will update the commit status in git sync CR.
 // If an error occurred while syncing the target state, then it
