@@ -116,7 +116,8 @@ func main() {
 	if err = mgr.Add(LeaderElectionRunner(syncer.Start)); err != nil {
 		numaLogger.Fatal(err, "Unable to add syncer runner")
 	}
-	reconciler, err := controller.NewGitSyncReconciler(
+
+	gitSyncReconciler, err := controller.NewGitSyncReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		configManager,
@@ -126,8 +127,17 @@ func main() {
 		numaLogger.Fatal(err, "Unable to create GitSync controller")
 	}
 
-	if err = reconciler.SetupWithManager(mgr); err != nil {
+	if err = gitSyncReconciler.SetupWithManager(mgr); err != nil {
 		numaLogger.Fatal(err, "Unable to set up GitSync controller")
+	}
+
+	pipelineRolloutReconciler := controller.NewPipelineRolloutReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+	)
+
+	if err = pipelineRolloutReconciler.SetupWithManager(mgr); err != nil {
+		numaLogger.Fatal(err, "Unable to set up PipelineRollout controller")
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
