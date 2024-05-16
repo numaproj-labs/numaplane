@@ -15,6 +15,15 @@ resources:
   domain: github.com.numaproj-labs
   group: numaplane.numaproj.io
   kind: GitSync
-  path: github.com/numaproj-labs/numaplane/pkg/api/numaplane/v1alpha1
+  path: github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1alpha1
+    namespaced: true
+  controller: true
+  domain: github.com.numaproj-labs
+  group: numaplane.numaproj.io
+  kind: PipelineRollout
+  path: github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1
   version: v1alpha1
 version: "3"

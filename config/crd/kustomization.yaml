@@ -3,3 +3,4 @@ kind: Kustomization
 
 resources:
 - bases/numaplane.numaproj.io_gitsyncs.yaml
+- bases/numaplane.numaproj.io_pipelinerollouts.yaml
