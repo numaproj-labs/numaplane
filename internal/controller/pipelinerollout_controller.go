@@ -79,21 +79,6 @@ func (r *PipelineRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
-	numaLogger.Debugf("reconciling Pipeline definition Object: %+v", pipelineRollout.Spec.Pipeline)
-
-	/*resourceInfo, err := kubernetes.ParseRawExtension(ctx, pipelineRollout.Spec.Pipeline, "pipelines")
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// todo: there may be no "namespace" defined in resourceInfo - we should set that here
-
-	// todo: we need to add OwnerReference to the spec
-	err = kubernetes.UpdateCRSpec(ctx, r.restConfig, resourceInfo)
-	if err != nil {
-		numaLogger.Debugf("error reconciling: %v", err)
-	}*/
-
 	obj, err := kubernetes.ParseRawExtension(ctx, pipelineRollout.Spec.Pipeline)
 	if err != nil {
 		numaLogger.Errorf(err, "failed to parse RawExtension: %v", err)

@@ -9,6 +9,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -164,10 +165,23 @@ func UpdateCRSpec(ctx context.Context, restConfig *rest.Config, object *GenericO
 			// create object as it doesn't exist
 			numaLogger.Debugf("didn't find resource %s/%s, will create", object.Namespace, object.Name)
 
-			/*_, err := client.Resource(resourceInfo.gvr).Namespace(resourceInfo.namespace).Create(ctx, CreateUnstructured(resourceInfo), v1.CreateOptions{})
+			asJsonBytes, err := json.Marshal(object)
+			if err != nil {
+				return err
+			}
+			var asMap map[string]interface{}
+			err = json.Unmarshal(asJsonBytes, &asMap)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("deletethis: asMap=%+v\n", asMap)
+
+			unstruct := &unstructured.Unstructured{asMap}
+
+			_, err = client.Resource(gvr).Namespace(object.Namespace).Create(ctx, unstruct, v1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to create Resource, err=%v", err)
-			}*/
+			}
 		} else {
 			return fmt.Errorf("error attempting to Get resources; GVR=%+v", gvr)
 		}
