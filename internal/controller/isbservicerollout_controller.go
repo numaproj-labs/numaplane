@@ -28,60 +28,60 @@ import (
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
-// PipelineRolloutReconciler reconciles a PipelineRollout object
-type PipelineRolloutReconciler struct {
+// ISBServiceRolloutReconciler reconciles a ISBServiceRollout object
+type ISBServiceRolloutReconciler struct {
 	client client.Client
-	scheme *runtime.Scheme
+	Scheme *runtime.Scheme
 }
 
-func NewPipelineRolloutReconciler(
+func NewISBServiceRolloutReconciler(
 	client client.Client,
 	s *runtime.Scheme,
-) *PipelineRolloutReconciler {
-	return &PipelineRolloutReconciler{
+) *ISBServiceRolloutReconciler {
+	return &ISBServiceRolloutReconciler{
 		client,
 		s,
 	}
 }
 
-//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=pipelinerollouts,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=pipelinerollouts/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=pipelinerollouts/finalizers,verbs=update
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=isbservicerollouts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=isbservicerollouts/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=isbservicerollouts/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the PipelineRollout object against the actual cluster state, and then
+// the ISBServiceRollout object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
-func (r *PipelineRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ISBServiceRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// update the Base Logger's level according to the Numaplane Config
 	logger.RefreshBaseLoggerLevel()
-	numaLogger := logger.GetBaseLogger().WithName("reconciler").WithValues("pipelinerollout", req.NamespacedName)
+	numaLogger := logger.GetBaseLogger().WithName("reconciler").WithValues("isbservicerollout", req.NamespacedName)
 
-	numaLogger.Info("PipelineRollout Reconcile")
+	numaLogger.Info("ISBServiceRollout Reconcile")
 
-	pipelineRollout := &apiv1.PipelineRollout{}
-	if err := r.client.Get(ctx, req.NamespacedName, pipelineRollout); err != nil {
+	isbServiceRollout := &apiv1.ISBServiceRollout{}
+	if err := r.client.Get(ctx, req.NamespacedName, isbServiceRollout); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		} else {
-			numaLogger.Error(err, "Unable to get PipelineRollout", "request", req)
+			numaLogger.Error(err, "Unable to get ISBServiceRollout", "request", req)
 			return ctrl.Result{}, err
 		}
 	}
 
-	numaLogger.Info(string(pipelineRollout.Spec.Pipeline.Raw))
+	numaLogger.Info(string(isbServiceRollout.Spec.InterStepBufferService.Spec.Raw))
 
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *PipelineRolloutReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ISBServiceRolloutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&apiv1.PipelineRollout{}).
+		For(&apiv1.ISBServiceRollout{}).
 		Complete(r)
 }

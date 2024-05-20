@@ -1,16 +1,16 @@
-# permissions for end users to view pipelinerollouts.
+# permissions for end users to view isbservicerollouts.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/name: numaplane
     app.kubernetes.io/managed-by: kustomize
-  name: pipelinerollout-viewer-role
+  name: isbservicerollout-viewer-role
 rules:
 - apiGroups:
   - numaplane.numaproj.io
   resources:
-  - pipelinerollouts
+  - isbservicerollouts
   verbs:
   - get
   - list
@@ -18,6 +18,6 @@ rules:
 - apiGroups:
   - numaplane.numaproj.io
   resources:
-  - pipelinerollouts/status
+  - isbservicerollouts/status
   verbs:
   - get
