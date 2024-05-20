@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -18,95 +18,109 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
 )
 
+/*
 type ResourceInfo struct {
-	gvr                    schema.GroupVersionResource
-	namespace              string
-	name                   string
-	spec                   *unstructured.Unstructured
-	resourceAsUnstructured *unstructured.Unstructured
+	gvr       schema.GroupVersionResource
+	namespace string
+	name      string
+	spec      *unstructured.Unstructured
+	//resourceAsUnstructured *unstructured.Unstructured
+}*/
+
+type GenericObject struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              map[string]interface{} `json:"spec"`
 }
 
-func ParseRuntimeExtension(ctx context.Context, obj runtime.RawExtension, pluralName string) (*ResourceInfo, error) {
+func ParseRawExtension(ctx context.Context, obj runtime.RawExtension) (*GenericObject, error) {
 	numaLogger := logger.FromContext(ctx)
-	var resourceDefAsMap map[string]interface{}
-	err := json.Unmarshal(obj.Raw, &resourceDefAsMap)
+	var genericObject GenericObject
+	err := json.Unmarshal(obj.Raw, &genericObject)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling json: %v", err)
 	}
-	numaLogger.Debugf("resource definition: %+v", resourceDefAsMap)
+	numaLogger.Debugf("successfully unmarshaled into GenericObject: %+v", genericObject)
 
-	metadataAsMap, err := getSubfieldMap(resourceDefAsMap, "metadata")
-	if err != nil {
-		return nil, err
-	}
-	name, err := getSubfieldString(metadataAsMap, "name")
-	if err != nil {
-		return nil, err
-	}
-
-	//todo: need to make sure this gets set by the caller
-	namespace, err := getSubfieldString(metadataAsMap, "namespace")
-	if err != nil {
-		return nil, err
-	}
-
-	apiVersion, err := getSubfieldString(resourceDefAsMap, "apiVersion")
-	if err != nil {
-		return nil, err
-	}
-
-	group, version, err := parseApiVersion(apiVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	/*kind, err := getSubfieldString(resourceDefAsMap, "kind")
-	if err != nil {
-		return nil, err
-	}*/
-
-	spec, err := getSubfieldMap(resourceDefAsMap, "spec")
-	if err != nil {
-		return nil, err
-	}
-
-	return &ResourceInfo{
-		gvr: schema.GroupVersionResource{
-			Group:    group,
-			Version:  version,
-			Resource: pluralName,
-		},
-		namespace:              namespace,
-		name:                   name,
-		spec:                   &unstructured.Unstructured{Object: spec},
-		resourceAsUnstructured: &unstructured.Unstructured{Object: resourceDefAsMap},
-	}, nil
+	return &genericObject, nil
 }
 
-func getSubfieldMap(m map[string]interface{}, fieldName string) (map[string]interface{}, error) {
-	asInterface, found := m[fieldName]
-	if !found {
-		return nil, fmt.Errorf("field $q not found in resource definition: %+v", fieldName, m)
-	}
-	asMap, ok := asInterface.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("field $q has unexpected type in resource definition: %+v", fieldName, m)
-	}
-	return asMap, nil
-}
+/*
+// parse the runtime.RawExtension into its respective fields
+// note that the plural name for the resource must be passed in, as groupVersionResource seems to require resource=plural name
 
-func getSubfieldString(m map[string]interface{}, fieldName string) (string, error) {
-	asInterface, found := m[fieldName]
-	if !found {
-		return "", fmt.Errorf("field $q not found in resource definition: %+v", fieldName, m)
-	}
-	asString, ok := asInterface.(string)
-	if !ok {
-		return "", fmt.Errorf("field $q has unexpected type in resource definition: %+v", fieldName, m)
-	}
-	return asString, nil
-}
+	func ParseRawExtensionOrig(ctx context.Context, obj runtime.RawExtension, pluralName string) (*ResourceInfo, error) {
+		numaLogger := logger.FromContext(ctx)
+		var resourceDefAsMap map[string]interface{}
+		err := json.Unmarshal(obj.Raw, &resourceDefAsMap)
+		if err != nil {
+			return nil, fmt.Errorf("error unmarshaling json: %v", err)
+		}
+		numaLogger.Debugf("resource definition: %+v", resourceDefAsMap)
 
+		metadataAsMap, err := getSubfieldMap(resourceDefAsMap, "metadata")
+		if err != nil {
+			return nil, err
+		}
+		name, err := getSubfieldString(metadataAsMap, "name")
+		if err != nil {
+			return nil, err
+		}
+
+		namespace, _ := getSubfieldString(metadataAsMap, "namespace")
+
+		apiVersion, err := getSubfieldString(resourceDefAsMap, "apiVersion")
+		if err != nil {
+			return nil, err
+		}
+
+		group, version, err := parseApiVersion(apiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		spec, err := getSubfieldMap(resourceDefAsMap, "spec")
+		if err != nil {
+			return nil, err
+		}
+
+		return &ResourceInfo{
+			gvr: schema.GroupVersionResource{
+				Group:    group,
+				Version:  version,
+				Resource: pluralName,
+			},
+			namespace: namespace,
+			name:      name,
+			spec:      &unstructured.Unstructured{Object: spec},
+			//resourceAsUnstructured: &unstructured.Unstructured{Object: resourceDefAsMap},
+		}, nil
+	}
+
+	func getSubfieldMap(m map[string]interface{}, fieldName string) (map[string]interface{}, error) {
+		asInterface, found := m[fieldName]
+		if !found {
+			return nil, fmt.Errorf("field %q not found in resource definition: %+v", fieldName, m)
+		}
+		asMap, ok := asInterface.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("field %q has unexpected type in resource definition: %+v", fieldName, m)
+		}
+		return asMap, nil
+	}
+
+	func getSubfieldString(m map[string]interface{}, fieldName string) (string, error) {
+		asInterface, found := m[fieldName]
+		if !found {
+			return "", fmt.Errorf("field %q not found in resource definition: %+v", fieldName, m)
+		}
+		asString, ok := asInterface.(string)
+		if !ok {
+			return "", fmt.Errorf("field %q has unexpected type in resource definition: %+v", fieldName, m)
+		}
+		return asString, nil
+	}
+*/
 func parseApiVersion(apiVersion string) (string, string, error) {
 	// should be separated by slash
 	index := strings.Index(apiVersion, "/")
@@ -121,7 +135,7 @@ func parseApiVersion(apiVersion string) (string, string, error) {
 
 // updateCRSpec either creates or updates an object identified by the RawExtension, using the new definition,
 // first checking to see if there's a difference in Spec before applying
-func UpdateCRSpec(ctx context.Context, restConfig *rest.Config, resourceInfo *ResourceInfo) error {
+func UpdateCRSpec(ctx context.Context, restConfig *rest.Config, object *GenericObject, pluralName string) error {
 	numaLogger := logger.FromContext(ctx)
 
 	// todo: Set the annotation for the hashed spec in the spec
@@ -131,32 +145,38 @@ func UpdateCRSpec(ctx context.Context, restConfig *rest.Config, resourceInfo *Re
 		return fmt.Errorf("failed to create dynamic client: %v", err)
 	}
 
-	/*groupVersionKind := obj.Object.GetObjectKind().GroupVersionKind()
-	groupVersionResource := schema.GroupVersionResource{
-		Group:    groupVersionKind.Group,
-		Version:  groupVersionKind.Version,
-		Resource: groupVersionKind.Kind,
-	}*/
+	group, version, err := parseApiVersion(object.APIVersion)
+	if err != nil {
+		return err
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    group,
+		Version:  version,
+		Resource: pluralName,
+	}
 
 	// Get the object to see if it exists
-	resource, err := client.Resource(resourceInfo.gvr).Namespace(resourceInfo.namespace).Get(ctx, resourceInfo.name, v1.GetOptions{})
+	resource, err := client.Resource(gvr).Namespace(object.Namespace).Get(ctx, object.Name, v1.GetOptions{})
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// create object as it doesn't exist
-			numaLogger.Debugf("didn't find resource %+v, will create", resourceInfo)
-			_, err := client.Resource(resourceInfo.gvr).Namespace(resourceInfo.namespace).Create(ctx, resourceInfo.resourceAsUnstructured, v1.CreateOptions{})
+			numaLogger.Debugf("didn't find resource %s/%s, will create", object.Namespace, object.Name)
+
+			/*_, err := client.Resource(resourceInfo.gvr).Namespace(resourceInfo.namespace).Create(ctx, CreateUnstructured(resourceInfo), v1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to create Resource, err=%v", err)
-			}
+			}*/
 		} else {
-
+			return fmt.Errorf("error attempting to Get resources; GVR=%+v", gvr)
 		}
 
 	} else {
 		numaLogger.Debugf("found existing Resource definition: %+v", resource)
-		//   If the existing annotation matches the new hash, log and return
-		//   Else update the object - can't just use the unstruc object here - need to take the running object and just update spec
+		// todo:
+		//   If the existing annotation matches the new hash, then nothing to do: log and return
+		//   Else update the object - note: can't just use the unstruc object here - need to take the running object and just update spec
 	}
 	return nil
 }

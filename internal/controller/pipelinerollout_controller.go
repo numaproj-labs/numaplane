@@ -81,31 +81,30 @@ func (r *PipelineRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	numaLogger.Debugf("reconciling Pipeline definition Object: %+v", pipelineRollout.Spec.Pipeline)
 
-	// todo:
-	// 1. validate
-	// 2. make sure all fields are in what we pass to UpdateCRSpec() (e.g. namespace)
-	// 3. Add OwnerReference
-
-	resourceInfo, err := kubernetes.ParseRuntimeExtension(ctx, pipelineRollout.Spec.Pipeline, "pipelines")
+	/*resourceInfo, err := kubernetes.ParseRawExtension(ctx, pipelineRollout.Spec.Pipeline, "pipelines")
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
+	// todo: there may be no "namespace" defined in resourceInfo - we should set that here
+
+	// todo: we need to add OwnerReference to the spec
 	err = kubernetes.UpdateCRSpec(ctx, r.restConfig, resourceInfo)
 	if err != nil {
 		numaLogger.Debugf("error reconciling: %v", err)
-	}
-	/*
-		var pipelineAsMap map[string]interface{}
-		err := json.Unmarshal(pipelineRollout.Spec.Pipeline.Raw, &pipelineAsMap)
-		if err != nil {
-			numaLogger.Error(err, "error unmarshaling json")
-		} else {
-			numaLogger.Infof("pipeline as map: %+v", pipelineAsMap)
-			unstruc := &unstructured.Unstructured{Object: pipelineAsMap}
-			numaLogger.Infof("as unstructured: %+v", unstruc)
+	}*/
 
-		}*/
+	obj, err := kubernetes.ParseRawExtension(ctx, pipelineRollout.Spec.Pipeline)
+	if err != nil {
+		numaLogger.Errorf(err, "failed to parse RawExtension: %v", err)
+		return ctrl.Result{}, err
+	}
+
+	err = kubernetes.UpdateCRSpec(ctx, r.restConfig, obj, "pipelines")
+	if err != nil {
+		numaLogger.Errorf(err, "failed to apply CR: %v", err)
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
