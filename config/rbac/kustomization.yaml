@@ -14,3 +14,5 @@ resources:
 - pipelinerollout_viewer_role.yaml
 - controllerrollout_editor_role.yaml
 - controllerrollout_viewer_role.yaml
+- isbservicerollout_editor_role.yaml
+- isbservicerollout_viewer_role.yaml
