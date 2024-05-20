@@ -18,14 +18,15 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
 )
 
-type resourceInfo struct {
-	gvr       schema.GroupVersionResource
-	namespace string
-	name      string
-	spec      *unstructured.Unstructured
+type ResourceInfo struct {
+	gvr                    schema.GroupVersionResource
+	namespace              string
+	name                   string
+	spec                   *unstructured.Unstructured
+	resourceAsUnstructured *unstructured.Unstructured
 }
 
-func parseRuntimeExtension(ctx context.Context, obj runtime.RawExtension) (*resourceInfo, error) {
+func ParseRuntimeExtension(ctx context.Context, obj runtime.RawExtension, pluralName string) (*ResourceInfo, error) {
 	numaLogger := logger.FromContext(ctx)
 	var resourceDefAsMap map[string]interface{}
 	err := json.Unmarshal(obj.Raw, &resourceDefAsMap)
@@ -59,25 +60,26 @@ func parseRuntimeExtension(ctx context.Context, obj runtime.RawExtension) (*reso
 		return nil, err
 	}
 
-	kind, err := getSubfieldString(resourceDefAsMap, "kind")
+	/*kind, err := getSubfieldString(resourceDefAsMap, "kind")
 	if err != nil {
 		return nil, err
-	}
+	}*/
 
 	spec, err := getSubfieldMap(resourceDefAsMap, "spec")
 	if err != nil {
 		return nil, err
 	}
 
-	return &resourceInfo{
+	return &ResourceInfo{
 		gvr: schema.GroupVersionResource{
 			Group:    group,
 			Version:  version,
-			Resource: kind,
+			Resource: pluralName,
 		},
-		namespace: namespace,
-		name:      name,
-		spec:      &unstructured.Unstructured{Object: spec},
+		namespace:              namespace,
+		name:                   name,
+		spec:                   &unstructured.Unstructured{Object: spec},
+		resourceAsUnstructured: &unstructured.Unstructured{Object: resourceDefAsMap},
 	}, nil
 }
 
@@ -119,27 +121,10 @@ func parseApiVersion(apiVersion string) (string, string, error) {
 
 // updateCRSpec either creates or updates an object identified by the RawExtension, using the new definition,
 // first checking to see if there's a difference in Spec before applying
-func UpdateCRSpec(ctx context.Context, restConfig *rest.Config, obj runtime.RawExtension) error {
+func UpdateCRSpec(ctx context.Context, restConfig *rest.Config, resourceInfo *ResourceInfo) error {
 	numaLogger := logger.FromContext(ctx)
 
-	var resourceDefAsMap map[string]interface{}
-	err := json.Unmarshal(obj.Raw, &resourceDefAsMap)
-	if err != nil {
-		return fmt.Errorf("error unmarshaling json: %v", err)
-	}
-	unstruc := &unstructured.Unstructured{Object: resourceDefAsMap}
-
-	resourceInfo, err := parseRuntimeExtension(ctx, obj)
-	if err != nil {
-		return err
-	}
-
 	// todo: Set the annotation for the hashed spec in the spec
-
-	restConfig, err = rest.InClusterConfig() //todo: what should we use?
-	if err != nil {
-		return fmt.Errorf("error getting rest config: %v", err)
-	}
 
 	client, err := dynamic.NewForConfig(restConfig)
 	if err != nil {
@@ -160,7 +145,7 @@ func UpdateCRSpec(ctx context.Context, restConfig *rest.Config, obj runtime.RawE
 		if apierrors.IsNotFound(err) {
 			// create object as it doesn't exist
 			numaLogger.Debugf("didn't find resource %+v, will create", resourceInfo)
-			_, err := client.Resource(resourceInfo.gvr).Namespace(resourceInfo.namespace).Create(ctx, unstruc, v1.CreateOptions{})
+			_, err := client.Resource(resourceInfo.gvr).Namespace(resourceInfo.namespace).Create(ctx, resourceInfo.resourceAsUnstructured, v1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to create Resource, err=%v", err)
 			}

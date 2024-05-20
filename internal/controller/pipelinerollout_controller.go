@@ -86,7 +86,12 @@ func (r *PipelineRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// 2. make sure all fields are in what we pass to UpdateCRSpec() (e.g. namespace)
 	// 3. Add OwnerReference
 
-	err := kubernetes.UpdateCRSpec(ctx, r.restConfig, pipelineRollout.Spec.Pipeline)
+	resourceInfo, err := kubernetes.ParseRuntimeExtension(ctx, pipelineRollout.Spec.Pipeline, "pipelines")
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = kubernetes.UpdateCRSpec(ctx, r.restConfig, resourceInfo)
 	if err != nil {
 		numaLogger.Debugf("error reconciling: %v", err)
 	}
