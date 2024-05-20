@@ -1,0 +1,23 @@
+# permissions for end users to view controllerrollouts.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: numaplane
+    app.kubernetes.io/managed-by: kustomize
+  name: controllerrollout-viewer-role
+rules:
+- apiGroups:
+  - numaplane.numaproj.io.github.com.numaproj-labs
+  resources:
+  - controllerrollouts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - numaplane.numaproj.io.github.com.numaproj-labs
+  resources:
+  - controllerrollouts/status
+  verbs:
+  - get

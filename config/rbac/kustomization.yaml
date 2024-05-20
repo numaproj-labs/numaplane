@@ -12,3 +12,5 @@ resources:
 - numaplane-aggregate-to-view.yaml
 - pipelinerollout_editor_role.yaml
 - pipelinerollout_viewer_role.yaml
+- controllerrollout_editor_role.yaml
+- controllerrollout_viewer_role.yaml
