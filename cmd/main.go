@@ -135,6 +135,7 @@ func main() {
 	pipelineRolloutReconciler := controller.NewPipelineRolloutReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
+		mgr.GetConfig(),
 	)
 
 	if err = pipelineRolloutReconciler.SetupWithManager(mgr); err != nil {
