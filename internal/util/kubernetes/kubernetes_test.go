@@ -73,7 +73,7 @@ func TestGetGitSyncInstanceLabelWithInvalidData(t *testing.T) {
 
 	_, err = GetGitSyncInstanceLabel(&obj, "valid-label")
 	assert.Error(t, err)
-	assert.Equal(t, "failed to get labels from target object /v1, Kind=Service /my-service: .metadata.labels accessor error: contains non-string key in the map: <nil> is of the type <nil>, expected string", err.Error())
+	assert.Equal(t, "failed to get labels from target object /v1, Kind=Service /my-service: .metadata.labels accessor error: contains non-string value in the map under key \"invalid-label\": <nil> is of the type <nil>, expected string", err.Error())
 }
 
 func TestGetSecret(t *testing.T) {
