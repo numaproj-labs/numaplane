@@ -19,18 +19,29 @@ package controller
 import (
 	"context"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 // NumaflowControllerRolloutReconciler reconciles a NumaflowControllerRollout object
 type NumaflowControllerRolloutReconciler struct {
-	client.Client
+	client client.Client
 	Scheme *runtime.Scheme
+}
+
+func NewNumaflowControllerRolloutReconciler(
+	client client.Client,
+	s *runtime.Scheme,
+) *NumaflowControllerRolloutReconciler {
+	return &NumaflowControllerRolloutReconciler{
+		client,
+		s,
+	}
 }
 
 //+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=numaflowcontrollerrollouts,verbs=get;list;watch;create;update;patch;delete
@@ -47,9 +58,23 @@ type NumaflowControllerRolloutReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *NumaflowControllerRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	// update the Base Logger's level according to the Numaplane Config
+	logger.RefreshBaseLoggerLevel()
+	numaLogger := logger.GetBaseLogger().WithName("reconciler").WithValues("numaflowcontrollerrollout", req.NamespacedName)
 
-	// TODO(user): your logic here
+	numaLogger.Info("NumaflowControllerRollout Reconcile")
+
+	numaflowControllerRollout := &apiv1.NumaflowControllerRollout{}
+	if err := r.client.Get(ctx, req.NamespacedName, numaflowControllerRollout); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		} else {
+			numaLogger.Error(err, "Unable to get NumaflowControllerRollout", "request", req)
+			return ctrl.Result{}, err
+		}
+	}
+
+	numaLogger.Info(string(numaflowControllerRollout.Spec.Controller.Version))
 
 	return ctrl.Result{}, nil
 }

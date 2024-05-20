@@ -6,4 +6,4 @@ metadata:
 spec:
   interStepBufferService:
     spec:
-      # TODO
+      field: "custom field val"

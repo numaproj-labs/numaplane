@@ -140,6 +140,24 @@ func main() {
 		numaLogger.Fatal(err, "Unable to set up PipelineRollout controller")
 	}
 
+	numaflowControllerRolloutReconciler := controller.NewNumaflowControllerRolloutReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+	)
+
+	if err = numaflowControllerRolloutReconciler.SetupWithManager(mgr); err != nil {
+		numaLogger.Fatal(err, "Unable to set up NumaflowControllerRollout controller")
+	}
+
+	isbServiceRolloutReconciler := controller.NewISBServiceRolloutReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+	)
+
+	if err = isbServiceRolloutReconciler.SetupWithManager(mgr); err != nil {
+		numaLogger.Fatal(err, "Unable to set up ISBServiceRollout controller")
+	}
+
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		numaLogger.Fatal(err, "Unable to set up health check")
 	}
