@@ -21,26 +21,31 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 // PipelineRolloutReconciler reconciles a PipelineRollout object
 type PipelineRolloutReconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
+	client     client.Client
+	scheme     *runtime.Scheme
+	restConfig *rest.Config
 }
 
 func NewPipelineRolloutReconciler(
 	client client.Client,
 	s *runtime.Scheme,
+	restConfig *rest.Config,
 ) *PipelineRolloutReconciler {
 	return &PipelineRolloutReconciler{
 		client,
 		s,
+		restConfig,
 	}
 }
 
@@ -74,7 +79,28 @@ func (r *PipelineRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
-	numaLogger.Info(string(pipelineRollout.Spec.Pipeline.Raw))
+	numaLogger.Debugf("reconciling Pipeline definition Object: %+v", pipelineRollout.Spec.Pipeline)
+
+	// todo:
+	// 1. validate
+	// 2. make sure all fields are in what we pass to UpdateCRSpec() (e.g. namespace)
+	// 3. Add OwnerReference
+
+	err := kubernetes.UpdateCRSpec(ctx, r.restConfig, pipelineRollout.Spec.Pipeline)
+	if err != nil {
+		numaLogger.Debugf("error reconciling: %v", err)
+	}
+	/*
+		var pipelineAsMap map[string]interface{}
+		err := json.Unmarshal(pipelineRollout.Spec.Pipeline.Raw, &pipelineAsMap)
+		if err != nil {
+			numaLogger.Error(err, "error unmarshaling json")
+		} else {
+			numaLogger.Infof("pipeline as map: %+v", pipelineAsMap)
+			unstruc := &unstructured.Unstructured{Object: pipelineAsMap}
+			numaLogger.Infof("as unstructured: %+v", unstruc)
+
+		}*/
 
 	return ctrl.Result{}, nil
 }
