@@ -27,13 +27,13 @@ type Controller struct {
 	Version string `json:"version"`
 }
 
-// ControllerRolloutSpec defines the desired state of ControllerRollout
-type ControllerRolloutSpec struct {
+// NumaflowControllerRolloutSpec defines the desired state of NumaflowControllerRollout
+type NumaflowControllerRolloutSpec struct {
 	Controller Controller `json:"controller"`
 }
 
-// ControllerRolloutStatus defines the observed state of ControllerRollout
-type ControllerRolloutStatus struct {
+// NumaflowControllerRolloutStatus defines the observed state of NumaflowControllerRollout
+type NumaflowControllerRolloutStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
@@ -41,24 +41,24 @@ type ControllerRolloutStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// ControllerRollout is the Schema for the controllerrollouts API
-type ControllerRollout struct {
+// NumaflowControllerRollout is the Schema for the numaflowcontrollerrollouts API
+type NumaflowControllerRollout struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ControllerRolloutSpec   `json:"spec,omitempty"`
-	Status ControllerRolloutStatus `json:"status,omitempty"`
+	Spec   NumaflowControllerRolloutSpec   `json:"spec,omitempty"`
+	Status NumaflowControllerRolloutStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// ControllerRolloutList contains a list of ControllerRollout
-type ControllerRolloutList struct {
+// NumaflowControllerRolloutList contains a list of NumaflowControllerRollout
+type NumaflowControllerRolloutList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ControllerRollout `json:"items"`
+	Items           []NumaflowControllerRollout `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ControllerRollout{}, &ControllerRolloutList{})
+	SchemeBuilder.Register(&NumaflowControllerRollout{}, &NumaflowControllerRolloutList{})
 }

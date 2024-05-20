@@ -32,7 +32,7 @@ resources:
   controller: true
   domain: github.com.numaproj-labs
   group: numaplane.numaproj.io
-  kind: ControllerRollout
+  kind: NumaflowControllerRollout
   path: github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1
   version: v1alpha1
 - api:

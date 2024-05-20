@@ -4,20 +4,21 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: controllerrollouts.numaplane.numaproj.io
+  name: numaflowcontrollerrollouts.numaplane.numaproj.io
 spec:
   group: numaplane.numaproj.io
   names:
-    kind: ControllerRollout
-    listKind: ControllerRolloutList
-    plural: controllerrollouts
-    singular: controllerrollout
+    kind: NumaflowControllerRollout
+    listKind: NumaflowControllerRolloutList
+    plural: numaflowcontrollerrollouts
+    singular: numaflowcontrollerrollout
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ControllerRollout is the Schema for the controllerrollouts API
+        description: NumaflowControllerRollout is the Schema for the numaflowcontrollerrollouts
+          API
         properties:
           apiVersion:
             description: |-
@@ -37,7 +38,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: ControllerRolloutSpec defines the desired state of ControllerRollout
+            description: NumaflowControllerRolloutSpec defines the desired state of
+              NumaflowControllerRollout
             properties:
               controller:
                 properties:
@@ -50,7 +52,8 @@ spec:
             - controller
             type: object
           status:
-            description: ControllerRolloutStatus defines the observed state of ControllerRollout
+            description: NumaflowControllerRolloutStatus defines the observed state
+              of NumaflowControllerRollout
             type: object
         type: object
     served: true

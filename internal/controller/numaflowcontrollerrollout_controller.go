@@ -27,26 +27,26 @@ import (
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
-// ControllerRolloutReconciler reconciles a ControllerRollout object
-type ControllerRolloutReconciler struct {
+// NumaflowControllerRolloutReconciler reconciles a NumaflowControllerRollout object
+type NumaflowControllerRolloutReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=controllerrollouts,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=controllerrollouts/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=controllerrollouts/finalizers,verbs=update
+//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=numaflowcontrollerrollouts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=numaflowcontrollerrollouts/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=numaflowcontrollerrollouts/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the ControllerRollout object against the actual cluster state, and then
+// the NumaflowControllerRollout object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
-func (r *ControllerRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *NumaflowControllerRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
@@ -55,8 +55,8 @@ func (r *ControllerRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Re
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ControllerRolloutReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *NumaflowControllerRolloutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&apiv1.ControllerRollout{}).
+		For(&apiv1.NumaflowControllerRollout{}).
 		Complete(r)
 }
