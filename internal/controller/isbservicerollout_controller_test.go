@@ -69,8 +69,8 @@ var _ = Describe("ISBServiceRollout Controller", func() {
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &ISBServiceRolloutReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
+				client: k8sClient,
+				scheme: k8sClient.Scheme(),
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, sigsReconcile.Request{
