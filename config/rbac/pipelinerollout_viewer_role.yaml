@@ -8,7 +8,7 @@ metadata:
   name: pipelinerollout-viewer-role
 rules:
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - pipelinerollouts
   verbs:
@@ -16,7 +16,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - pipelinerollouts/status
   verbs:

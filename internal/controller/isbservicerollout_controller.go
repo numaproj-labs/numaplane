@@ -33,9 +33,9 @@ type ISBServiceRolloutReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=isbservicerollouts,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=isbservicerollouts/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=isbservicerollouts/finalizers,verbs=update
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=isbservicerollouts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=isbservicerollouts/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=isbservicerollouts/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

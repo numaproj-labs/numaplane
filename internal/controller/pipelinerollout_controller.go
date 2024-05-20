@@ -44,9 +44,9 @@ func NewPipelineRolloutReconciler(
 	}
 }
 
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=pipelinerollouts,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=pipelinerollouts/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=pipelinerollouts/finalizers,verbs=update
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=pipelinerollouts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=pipelinerollouts/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=pipelinerollouts/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

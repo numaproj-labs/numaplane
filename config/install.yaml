@@ -403,7 +403,7 @@ metadata:
   name: isbservicerollout-editor-role
 rules:
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - isbservicerollouts
   verbs:
@@ -415,7 +415,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - isbservicerollouts/status
   verbs:
@@ -430,7 +430,7 @@ metadata:
   name: isbservicerollout-viewer-role
 rules:
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - isbservicerollouts
   verbs:
@@ -438,7 +438,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - isbservicerollouts/status
   verbs:
@@ -453,7 +453,7 @@ metadata:
   name: numaflowcontrollerrollout-editor-role
 rules:
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - numaflowcontrollerrollouts
   verbs:
@@ -465,7 +465,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - numaflowcontrollerrollouts/status
   verbs:
@@ -480,7 +480,7 @@ metadata:
   name: numaflowcontrollerrollout-viewer-role
 rules:
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - numaflowcontrollerrollouts
   verbs:
@@ -488,7 +488,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - numaflowcontrollerrollouts/status
   verbs:
@@ -622,7 +622,7 @@ metadata:
   name: pipelinerollout-editor-role
 rules:
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - pipelinerollouts
   verbs:
@@ -634,7 +634,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - pipelinerollouts/status
   verbs:
@@ -649,7 +649,7 @@ metadata:
   name: pipelinerollout-viewer-role
 rules:
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - pipelinerollouts
   verbs:
@@ -657,7 +657,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - numaplane.numaproj.io.github.com.numaproj-labs
+  - numaplane.numaproj.io
   resources:
   - pipelinerollouts/status
   verbs:

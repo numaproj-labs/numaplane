@@ -33,9 +33,9 @@ type NumaflowControllerRolloutReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=numaflowcontrollerrollouts,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=numaflowcontrollerrollouts/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=numaplane.numaproj.io.github.com.numaproj-labs,resources=numaflowcontrollerrollouts/finalizers,verbs=update
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=numaflowcontrollerrollouts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=numaflowcontrollerrollouts/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=numaflowcontrollerrollouts/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
