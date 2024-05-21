@@ -128,6 +128,13 @@ func (gitSource *GitSource) ExplicitType() (SourceType, error) {
 	return appType, nil
 }
 
+// ControllerDefinitions stores the Numaflow controller definitions
+// for different versions.
+type ControllerDefinitions struct {
+	Version  string `json:"version" mapstructure:"version"`
+	FullSpec string `json:"fullSpec" mapstructure:"fullSpec"`
+}
+
 type RepoCredential struct {
 	URL            string          `json:"url" mapstructure:"url"`
 	HTTPCredential *HTTPCredential `json:"httpCredential,omitempty" mapstructure:"httpCredential,omitempty"`

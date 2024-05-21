@@ -13,7 +13,7 @@ import (
 
 type ConfigManager struct {
 	config        *GlobalConfig
-	rolloutConfig *NumaRolloutConfig
+	rolloutConfig *NumaflowControllerDefinitionConfig
 	lock          *sync.RWMutex
 }
 
@@ -25,7 +25,7 @@ func GetConfigManagerInstance() *ConfigManager {
 	once.Do(func() {
 		instance = &ConfigManager{
 			config:        &GlobalConfig{},
-			rolloutConfig: &NumaRolloutConfig{},
+			rolloutConfig: &NumaflowControllerDefinitionConfig{},
 			lock:          new(sync.RWMutex),
 		}
 	})
@@ -48,8 +48,8 @@ type GlobalConfig struct {
 	PersistentRepoClonePath string                 `json:"persistentRepoClonePath" mapstructure:"persistentRepoClonePath"`
 }
 
-type NumaRolloutConfig struct {
-	FullSpec string `json:"fullSpec" mapstructure:"fullSpec"`
+type NumaflowControllerDefinitionConfig struct {
+	ControllerDefinitions []apiv1.ControllerDefinitions `json:"controllerDefinitions" mapstructure:"controllerDefinitions"`
 }
 
 func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {
@@ -63,13 +63,13 @@ func (cm *ConfigManager) GetConfig() (GlobalConfig, error) {
 	return *config, nil
 }
 
-func (cm *ConfigManager) GetNumaRolloutConfig() (NumaRolloutConfig, error) {
+func (cm *ConfigManager) GetNumaRolloutConfig() (NumaflowControllerDefinitionConfig, error) {
 	cm.lock.RLock()
 	defer cm.lock.RUnlock()
 
 	config, err := CloneWithSerialization(cm.rolloutConfig)
 	if err != nil {
-		return NumaRolloutConfig{}, err
+		return NumaflowControllerDefinitionConfig{}, err
 	}
 	return *config, nil
 }
@@ -136,7 +136,7 @@ func (cm *ConfigManager) loadConfig(
 	return nil
 }
 
-func CloneWithSerialization[T NumaRolloutConfig | GlobalConfig](orig *T) (*T, error) {
+func CloneWithSerialization[T NumaflowControllerDefinitionConfig | GlobalConfig](orig *T) (*T, error) {
 	origJSON, err := json.Marshal(orig)
 	if err != nil {
 		return nil, err

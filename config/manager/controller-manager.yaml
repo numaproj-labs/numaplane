@@ -93,4 +93,4 @@ spec:
             name: numaplane-controller-config
         - name: numarollout-volume
           configMap:
-            name: numarollout-config
+            name: numaflow-controller-definitions-config
