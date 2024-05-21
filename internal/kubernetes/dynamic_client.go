@@ -35,11 +35,12 @@ func ParseRawExtension(ctx context.Context, obj runtime.RawExtension) (*GenericO
 	return &genericObject, nil
 }
 
+/*
 type GenericObject struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              map[string]interface{} `json:"spec"`
-}
+}*/
 
 func parseApiVersion(apiVersion string) (string, string, error) {
 	// should be separated by slash
@@ -53,7 +54,14 @@ func parseApiVersion(apiVersion string) (string, string, error) {
 	return apiVersion[0:index], apiVersion[index+1:], nil
 }
 
-// updateCRSpec either creates or updates an object identified by the RawExtension, using the new definition,
+type GenericObject struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec runtime.RawExtension `json:"spec"`
+}
+
+// UpdateCRSpec either creates or updates an object identified by the RawExtension, using the new definition,
 // first checking to see if there's a difference in Spec before applying
 func UpdateCRSpec(ctx context.Context, restConfig *rest.Config, object *GenericObject, pluralName string) error {
 	numaLogger := logger.FromContext(ctx)
@@ -126,7 +134,6 @@ func objectToUnstructured(object *GenericObject) (*unstructured.Unstructured, er
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("deletethis: asMap=%+v\n", asMap)
 
 	return &unstructured.Unstructured{Object: asMap}, nil
 }
