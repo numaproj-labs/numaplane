@@ -64,8 +64,7 @@ func Test_GitSyncLifecycle(t *testing.T) {
 		getwd, err := os.Getwd()
 		assert.Nil(t, err, "Failed to get working directory")
 		configPath := filepath.Join(getwd, "../../", "tests", "config")
-		err = cm.LoadConfig(func(err error) {
-		}, configPath, "testconfig", "yaml")
+		err = cm.LoadAllConfigs(func(err error) {}, config.WithConfigsPath(configPath), config.WithConfigFileName("testconfig"))
 		assert.NoError(t, err)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm, nil)
 		assert.Nil(t, err)
@@ -105,8 +104,7 @@ func Test_GitSyncDestinationChanges(t *testing.T) {
 		getwd, err := os.Getwd()
 		assert.Nil(t, err, "Failed to get working directory")
 		configPath := filepath.Join(getwd, "../../", "tests", "config")
-		err = cm.LoadConfig(func(err error) {
-		}, configPath, "testconfig", "yaml")
+		err = cm.LoadAllConfigs(func(err error) {}, config.WithConfigsPath(configPath), config.WithConfigFileName("testconfig"))
 		assert.NoError(t, err)
 		r, err := NewGitSyncReconciler(client, scheme.Scheme, cm, nil)
 		assert.Nil(t, err)
