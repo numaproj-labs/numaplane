@@ -23,13 +23,9 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-type Controller struct {
-	Version string `json:"version"`
-}
-
 // NumaflowControllerRolloutSpec defines the desired state of NumaflowControllerRollout
 type NumaflowControllerRolloutSpec struct {
-	Controller Controller `json:"controller"`
+	Version string `json:"version"`
 }
 
 // NumaflowControllerRolloutStatus defines the observed state of NumaflowControllerRollout

@@ -24,11 +24,6 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// PipelineRolloutSpec defines the desired state of PipelineRollout
-type PipelineRolloutSpec struct {
-	Pipeline runtime.RawExtension `json:"pipeline"`
-}
-
 // PipelineRolloutStatus defines the observed state of PipelineRollout
 type PipelineRolloutStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
@@ -43,7 +38,7 @@ type PipelineRollout struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PipelineRolloutSpec   `json:"spec"`
+	Spec   runtime.RawExtension  `json:"spec"`
 	Status PipelineRolloutStatus `json:"status,omitempty"`
 }
 

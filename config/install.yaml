@@ -261,19 +261,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: ISBServiceRolloutSpec defines the desired state of ISBServiceRollout
-            properties:
-              interStepBufferService:
-                properties:
-                  spec:
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                required:
-                - spec
-                type: object
-            required:
-            - interStepBufferService
             type: object
+            x-kubernetes-preserve-unknown-fields: true
           status:
             description: ISBServiceRolloutStatus defines the observed state of ISBServiceRollout
             type: object
@@ -325,15 +314,10 @@ spec:
             description: NumaflowControllerRolloutSpec defines the desired state of
               NumaflowControllerRollout
             properties:
-              controller:
-                properties:
-                  version:
-                    type: string
-                required:
-                - version
-                type: object
+              version:
+                type: string
             required:
-            - controller
+            - version
             type: object
           status:
             description: NumaflowControllerRolloutStatus defines the observed state
@@ -383,14 +367,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: PipelineRolloutSpec defines the desired state of PipelineRollout
-            properties:
-              pipeline:
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
-            required:
-            - pipeline
             type: object
+            x-kubernetes-preserve-unknown-fields: true
           status:
             description: PipelineRolloutStatus defines the observed state of PipelineRollout
             type: object

@@ -20,27 +20,33 @@ import (
 	"context"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 // NumaflowControllerRolloutReconciler reconciles a NumaflowControllerRollout object
 type NumaflowControllerRolloutReconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
+	client     client.Client
+	scheme     *runtime.Scheme
+	restConfig *rest.Config
 }
 
 func NewNumaflowControllerRolloutReconciler(
 	client client.Client,
 	s *runtime.Scheme,
+	restConfig *rest.Config,
 ) *NumaflowControllerRolloutReconciler {
 	return &NumaflowControllerRolloutReconciler{
 		client,
 		s,
+		restConfig,
 	}
 }
 
@@ -74,7 +80,23 @@ func (r *NumaflowControllerRolloutReconciler) Reconcile(ctx context.Context, req
 		}
 	}
 
-	numaLogger.Info(string(numaflowControllerRollout.Spec.Controller.Version))
+	obj := kubernetes.GenericObject{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "???", // TODO: what is the kind for this?
+			APIVersion: "numaflow.numaproj.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      numaflowControllerRollout.Name,
+			Namespace: "numaflow-system",
+		},
+		// Spec: numaflowControllerRollout.Spec, // TODO: need to convert NumaflowControllerRolloutSpec to RawExtension
+	}
+
+	err := kubernetes.UpdateCRSpec(ctx, r.restConfig, &obj, "???") // TODO: what is the plural of this kind?
+	if err != nil {
+		numaLogger.Errorf(err, "failed to apply CR: %v", err)
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
