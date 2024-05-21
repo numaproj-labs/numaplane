@@ -20,13 +20,11 @@ import (
 	"context"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
@@ -80,26 +78,7 @@ func (r *NumaflowControllerRolloutReconciler) Reconcile(ctx context.Context, req
 		}
 	}
 
-	// TODO: need to generate the correct spec and setup the appropriate meta fields
-	// based on the NumaflowControllerRollout spec.controller.version
-	obj := kubernetes.GenericObject{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "",
-			APIVersion: "",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      numaflowControllerRollout.Name,
-			Namespace: "numaflow-system",
-		},
-		Spec: runtime.RawExtension{},
-	}
-
-	// TODO: what is the plural of this kind?
-	err := kubernetes.UpdateCRSpec(ctx, r.restConfig, &obj, "<plural>")
-	if err != nil {
-		numaLogger.Errorf(err, "failed to apply CR: %v", err)
-		return ctrl.Result{}, err
-	}
+	// TODO: reconciliation logic here
 
 	return ctrl.Result{}, nil
 }
