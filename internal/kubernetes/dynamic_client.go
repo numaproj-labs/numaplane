@@ -98,7 +98,6 @@ func UpdateCRSpec(ctx context.Context, restConfig *rest.Config, object *GenericO
 		numaLogger.Debugf("found existing Resource definition for %s/%s: %+v", object.Namespace, object.Name, resource)
 		// todo:
 		//   If the existing annotation matches the new hash, then nothing to do: log and return
-		//   Else update the object - note: can't just use the unstruc object here - need to take the running object and just update spec
 
 		// replace the Object's Spec
 		resource.Object["spec"] = object.Spec
