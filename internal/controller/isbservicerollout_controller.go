@@ -86,13 +86,14 @@ func (r *ISBServiceRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			APIVersion: "numaflow.numaproj.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      isbServiceRollout.Name,
-			Namespace: isbServiceRollout.Namespace,
+			Name:            isbServiceRollout.Name,
+			Namespace:       isbServiceRollout.Namespace,
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(isbServiceRollout.GetObjectMeta(), apiv1.ISBServiceRolloutGroupVersionKind)},
 		},
 		Spec: isbServiceRollout.Spec.InterStepBufferService,
 	}
 
-	err := kubernetes.UpdateCRSpec(ctx, r.restConfig, &obj, "interstepbufferservices")
+	err := kubernetes.ApplyCRSpec(ctx, r.restConfig, &obj, "interstepbufferservices")
 	if err != nil {
 		numaLogger.Errorf(err, "failed to apply CR: %v", err)
 		return ctrl.Result{}, err
