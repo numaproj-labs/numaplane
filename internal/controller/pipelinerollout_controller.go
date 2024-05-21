@@ -72,8 +72,6 @@ func (r *PipelineRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// update the context with this Logger so downstream users can incorporate these values in the logs
 	ctx = logger.WithLogger(ctx, numaLogger)
 
-	numaLogger.Info("PipelineRollout Reconcile")
-
 	// Get PipelineRollout CR
 	pipelineRollout := &apiv1.PipelineRollout{}
 	if err := r.client.Get(ctx, req.NamespacedName, pipelineRollout); err != nil {
@@ -158,15 +156,16 @@ func (r *PipelineRolloutReconciler) reconcile(ctx context.Context, pipelineRollo
 		return err
 	}
 
-	//todo: pipelineRollout.Status.MarkRunning() // should already be but just in case
+	pipelineRollout.Status.MarkRunning()
+
 	return nil
 }
 
 func (r *PipelineRolloutReconciler) needsUpdate(old, new *apiv1.PipelineRollout) bool {
-
 	if old == nil {
 		return true
 	}
+
 	// check for any fields we might update in the Spec - generally we'd only update a Finalizer or maybe something in the metadata
 	// TODO: we would need to update this if we ever add anything else, like a label or annotation - unless there's a generic check that makes sense
 	if !equality.Semantic.DeepEqual(old.Finalizers, new.Finalizers) {

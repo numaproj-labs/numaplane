@@ -354,11 +354,11 @@ func (w *When) waitForGitSyncRunning(ctx context.Context, gitSyncClient planepkg
 			i, ok := event.Object.(*v1alpha1.GitSync)
 			if ok {
 				// gitSync is about to start
-				if i.Status.Phase == v1alpha1.GitSyncPhasePending {
+				if i.Status.Phase == v1alpha1.PhasePending {
 					w.t.Logf("GitSync %s is in pending state", gitSyncName)
 					continue
 				}
-				if i.Status.Phase == v1alpha1.GitSyncPhaseRunning {
+				if i.Status.Phase == v1alpha1.PhaseRunning {
 					return nil
 				}
 			} else {

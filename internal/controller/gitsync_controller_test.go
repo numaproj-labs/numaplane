@@ -131,8 +131,8 @@ func reconcile(t *testing.T, r *GitSyncReconciler, gitSync *apiv1.GitSync) {
 func verifyRunning(t *testing.T, gitSync *apiv1.GitSync) {
 
 	// verify phase and Conditions
-	assert.Equal(t, apiv1.GitSyncPhaseRunning, gitSync.Status.Phase)
-	assert.Equal(t, string(apiv1.GitSyncConditionConfigured), gitSync.Status.Conditions[0].Type)
+	assert.Equal(t, apiv1.PhaseRunning, gitSync.Status.Phase)
+	assert.Equal(t, string(apiv1.ConditionConfigured), gitSync.Status.Conditions[0].Type)
 	assert.Equal(t, metav1.ConditionTrue, gitSync.Status.Conditions[0].Status)
 }
 
@@ -140,7 +140,7 @@ func verifyRunning(t *testing.T, gitSync *apiv1.GitSync) {
 func verifyNotApplicable(t *testing.T, gitSync *apiv1.GitSync) {
 
 	// verify phase and Conditions
-	assert.Equal(t, apiv1.GitSyncPhaseNA, gitSync.Status.Phase)
-	assert.Equal(t, string(apiv1.GitSyncConditionConfigured), gitSync.Status.Conditions[0].Type)
+	assert.Equal(t, apiv1.PhaseNA, gitSync.Status.Phase)
+	assert.Equal(t, string(apiv1.ConditionConfigured), gitSync.Status.Conditions[0].Type)
 	assert.Equal(t, metav1.ConditionFalse, gitSync.Status.Conditions[0].Status)
 }
