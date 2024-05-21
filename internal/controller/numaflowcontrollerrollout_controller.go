@@ -80,19 +80,22 @@ func (r *NumaflowControllerRolloutReconciler) Reconcile(ctx context.Context, req
 		}
 	}
 
+	// TODO: need to generate the correct spec and setup the appropriate meta fields
+	// based on the NumaflowControllerRollout spec.controller.version
 	obj := kubernetes.GenericObject{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "???", // TODO: what is the kind for this?
-			APIVersion: "numaflow.numaproj.io/v1alpha1",
+			Kind:       "",
+			APIVersion: "",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      numaflowControllerRollout.Name,
 			Namespace: "numaflow-system",
 		},
-		// Spec: numaflowControllerRollout.Spec, // TODO: need to convert NumaflowControllerRolloutSpec to RawExtension
+		Spec: runtime.RawExtension{},
 	}
 
-	err := kubernetes.UpdateCRSpec(ctx, r.restConfig, &obj, "???") // TODO: what is the plural of this kind?
+	// TODO: what is the plural of this kind?
+	err := kubernetes.UpdateCRSpec(ctx, r.restConfig, &obj, "<plural>")
 	if err != nil {
 		numaLogger.Errorf(err, "failed to apply CR: %v", err)
 		return ctrl.Result{}, err

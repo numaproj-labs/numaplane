@@ -37,8 +37,14 @@ spec:
           metadata:
             type: object
           spec:
+            description: PipelineRolloutSpec defines the desired state of PipelineRollout
+            properties:
+              pipeline:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+            required:
+            - pipeline
             type: object
-            x-kubernetes-preserve-unknown-fields: true
           status:
             description: PipelineRolloutStatus defines the observed state of PipelineRollout
             type: object

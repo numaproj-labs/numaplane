@@ -89,7 +89,7 @@ func (r *ISBServiceRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			Name:      isbServiceRollout.Name,
 			Namespace: "numaflow-system",
 		},
-		Spec: isbServiceRollout.Spec,
+		Spec: isbServiceRollout.Spec.InterStepBufferService,
 	}
 
 	err := kubernetes.UpdateCRSpec(ctx, r.restConfig, &obj, "interstepbufferservices")

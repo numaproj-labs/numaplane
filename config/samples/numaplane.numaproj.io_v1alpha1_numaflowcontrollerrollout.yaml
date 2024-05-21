@@ -4,4 +4,5 @@ metadata:
   name: numaflowcontrollerrollout-sample
   namespace: numaplane-system
 spec:
-  version: 1.2.1
+  controller:
+    version: 1.2.1

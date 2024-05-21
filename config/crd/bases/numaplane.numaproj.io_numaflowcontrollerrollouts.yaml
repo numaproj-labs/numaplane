@@ -41,10 +41,15 @@ spec:
             description: NumaflowControllerRolloutSpec defines the desired state of
               NumaflowControllerRollout
             properties:
-              version:
-                type: string
+              controller:
+                properties:
+                  version:
+                    type: string
+                required:
+                - version
+                type: object
             required:
-            - version
+            - controller
             type: object
           status:
             description: NumaflowControllerRolloutStatus defines the observed state

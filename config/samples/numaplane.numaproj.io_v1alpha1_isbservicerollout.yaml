@@ -4,8 +4,9 @@ metadata:
   name: isbservicerollout-sample
   namespace: numaplane-system
 spec:
-  # Example from https://github.com/numaproj/numaflow/blob/main/examples/0-isbsvc-jetstream.yaml
-  jetstream:
-    version: latest
-    persistence:
-      volumeSize: 3Gi
+  interStepBufferService:
+    # Example from https://github.com/numaproj/numaflow/blob/main/examples/0-isbsvc-jetstream.yaml
+    jetstream:
+      version: latest
+      persistence:
+        volumeSize: 1Gi

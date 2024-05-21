@@ -37,8 +37,14 @@ spec:
           metadata:
             type: object
           spec:
+            description: ISBServiceRolloutSpec defines the desired state of ISBServiceRollout
+            properties:
+              interStepBufferService:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+            required:
+            - interStepBufferService
             type: object
-            x-kubernetes-preserve-unknown-fields: true
           status:
             description: ISBServiceRolloutStatus defines the observed state of ISBServiceRollout
             type: object

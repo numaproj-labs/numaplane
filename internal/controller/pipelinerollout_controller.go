@@ -89,7 +89,7 @@ func (r *PipelineRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			Name:      pipelineRollout.Name,
 			Namespace: "numaflow-system",
 		},
-		Spec: pipelineRollout.Spec,
+		Spec: pipelineRollout.Spec.Pipeline,
 	}
 
 	err := kubernetes.UpdateCRSpec(ctx, r.restConfig, &obj, "pipelines")
