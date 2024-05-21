@@ -4,8 +4,8 @@ metadata:
   name: my-pipeline
   namespace: example-namespace
 spec:
-  interStepBufferServiceName: my-isbsvc
   pipeline:
+    interStepBufferServiceName: my-isbsvc
     vertices:
       - name: in
         source:
