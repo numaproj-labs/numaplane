@@ -19,3 +19,8 @@ configMapGenerator:
     files:
       - config.yaml
     behavior: merge  # Optional, defaults to "create"
+  - name: numarollout-config
+    namespace: numaplane-system
+    files:
+      - controller_1.2.1.yaml
+    behavior: merge

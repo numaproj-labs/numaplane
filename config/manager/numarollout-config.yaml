@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: numarollout-config
+data:
+  controller_1.2.1.yaml: |
+    spec: ""  

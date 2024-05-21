@@ -825,6 +825,8 @@ spec:
         volumeMounts:
         - mountPath: /etc/numaplane
           name: config-volume
+        - mountPath: /etc/numarollout
+          name: numarollout-volume
       initContainers: []
       serviceAccountName: numaplane-sa
       terminationGracePeriodSeconds: 10
@@ -832,3 +834,6 @@ spec:
       - configMap:
           name: numaplane-controller-config
         name: config-volume
+      - configMap:
+          name: numarollout-config
+        name: numarollout-volume

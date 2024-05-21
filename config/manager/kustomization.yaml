@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
 - controller-manager.yaml
 - controller-config.yaml
+- numarollout-config.yaml
 
 images:
 - name: quay.io/numaproj/numaplane-controller
