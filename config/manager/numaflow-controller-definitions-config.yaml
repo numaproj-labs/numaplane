@@ -9,3 +9,4 @@ data:
       fullSpec: ""
     - version: "1.1.7"
       fullSpec: ""
+immutable: true
