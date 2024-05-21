@@ -120,7 +120,7 @@ func (r *ISBServiceRolloutReconciler) reconcile(ctx context.Context, isbServiceR
 	numaLogger := logger.FromContext(ctx)
 
 	// is isbServiceRollout being deleted? need to remove the finalizer so it can
-	// (OwnerReference will delete the underlying Pipeline through Cascading deletion)
+	// (OwnerReference will delete the underlying ISBService through Cascading deletion)
 	if !isbServiceRollout.DeletionTimestamp.IsZero() {
 		numaLogger.Info("Deleting ISBServiceRollout")
 		if controllerutil.ContainsFinalizer(isbServiceRollout, finalizerName) {
