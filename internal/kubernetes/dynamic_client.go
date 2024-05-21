@@ -21,20 +21,6 @@ import (
 
 //todo: add unit tests
 
-// todo: remove this function
-// this function is temporary since we will no longer use RawExtension - Tony will take it out
-func ParseRawExtension(ctx context.Context, obj runtime.RawExtension) (*GenericObject, error) {
-	numaLogger := logger.FromContext(ctx)
-	var genericObject GenericObject
-	err := json.Unmarshal(obj.Raw, &genericObject)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling json: %v", err)
-	}
-	numaLogger.Debugf("successfully unmarshaled into GenericObject: %+v", genericObject)
-
-	return &genericObject, nil
-}
-
 func parseApiVersion(apiVersion string) (string, string, error) {
 	// should be separated by slash
 	index := strings.Index(apiVersion, "/")
