@@ -35,13 +35,6 @@ func ParseRawExtension(ctx context.Context, obj runtime.RawExtension) (*GenericO
 	return &genericObject, nil
 }
 
-/*
-type GenericObject struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              map[string]interface{} `json:"spec"`
-}*/
-
 func parseApiVersion(apiVersion string) (string, string, error) {
 	// should be separated by slash
 	index := strings.Index(apiVersion, "/")
@@ -138,6 +131,8 @@ func objectToUnstructured(object *GenericObject) (*unstructured.Unstructured, er
 	return &unstructured.Unstructured{Object: asMap}, nil
 }
 
+// unused - will keep and comment out in case it's needed later
+/*
 func unstructuredToObject(u *unstructured.Unstructured) (*GenericObject, error) {
 	asJsonBytes, err := json.Marshal(u.Object)
 	if err != nil {
@@ -147,4 +142,4 @@ func unstructuredToObject(u *unstructured.Unstructured) (*GenericObject, error) 
 	err = json.Unmarshal(asJsonBytes, &genericObject)
 
 	return &genericObject, nil
-}
+}*/
