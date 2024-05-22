@@ -85,13 +85,13 @@ func (cm *ConfigManager) LoadAllConfigs(
 		}
 	}
 	if opts.configFileName != "" {
-		err := cm.loadConfig(onErrorReloading, opts.configsPath, opts.configFileName, opts.configFileType, false)
+		err := cm.loadConfig(onErrorReloading, opts.configsPath, opts.configFileName, opts.fileType, false)
 		if err != nil {
 			return err
 		}
 	}
-	if opts.rolloutConfigFileName != "" {
-		err := cm.loadConfig(onErrorReloading, opts.configsPath, opts.rolloutConfigFileName, opts.configFileType, true)
+	if opts.defConfigFileName != "" {
+		err := cm.loadConfig(onErrorReloading, opts.defConfigPath, opts.defConfigFileName, opts.fileType, true)
 		if err != nil {
 			return err
 		}

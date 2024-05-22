@@ -429,6 +429,7 @@ func (c *liveStateCache) GetManagedLiveObjs(
 		return nil, fmt.Errorf("failed to get cluster info: %w", err)
 	}
 	return clusterInfo.GetManagedLiveObjs(targetObjs, func(r *clustercache.Resource) bool {
+		// TODO: distigush between numaplane objects. e.g. NumaflowControllerRollout v.s. GitSync
 		return resInfo(r).Name == name
 	})
 }

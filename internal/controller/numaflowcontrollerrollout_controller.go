@@ -20,17 +20,19 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/argoproj/gitops-engine/pkg/diff"
 	gitopsSync "github.com/argoproj/gitops-engine/pkg/sync"
 	gitopsSyncCommon "github.com/argoproj/gitops-engine/pkg/sync/common"
 	kubeUtil "github.com/argoproj/gitops-engine/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/argoproj/gitops-engine/pkg/diff"
 	"github.com/numaproj-labs/numaplane/internal/common"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/metrics"
@@ -88,13 +90,9 @@ func loadDefinitions() (map[string]string, error) {
 		return nil, fmt.Errorf("failed to get the controller definitions config, %v", err)
 	}
 
-	logger.RefreshBaseLoggerLevel()
-	numaLogger := logger.GetBaseLogger().WithName("loadDefinitions").WithValues("numaflowcontrollerrollout_1")
-
 	definitions := make(map[string]string)
 	for _, definition := range definitionsConfig.ControllerDefinitions {
 		definitions[definition.Version] = definition.FullSpec
-		numaLogger.Info("def", "version", definition.Version, "spec", definition.FullSpec)
 	}
 	return definitions, nil
 }
@@ -117,6 +115,7 @@ func (r *NumaflowControllerRolloutReconciler) Reconcile(ctx context.Context, req
 	logger.RefreshBaseLoggerLevel()
 	numaLogger := logger.GetBaseLogger().WithName("reconciler").WithValues("numaflowcontrollerrollout", req.NamespacedName)
 
+	// TODO: only allow one controllerRollout per namespace.
 	numaflowControllerRollout := &apiv1.NumaflowControllerRollout{}
 	if err := r.client.Get(ctx, req.NamespacedName, numaflowControllerRollout); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -127,38 +126,112 @@ func (r *NumaflowControllerRolloutReconciler) Reconcile(ctx context.Context, req
 		}
 	}
 
-	// TODO: reconciliation logic here
-	_, _ = r.sync(numaflowControllerRollout, req.Namespace, "", numaLogger)
+	// save off a copy of the original before we modify it
+	numaflowControllerRolloutOrig := numaflowControllerRollout
+	numaflowControllerRollout = numaflowControllerRolloutOrig.DeepCopy()
+
+	err := r.reconcile(ctx, numaflowControllerRollout, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Update the Spec if needed
+	if r.needsUpdate(numaflowControllerRolloutOrig, numaflowControllerRollout) {
+		numaflowControllerRolloutStatus := numaflowControllerRollout.Status
+		if err := r.client.Update(ctx, numaflowControllerRollout); err != nil {
+			numaLogger.Error(err, "Error Updating NumaflowControllerRollout", "NumaflowControllerRollout", numaflowControllerRollout)
+			return ctrl.Result{}, err
+		}
+		// restore the original status, which would've been wiped in the previous call to Update()
+		numaflowControllerRollout.Status = numaflowControllerRolloutStatus
+	}
+
+	// Update the Status subresource
+	if numaflowControllerRollout.DeletionTimestamp.IsZero() { // would've already been deleted
+		if err := r.client.Status().Update(ctx, numaflowControllerRollout); err != nil {
+			numaLogger.Error(err, "Error Updating NumaflowControllerRollout Status", "NumaflowControllerRollout", numaflowControllerRollout)
+			return ctrl.Result{}, err
+		}
+	}
+
+	numaLogger.Debug("reconciliation successful")
 
 	return ctrl.Result{}, nil
+}
+
+func (r *NumaflowControllerRolloutReconciler) needsUpdate(old, new *apiv1.NumaflowControllerRollout) bool {
+
+	if old == nil {
+		return true
+	}
+	// check for any fields we might update in the Spec - generally we'd only update a Finalizer or maybe something in the metadata
+	// TODO: we would need to update this if we ever add anything else, like a label or annotation - unless there's a generic check that makes sense
+	if !equality.Semantic.DeepEqual(old.Finalizers, new.Finalizers) {
+		return true
+	}
+	return false
+}
+
+// reconcile does the real logic
+func (r *NumaflowControllerRolloutReconciler) reconcile(
+	ctx context.Context,
+	controllerRollout *apiv1.NumaflowControllerRollout,
+	namespace string,
+) error {
+	numaLogger := logger.FromContext(ctx)
+
+	// TODO: add owner reference
+	if !controllerRollout.DeletionTimestamp.IsZero() {
+		numaLogger.Info("Deleting NumaflowControllerRollout")
+		if controllerutil.ContainsFinalizer(controllerRollout, finalizerName) {
+			controllerutil.RemoveFinalizer(controllerRollout, finalizerName)
+		}
+		return nil
+	}
+
+	// add Finalizer so we can ensure that we take appropriate action when CRD is deleted
+	if !controllerutil.ContainsFinalizer(controllerRollout, finalizerName) {
+		controllerutil.AddFinalizer(controllerRollout, finalizerName)
+	}
+
+	// apply controller
+	phase, err := r.sync(controllerRollout, namespace, numaLogger)
+	if err != nil {
+		return err
+	}
+
+	if phase != gitopsSyncCommon.OperationSucceeded {
+		return fmt.Errorf("sync operation is not successful")
+	}
+
+	controllerRollout.Status.MarkRunning()
+	return nil
 }
 
 // TODO: share sync logic with `syncer`
 func (r *NumaflowControllerRolloutReconciler) sync(
 	rollout *apiv1.NumaflowControllerRollout,
 	namespace string,
-	revision string,
 	numaLogger *logger.NumaLogger,
-) (gitopsSyncCommon.OperationPhase, string) {
+) (gitopsSyncCommon.OperationPhase, error) {
 
 	// Get the target manifests
 	version := rollout.Spec.Controller.Version
 	manifest := r.definitions[version]
-	numaLogger.Info("log manifest: " + manifest)
 	targetObjs, err := kubeUtil.SplitYAML([]byte(manifest))
 	if err != nil {
-		return gitopsSyncCommon.OperationError, err.Error()
+		return gitopsSyncCommon.OperationError, err
 	}
 
 	var infoProvider kubeUtil.ResourceInfoProvider
 	clusterCache, err := r.stateCache.GetClusterCache()
 	infoProvider = clusterCache
 	if err != nil {
-		return gitopsSyncCommon.OperationError, err.Error()
+		return gitopsSyncCommon.OperationError, err
 	}
 	liveObjByKey, err := r.stateCache.GetManagedLiveObjs(rollout.Name, targetObjs)
 	if err != nil {
-		return gitopsSyncCommon.OperationError, err.Error()
+		return gitopsSyncCommon.OperationError, err
 	}
 	reconciliationResult := gitopsSync.Reconcile(targetObjs, liveObjByKey, namespace, infoProvider)
 
@@ -171,7 +244,7 @@ func (r *NumaflowControllerRolloutReconciler) sync(
 
 	resourceOps, cleanup, err := r.getResourceOperations()
 	if err != nil {
-		return gitopsSyncCommon.OperationError, err.Error()
+		return gitopsSyncCommon.OperationError, err
 	}
 	defer cleanup()
 
@@ -186,7 +259,7 @@ func (r *NumaflowControllerRolloutReconciler) sync(
 	diffResults, err := sync.StateDiffs(reconciliationResult.Target, reconciliationResult.Live, overrides, diffOpts)
 	if err != nil {
 		numaLogger.Error(err, "Error on comparing git sync state")
-		return gitopsSyncCommon.OperationError, err.Error()
+		return gitopsSyncCommon.OperationError, err
 	}
 
 	opts := []gitopsSync.SyncOpt{
@@ -208,7 +281,7 @@ func (r *NumaflowControllerRolloutReconciler) sync(
 	openAPISchema := cluster.GetOpenAPISchema()
 
 	syncCtx, cleanup, err := gitopsSync.NewSyncContext(
-		revision,
+		"",
 		reconciliationResult,
 		r.restConfig,
 		r.rawConfig,
@@ -220,13 +293,13 @@ func (r *NumaflowControllerRolloutReconciler) sync(
 	defer cleanup()
 	if err != nil {
 		numaLogger.Error(err, "Error on creating syncing context")
-		return gitopsSyncCommon.OperationError, err.Error()
+		return gitopsSyncCommon.OperationError, err
 	}
 
 	syncCtx.Sync()
 
-	phase, message, _ := syncCtx.GetState()
-	return phase, message
+	phase, _, _ := syncCtx.GetState()
+	return phase, nil
 }
 
 // getResourceOperations will return the kubectl implementation of the ResourceOperations
