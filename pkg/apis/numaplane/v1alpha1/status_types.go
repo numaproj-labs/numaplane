@@ -36,9 +36,6 @@ const (
 	PhaseFailed  Phase = "Failed"
 	PhaseNA      Phase = "NotApplicable"
 
-	// ConditionReady indicates the resource is ready.
-	ConditionReady ConditionType = "Ready"
-
 	// ConditionConfigured indicates valid configuration.
 	ConditionConfigured ConditionType = "Configured"
 )
@@ -51,7 +48,7 @@ type Status struct {
 	// +patchStrategy=merge
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 
-	// Phase indicates the status of the underlying CR.
+	// Phase indicates the health status.
 	Phase Phase `json:"phase,omitempty"`
 
 	// Message is added if Phase is PhaseFailed.
@@ -149,28 +146,24 @@ func (status *Status) SetPhase(phase Phase, msg string) {
 
 // InitConditions sets conditions to Unknown state and Phase to Pending.
 func (status *Status) InitConditions() {
-	status.InitializeConditions(ConditionReady)
 	status.InitializeConditions(ConditionConfigured)
 	status.SetPhase(PhasePending, "")
 }
 
 // MarkRunning sets conditions to True state and Phase to Running.
 func (status *Status) MarkRunning() {
-	status.MarkTrue(ConditionReady)
 	status.MarkTrue(ConditionConfigured)
 	status.SetPhase(PhaseRunning, "")
 }
 
 // MarkFailed sets conditions to False state and Phase to Failed.
 func (status *Status) MarkFailed(reason, message string) {
-	status.MarkFalse(ConditionReady, reason, message)
 	status.MarkFalse(ConditionConfigured, reason, message)
 	status.SetPhase(PhaseFailed, message)
 }
 
 // MarkNotApplicable sets conditions to False state and Phase to NotApplicable.
 func (status *Status) MarkNotApplicable(reason, message string) {
-	status.MarkFalse(ConditionReady, reason, message)
 	status.MarkFalse(ConditionConfigured, reason, message)
 	status.SetPhase(PhaseNA, message)
 }

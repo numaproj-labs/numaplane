@@ -149,7 +149,7 @@ func (r *ISBServiceRolloutReconciler) reconcile(ctx context.Context, isbServiceR
 	err := kubernetes.ApplyCRSpec(ctx, r.restConfig, &obj, "interstepbufferservices")
 	if err != nil {
 		numaLogger.Errorf(err, "failed to apply CR: %v", err)
-		//todo: isbServiceRollout.Status.MarkFailed("???", err.Error())
+		isbServiceRollout.Status.MarkFailed("", err.Error())
 		return err
 	}
 

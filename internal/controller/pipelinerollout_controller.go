@@ -152,7 +152,7 @@ func (r *PipelineRolloutReconciler) reconcile(ctx context.Context, pipelineRollo
 	err := kubernetes.ApplyCRSpec(ctx, r.restConfig, &obj, "pipelines")
 	if err != nil {
 		numaLogger.Errorf(err, "failed to apply CR: %v", err)
-		//todo: pipelineRollout.Status.MarkFailed("???", err.Error())
+		pipelineRollout.Status.MarkFailed("", err.Error())
 		return err
 	}
 
