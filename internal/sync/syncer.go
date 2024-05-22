@@ -217,6 +217,7 @@ func (s *Syncer) runOnce(ctx context.Context, key string, worker int) error {
 	globalConfig, err := controllerConfig.GetConfigManagerInstance().GetConfig()
 	if err != nil {
 		numaLogger.Error(err, "error getting the global config")
+		return fmt.Errorf("failed to get the global config for object of key %q, %w", key, err)
 	}
 
 	// startTime used for calculating metrics
@@ -377,7 +378,7 @@ func (s *Syncer) compareState(gitSync *v1alpha1.GitSync, targetObjs []*unstructu
 	if err != nil {
 		infoProvider = &resourceInfoProviderStub{}
 	}
-	liveObjByKey, err := s.stateCache.GetManagedLiveObjs(gitSync, targetObjs)
+	liveObjByKey, err := s.stateCache.GetManagedLiveObjs(gitSync.Name, targetObjs)
 	if err != nil {
 		return gitopsSync.ReconciliationResult{}, nil, err
 	}
@@ -434,7 +435,7 @@ func applyLabelAndNamespace(manifests []*unstructured.Unstructured, gitSyncName,
 
 	uns := make([]*unstructured.Unstructured, 0)
 	for _, m := range manifests {
-		err := kubernetes.SetGitSyncInstanceLabel(m, common.LabelKeyGitSyncInstance, gitSyncName)
+		err := kubernetes.SetGitSyncInstanceLabel(m, common.LabelKeyNumaplaneInstance, gitSyncName)
 		if err != nil {
 			return nil, err
 		}
@@ -517,7 +518,7 @@ func updateCommitStatus(
 // It returns a map of Kubernetes resource keys to unstructured objects and an error if any.
 func GetLiveManagedObjects(cache LiveStateCache, gitSync *v1alpha1.GitSync) (map[kube.ResourceKey]*unstructured.Unstructured, error) {
 	var unstructuredObj []*unstructured.Unstructured
-	objs, err := cache.GetManagedLiveObjs(gitSync, unstructuredObj)
+	objs, err := cache.GetManagedLiveObjs(gitSync.Name, unstructuredObj)
 	if err != nil {
 		return nil, err
 	}
