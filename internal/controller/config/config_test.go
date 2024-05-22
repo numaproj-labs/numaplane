@@ -96,7 +96,7 @@ func TestLoadNumaRolloutConfigMatchValues(t *testing.T) {
 	configManager := GetConfigManagerInstance()
 	err = configManager.LoadAllConfigs(func(err error) {}, WithConfigsPath(configPath), WithRolloutConfigFileName("controller-definitions-config"))
 	assert.NoError(t, err)
-	config, err := configManager.GetNumaRolloutConfig()
+	config, err := configManager.GetControllerDefinitionsConfig()
 	assert.NoError(t, err)
 
 	assert.Nil(t, err, "Failed to load configuration")

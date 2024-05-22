@@ -144,11 +144,16 @@ func main() {
 		numaLogger.Fatal(err, "Unable to set up PipelineRollout controller")
 	}
 
-	numaflowControllerRolloutReconciler := controller.NewNumaflowControllerRolloutReconciler(
+	numaflowControllerRolloutReconciler, err := controller.NewNumaflowControllerRolloutReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		mgr.GetConfig(),
+		metricServer,
+		kubectl,
 	)
+	if err != nil {
+		numaLogger.Fatal(err, "Unable to create NumaflowControllerRollout controller")
+	}
 
 	if err = numaflowControllerRolloutReconciler.SetupWithManager(mgr); err != nil {
 		numaLogger.Fatal(err, "Unable to set up NumaflowControllerRollout controller")

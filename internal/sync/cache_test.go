@@ -193,7 +193,7 @@ metadata:
   labels:
     numaplane.numaproj.io/tracking-id: my-gitsync`)
 
-	managedObjs, err := clusterCache.GetManagedLiveObjs(defaultGitSync, []*unstructured.Unstructured{targetDeploy})
+	managedObjs, err := clusterCache.GetManagedLiveObjs(defaultGitSync.Name, []*unstructured.Unstructured{targetDeploy})
 	require.NoError(t, err)
 	assert.Equal(t, map[kube.ResourceKey]*unstructured.Unstructured{
 		kube.NewResourceKey("apps", "Deployment", "default", "my-app"): mustToUnstructured(testDeploy()),
