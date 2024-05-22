@@ -24,6 +24,6 @@ configMapGenerator:
   files:
     - controller_definitions.yaml
   behavior: merge  # Optional, defaults to "create"
-generatorOptions:
-  immutable: true
+  options:
+    immutable: true
 
