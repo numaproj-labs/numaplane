@@ -203,11 +203,10 @@ spec:
                   type: object
                 type: array
               message:
-                description: Message is added if there's a failure
+                description: Message is added if Phase is PhaseFailed.
                 type: string
               phase:
-                description: 'Important: Run "make" to regenerate code after modifying
-                  this file'
+                description: Phase indicates the health status.
                 enum:
                 - ""
                 - Pending

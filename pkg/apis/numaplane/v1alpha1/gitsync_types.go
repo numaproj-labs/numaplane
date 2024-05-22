@@ -19,27 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"reflect"
-	"sort"
-	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-// +kubebuilder:validation:Enum="";Pending;Running;Failed;NotApplicable
-type GitSyncPhase string
-
-type ConditionType string
-
-const (
-	GitSyncPhasePending GitSyncPhase = "Pending"
-	GitSyncPhaseRunning GitSyncPhase = "Running"
-	GitSyncPhaseFailed  GitSyncPhase = "Failed"
-	GitSyncPhaseNA      GitSyncPhase = "NotApplicable" // use this for the case in which this cluster isn't listed as a Destination
-
-	// GitSyncConditionConfigured has the status True when the GitSync
-	// has valid configuration.
-	GitSyncConditionConfigured ConditionType = "Configured"
 )
 
 // GitSyncSpec defines the desired state of GitSync
@@ -52,15 +32,7 @@ type GitSyncSpec struct {
 
 // GitSyncStatus defines the observed state of GitSync
 type GitSyncStatus struct {
-	// Important: Run "make" to regenerate code after modifying this file
-	Phase GitSyncPhase `json:"phase,omitempty"`
-	// Conditions are the latest available observations of a resource's current state.
-	// +optional
-	// +patchMergeKey=type
-	// +patchStrategy=merge
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// Message is added if there's a failure
-	Message string `json:"message,omitempty"`
+	Status `json:",inline"`
 
 	// Last commit processed and the status
 	CommitStatus *CommitStatus `json:"commitStatus,omitempty"`
@@ -137,90 +109,4 @@ func (gitSyncSpec *GitSyncSpec) GetDestinationNamespace(cluster string) string {
 // ExplicitType returns the type (e.g., Helm, Kustomize, etc.) of the application. If either none or multiple types are defined, returns an error.
 func (gitSyncSpec *GitSyncSpec) ExplicitType() (SourceType, error) {
 	return gitSyncSpec.GitSource.ExplicitType()
-}
-
-func (status *GitSyncStatus) SetPhase(phase GitSyncPhase, msg string) {
-	status.Phase = phase
-	status.Message = msg
-}
-
-// InitializeConditions initializes the conditions to Unknown
-func (status *GitSyncStatus) InitializeConditions(conditionTypes ...ConditionType) {
-	for _, t := range conditionTypes {
-		c := metav1.Condition{
-			Type:   string(t),
-			Status: metav1.ConditionUnknown,
-			Reason: "Unknown",
-		}
-		status.setCondition(c)
-	}
-}
-
-// setCondition sets a Condition and sorts the list of Conditions
-func (status *GitSyncStatus) setCondition(condition metav1.Condition) {
-	var conditions []metav1.Condition
-	// copy the list of Conditions, and if we find one of this type, replace it and return
-	for _, c := range status.Conditions {
-		if c.Type != condition.Type {
-			conditions = append(conditions, c)
-		} else {
-			condition.LastTransitionTime = c.LastTransitionTime
-			if reflect.DeepEqual(&condition, &c) {
-				return
-			}
-		}
-	}
-	// didn't find a Condition of this type, so append it to the end of the list, and sort the list for easy read
-	condition.LastTransitionTime = metav1.NewTime(time.Now())
-	conditions = append(conditions, condition)
-	sort.Slice(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
-	status.Conditions = conditions
-}
-
-// InitConditions sets conditions to Unknown state.
-func (status *GitSyncStatus) InitConditions() {
-	status.InitializeConditions(GitSyncConditionConfigured)
-	status.SetPhase(GitSyncPhasePending, "")
-}
-
-func (status *GitSyncStatus) markTypeStatus(t ConditionType, s metav1.ConditionStatus, reason, message string) {
-	status.setCondition(metav1.Condition{
-		Type:    string(t),
-		Status:  s,
-		Reason:  reason,
-		Message: message,
-	})
-}
-
-// MarkConditionTrue sets the status of t to true
-func (status *GitSyncStatus) MarkConditionTrue(t ConditionType) {
-	status.markTypeStatus(t, metav1.ConditionTrue, "Successful", "Successful")
-}
-
-// MarkConditionFalse sets the status of t to false
-func (status *GitSyncStatus) MarkConditionFalse(t ConditionType, reason, message string) {
-	status.markTypeStatus(t, metav1.ConditionFalse, reason, message)
-}
-
-// MarkConditionUnknown sets the status of t to unknown
-func (status *GitSyncStatus) MarkConditionUnknown(t ConditionType, reason, message string) {
-	status.markTypeStatus(t, metav1.ConditionUnknown, reason, message)
-}
-
-// MarkRunning sets the GitSync to Running
-func (status *GitSyncStatus) MarkRunning() {
-	status.MarkConditionTrue(GitSyncConditionConfigured)
-	status.SetPhase(GitSyncPhaseRunning, "")
-}
-
-// MarkFailed sets the GitSync to Failed
-func (status *GitSyncStatus) MarkFailed(reason, message string) {
-	status.MarkConditionFalse(GitSyncConditionConfigured, reason, message)
-	status.SetPhase(GitSyncPhaseFailed, message)
-}
-
-// MarkNotApplicable sets the GitSync to Not Applicable
-func (status *GitSyncStatus) MarkNotApplicable(reason, message string) {
-	status.MarkConditionFalse(GitSyncConditionConfigured, reason, message)
-	status.SetPhase(GitSyncPhaseNA, message)
 }

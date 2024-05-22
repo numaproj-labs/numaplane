@@ -31,3 +31,5 @@ Dockerfile.cross
 tests/e2e/local
 tests/kustomize-e2e/local
 tests/helm-e2e/local
+
+config/crd/bases/_.yaml

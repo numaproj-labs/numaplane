@@ -66,8 +66,6 @@ func (r *NumaflowControllerRolloutReconciler) Reconcile(ctx context.Context, req
 	logger.RefreshBaseLoggerLevel()
 	numaLogger := logger.GetBaseLogger().WithName("reconciler").WithValues("numaflowcontrollerrollout", req.NamespacedName)
 
-	numaLogger.Info("NumaflowControllerRollout Reconcile")
-
 	numaflowControllerRollout := &apiv1.NumaflowControllerRollout{}
 	if err := r.client.Get(ctx, req.NamespacedName, numaflowControllerRollout); err != nil {
 		if apierrors.IsNotFound(err) {
