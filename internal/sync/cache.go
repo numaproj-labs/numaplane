@@ -29,7 +29,6 @@ import (
 	controllerConfig "github.com/numaproj-labs/numaplane/internal/controller/config"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
-	"github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
 )
 
 // GitOps engine cluster cache tuning options
@@ -64,20 +63,20 @@ var (
 )
 
 type ResourceInfo struct {
-	GitSyncName string
+	Name string
 
 	Health       *health.HealthStatus
 	manifestHash string
 }
 
 // LiveStateCache is a cluster caching that stores resource references and ownership
-// references. It also stores custom metadata for resources managed by GitSyncs. It always
+// references. It also stores custom metadata for resources managed by Numaplane. It always
 // ensures the cache is up-to-date before returning the resources.
 type LiveStateCache interface {
 	// GetClusterCache returns synced cluster cache
 	GetClusterCache() (clustercache.ClusterCache, error)
-	// GetManagedLiveObjs returns state of live nodes which correspond to target nodes of specified gitsync.
-	GetManagedLiveObjs(gitsync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (map[kube.ResourceKey]*unstructured.Unstructured, error)
+	// GetManagedLiveObjs returns state of live objects which correspond to target objects with the specified ResourceInfo name.
+	GetManagedLiveObjs(name string, targetObjs []*unstructured.Unstructured) (map[kube.ResourceKey]*unstructured.Unstructured, error)
 	// Init must be executed before cache can be used
 	Init(numaLogger *logger.NumaLogger) error
 	// PopulateResourceInfo is called by the cache to update ResourceInfo struct for a managed resource
@@ -91,7 +90,7 @@ type cacheSettings struct {
 	ignoreResourceUpdatesEnabled bool
 }
 
-type ObjectUpdatedHandler = func(managedByGitSync map[string]bool, ref v1.ObjectReference)
+type ObjectUpdatedHandler = func(managedByNumaplane map[string]bool, ref v1.ObjectReference)
 
 type liveStateCache struct {
 	clusterCacheConfig *rest.Config
@@ -197,7 +196,7 @@ func (c *liveStateCache) getCluster() clustercache.ClusterCache {
 		}
 
 		// TODO: when switch to change event triggering for sync tasking, notify
-		//       the GitSync managing the resources that there are changes happen
+		//       the Numaplane managing the resources that there are changes happen
 	})
 
 	c.cluster = clusterCache
@@ -213,14 +212,14 @@ func (c *liveStateCache) PopulateResourceInfo(un *unstructured.Unstructured, isR
 
 	res.Health, _ = health.GetResourceHealth(un, settings.clusterSettings.ResourceHealthOverride)
 
-	gitSyncName := getGitSyncName(un)
-	if isRoot && gitSyncName != "" {
-		res.GitSyncName = gitSyncName
+	numaplaneInstanceName := getNumaplaneInstanceName(un)
+	if isRoot && numaplaneInstanceName != "" {
+		res.Name = numaplaneInstanceName
 	}
 
 	gvk := un.GroupVersionKind()
 
-	if settings.ignoreResourceUpdatesEnabled && shouldHashManifest(gitSyncName, gvk) {
+	if settings.ignoreResourceUpdatesEnabled && shouldHashManifest(numaplaneInstanceName, gvk) {
 		hash, err := generateManifestHash(un)
 		if err != nil {
 			c.logger.Errorf(err, "failed to generate manifest hash")
@@ -231,12 +230,12 @@ func (c *liveStateCache) PopulateResourceInfo(un *unstructured.Unstructured, isR
 
 	// edge case. we do not label CRDs, so they miss the tracking label we inject. But we still
 	// want the full resource to be available in our cache (to diff), so we store all CRDs
-	return res, res.GitSyncName != "" || gvk.Kind == kube.CustomResourceDefinitionKind
+	return res, res.Name != "" || gvk.Kind == kube.CustomResourceDefinitionKind
 }
 
-// getGitSyncName gets the GitSync that owns the resource from a label in the resource
-func getGitSyncName(un *unstructured.Unstructured) string {
-	value, err := kubernetes.GetGitSyncInstanceLabel(un, common.LabelKeyGitSyncInstance)
+// getNumaplaneInstanceName gets the Numaplane Object that owns the resource from a label in the resource
+func getNumaplaneInstanceName(un *unstructured.Unstructured) string {
+	value, err := kubernetes.GetNumaplaneInstanceLabel(un, common.LabelKeyNumaplaneInstance)
 	if err != nil {
 		return ""
 	}
@@ -252,11 +251,11 @@ func resInfo(r *clustercache.Resource) *ResourceInfo {
 }
 
 // shouldHashManifest validates if the API resource needs to be hashed.
-// If there's a GitSync name from resource tracking, or if this is itself a GitSync, we should generate a hash.
-// Otherwise, the hashing should be skipped to save CPU time.
-func shouldHashManifest(gitSyncName string, gvk schema.GroupVersionKind) bool {
-	// Only hash if the resource belongs to a GitSync.
-	return gitSyncName != "" || (gvk.Group == "numaplane.numaproj.io" && gvk.Kind == "GitSync")
+// If there's a instance name from resource tracking, or if this is itself
+// a Numaplane object, we should generate a hash. Otherwise, the hashing
+// should be skipped to save CPU time.
+func shouldHashManifest(instanceName string, gvk schema.GroupVersionKind) bool {
+	return instanceName != "" || gvk.Group == "numaplane.numaproj.io"
 }
 
 func generateManifestHash(un *unstructured.Unstructured) (string, error) {
@@ -421,13 +420,17 @@ func (c *liveStateCache) GetClusterCache() (clustercache.ClusterCache, error) {
 	return c.getSyncedCluster()
 }
 
-func (c *liveStateCache) GetManagedLiveObjs(gitsync *v1alpha1.GitSync, targetObjs []*unstructured.Unstructured) (map[kube.ResourceKey]*unstructured.Unstructured, error) {
+func (c *liveStateCache) GetManagedLiveObjs(
+	name string,
+	targetObjs []*unstructured.Unstructured,
+) (map[kube.ResourceKey]*unstructured.Unstructured, error) {
 	clusterInfo, err := c.getSyncedCluster()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster info for %q: %w", gitsync.Spec.Destination.Cluster, err)
+		return nil, fmt.Errorf("failed to get cluster info: %w", err)
 	}
 	return clusterInfo.GetManagedLiveObjs(targetObjs, func(r *clustercache.Resource) bool {
-		return resInfo(r).GitSyncName == gitsync.Name
+		// TODO: distigush between numaplane objects. e.g. NumaflowControllerRollout v.s. GitSync
+		return resInfo(r).Name == name
 	})
 }
 

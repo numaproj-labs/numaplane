@@ -12,7 +12,7 @@ spec:
       app.kubernetes.io/name: controller-manager
       app.kubernetes.io/part-of: numaplane
       app.kubernetes.io/component: controller-manager
-  replicas: 2
+  replicas: 1
   template:
     metadata:
       annotations:

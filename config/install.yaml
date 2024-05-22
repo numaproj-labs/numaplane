@@ -1074,7 +1074,7 @@ metadata:
   name: numaplane-controller-manager
   namespace: numaplane-system
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/component: controller-manager
@@ -1121,8 +1121,6 @@ spec:
             - ALL
         volumeMounts:
         - mountPath: /etc/numaplane
-          name: config-volume
-        - mountPath: /etc/numarollout
           name: numarollout-volume
       initContainers: []
       serviceAccountName: numaplane-sa
