@@ -24,18 +24,14 @@ import (
 	gitopsSync "github.com/argoproj/gitops-engine/pkg/sync"
 	gitopsSyncCommon "github.com/argoproj/gitops-engine/pkg/sync/common"
 	kubeUtil "github.com/argoproj/gitops-engine/pkg/utils/kube"
-	appv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	runtimecontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/numaproj-labs/numaplane/internal/common"
 	"github.com/numaproj-labs/numaplane/internal/controller/config"
@@ -225,11 +221,15 @@ func (r *NumaflowControllerRolloutReconciler) sync(
 
 	// Get the target manifests
 	version := rollout.Spec.Controller.Version
-	manifest := r.definitions[version]
+	manifest, found := r.definitions[version]
+	if !found {
+		return gitopsSyncCommon.OperationError, fmt.Errorf("manifest not found for version %s; number of versions defined: %d", version, len(r.definitions))
+	}
 	targetObjs, err := kubeUtil.SplitYAML([]byte(manifest))
 	if err != nil {
 		return gitopsSyncCommon.OperationError, err
 	}
+	numaLogger.Debugf("found %d target objects associated with Numaflow Controller version %s; versions defined:%+v", len(targetObjs), version, r.definitions)
 
 	var infoProvider kubeUtil.ResourceInfoProvider
 	clusterCache, err := r.stateCache.GetClusterCache()
@@ -330,25 +330,34 @@ func (r *NumaflowControllerRolloutReconciler) getResourceOperations() (kubeUtil.
 // SetupWithManager sets up the controller with the Manager.
 func (r *NumaflowControllerRolloutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
-	controller, err := runtimecontroller.New(ControllerNumaflowControllerRollout, mgr, runtimecontroller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
+	return ctrl.NewControllerManagedBy(mgr).
+		// Reconcile NumaflowControllerRollouts when there's been a Generation changed (i.e. Spec change)
+		For(&apiv1.NumaflowControllerRollout{}).WithEventFilter(predicate.GenerationChangedPredicate{}).
+		Complete(r)
 
-	// Watch NumaflowControllerRollouts
-	if err := controller.Watch(source.Kind(mgr.GetCache(), &apiv1.NumaflowControllerRollout{}), &handler.EnqueueRequestForObject{}, predicate.GenerationChangedPredicate{}); err != nil {
-		return err
-	}
+	/*
+	   controller, err := runtimecontroller.New(ControllerNumaflowControllerRollout, mgr, runtimecontroller.Options{Reconciler: r})
 
-	// Watch Deployments of numaflow-controller
-	// TODO: does this work?
-	numaflowControllerDeployments := appv1.Deployment{}
-	numaflowControllerDeployments.Name = "numaflow-controller"
-	if err := controller.Watch(source.Kind(mgr.GetCache(), &numaflowControllerDeployments),
-		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &apiv1.NumaflowControllerRollout{}, handler.OnlyControllerOwner()),
-		predicate.GenerationChangedPredicate{}); err != nil {
-		return err
-	}
+	   	if err != nil {
+	   		return err
+	   	}
 
-	return nil
+	   // Watch NumaflowControllerRollouts
+
+	   	if err := controller.Watch(source.Kind(mgr.GetCache(), &apiv1.NumaflowControllerRollout{}), &handler.EnqueueRequestForObject{}, predicate.GenerationChangedPredicate{}); err != nil {
+	   		return err
+	   	}
+
+	   // Watch Deployments of numaflow-controller
+	   numaflowControllerDeployments := appv1.Deployment{}
+	   numaflowControllerDeployments.Name = "numaflow-controller" // not sure if this would work or not
+	   if err := controller.Watch(source.Kind(mgr.GetCache(), &numaflowControllerDeployments),
+
+	   		handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &apiv1.NumaflowControllerRollout{}, handler.OnlyControllerOwner()),
+	   		predicate.GenerationChangedPredicate{}); err != nil {
+	   		return err
+	   	}
+
+	   return nil
+	*/
 }
