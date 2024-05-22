@@ -14,6 +14,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     - description: The current phase
       jsonPath: .status.phase
       name: Phase
@@ -243,6 +246,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     - description: The current phase
       jsonPath: .status.phase
       name: Phase
@@ -387,6 +393,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     - description: The current phase
       jsonPath: .status.phase
       name: Phase
@@ -538,6 +547,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     - description: The current phase
       jsonPath: .status.phase
       name: Phase
