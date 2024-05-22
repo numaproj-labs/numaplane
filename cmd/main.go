@@ -36,6 +36,7 @@ import (
 	"github.com/numaproj-labs/numaplane/internal/sync"
 	"github.com/numaproj-labs/numaplane/internal/util/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
+	numaflowv1 "github.com/numaproj/numaflow/pkg/apis/numaflow/v1alpha1"
 )
 
 var (
@@ -50,6 +51,8 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(apiv1.AddToScheme(scheme))
+
+	utilruntime.Must(numaflowv1.AddToScheme(scheme))
 }
 
 func main() {

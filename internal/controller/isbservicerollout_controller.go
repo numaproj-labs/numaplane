@@ -26,12 +26,20 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	runtimecontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
+	numaflowv1 "github.com/numaproj/numaflow/pkg/apis/numaflow/v1alpha1"
+)
+
+const (
+	ControllerISBSVCRollout = "isbsvc-rollout-controller"
 )
 
 // ISBServiceRolloutReconciler reconciles a ISBServiceRollout object
@@ -174,8 +182,22 @@ func (r *ISBServiceRolloutReconciler) needsUpdate(old, new *apiv1.ISBServiceRoll
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ISBServiceRolloutReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		// Reconcile ISBServiceRollouts when there's been a Generation changed (i.e. Spec change)
-		For(&apiv1.ISBServiceRollout{}).WithEventFilter(predicate.GenerationChangedPredicate{}).
-		Complete(r)
+
+	controller, err := runtimecontroller.New(ControllerISBSVCRollout, mgr, runtimecontroller.Options{Reconciler: r})
+	if err != nil {
+		return err
+	}
+
+	// Watch ISBServiceRollouts
+	if err := controller.Watch(source.Kind(mgr.GetCache(), &apiv1.ISBServiceRollout{}), &handler.EnqueueRequestForObject{}, predicate.GenerationChangedPredicate{}); err != nil {
+		return err
+	}
+
+	// Watch InterStepBufferServices
+	if err := controller.Watch(source.Kind(mgr.GetCache(), &numaflowv1.InterStepBufferService{}), &handler.EnqueueRequestForObject{}, predicate.ResourceVersionChangedPredicate{}); err != nil {
+		return err
+	}
+
+	return nil
+
 }

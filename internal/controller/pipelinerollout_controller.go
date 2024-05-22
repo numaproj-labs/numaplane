@@ -25,12 +25,16 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	runtimecontroller "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/numaproj-labs/numaplane/internal/kubernetes"
 	"github.com/numaproj-labs/numaplane/internal/util/logger"
 	apiv1 "github.com/numaproj-labs/numaplane/pkg/apis/numaplane/v1alpha1"
+	numaflowv1 "github.com/numaproj/numaflow/pkg/apis/numaflow/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -52,6 +56,10 @@ func NewPipelineRolloutReconciler(
 		restConfig,
 	}
 }
+
+const (
+	ControllerPipelineRollout = "pipeline-rollout-controller"
+)
 
 //+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=pipelinerollouts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=numaplane.numaproj.io,resources=pipelinerollouts/status,verbs=get;update;patch
@@ -177,8 +185,21 @@ func (r *PipelineRolloutReconciler) needsUpdate(old, new *apiv1.PipelineRollout)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PipelineRolloutReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		// Reconcile PipelineRollouts when there's been a Generation changed (i.e. Spec change)
-		For(&apiv1.PipelineRollout{}).WithEventFilter(predicate.GenerationChangedPredicate{}).
-		Complete(r)
+
+	controller, err := runtimecontroller.New(ControllerPipelineRollout, mgr, runtimecontroller.Options{Reconciler: r})
+	if err != nil {
+		return err
+	}
+
+	// Watch PipelineRollouts
+	if err := controller.Watch(source.Kind(mgr.GetCache(), &apiv1.PipelineRollout{}), &handler.EnqueueRequestForObject{}, predicate.GenerationChangedPredicate{}); err != nil {
+		return err
+	}
+
+	// Watch Pipelines
+	if err := controller.Watch(source.Kind(mgr.GetCache(), &numaflowv1.Pipeline{}), &handler.EnqueueRequestForObject{}, predicate.ResourceVersionChangedPredicate{}); err != nil {
+		return err
+	}
+
+	return nil
 }
