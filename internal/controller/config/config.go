@@ -117,7 +117,6 @@ func (cm *ConfigManager) loadConfig(
 		defer cm.lock.Unlock()
 		if !rolloutConfig {
 			err = v.Unmarshal(cm.config)
-			//cm.config.LogLevel = 4
 		} else {
 			err = v.Unmarshal(cm.rolloutConfig)
 		}

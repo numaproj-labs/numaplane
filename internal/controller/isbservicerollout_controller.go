@@ -93,6 +93,8 @@ func (r *ISBServiceRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	isbServiceRolloutOrig := isbServiceRollout
 	isbServiceRollout = isbServiceRolloutOrig.DeepCopy()
 
+	isbServiceRollout.Status.InitConditions()
+
 	err := r.reconcile(ctx, isbServiceRollout)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -142,6 +144,7 @@ func (r *ISBServiceRolloutReconciler) reconcile(ctx context.Context, isbServiceR
 	}
 
 	// apply ISBService
+	// todo: store hash of spec in annotation; use to compare to determine if anything needs to be updated
 	obj := kubernetes.GenericObject{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "InterStepBufferService",
@@ -158,13 +161,42 @@ func (r *ISBServiceRolloutReconciler) reconcile(ctx context.Context, isbServiceR
 	err := kubernetes.ApplyCRSpec(ctx, r.restConfig, &obj, "interstepbufferservices")
 	if err != nil {
 		numaLogger.Errorf(err, "failed to apply CR: %v", err)
-		isbServiceRollout.Status.MarkFailed("", err.Error())
+		isbServiceRollout.Status.MarkFailed("ApplyISBServiceFailure", err.Error())
 		return err
 	}
+	// after the Apply, Get the ISBService so that we can propagate its health into our Status
+	isbsvc, err := kubernetes.GetCR(ctx, r.restConfig, &obj, "interstepbufferservices")
+	if err != nil {
+		numaLogger.Errorf(err, "failed to get ISBServices: %v", err)
+		return err
+	}
+
+	processISBServiceStatus(ctx, isbsvc, isbServiceRollout)
 
 	isbServiceRollout.Status.MarkRunning()
 
 	return nil
+}
+
+func processISBServiceStatus(ctx context.Context, isbsvc *kubernetes.GenericObject, rollout *apiv1.ISBServiceRollout) {
+	numaLogger := logger.FromContext(ctx)
+	isbsvcStatus, err := kubernetes.ParseStatus(isbsvc)
+	if err != nil {
+		numaLogger.Errorf(err, "failed to parse Status from InterstepBuffer CR: %+v, %v", isbsvc, err)
+		return
+	}
+
+	numaLogger.Debugf("isbsvc status: %+v", isbsvcStatus)
+
+	isbSvcPhase := numaflowv1.ISBSvcPhase(isbsvcStatus.Phase)
+	switch isbSvcPhase {
+	case numaflowv1.ISBSvcPhaseFailed:
+		rollout.Status.MarkChildResourcesUnhealthy("ISBSvcFailed", "ISBService Failed")
+	case numaflowv1.ISBSvcPhaseUnknown:
+		// this will have been set to Unknown in the call to InitConditions()
+	default:
+		rollout.Status.MarkChildResourcesHealthy()
+	}
 }
 
 func (r *ISBServiceRolloutReconciler) needsUpdate(old, new *apiv1.ISBServiceRollout) bool {
