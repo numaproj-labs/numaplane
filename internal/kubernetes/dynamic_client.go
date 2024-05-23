@@ -155,8 +155,6 @@ func objectToUnstructured(object *GenericObject) (*unstructured.Unstructured, er
 	return &unstructured.Unstructured{Object: asMap}, nil
 }
 
-// unused - will keep and comment out in case it's needed later
-
 func unstructuredToObject(u *unstructured.Unstructured) (*GenericObject, error) {
 	asJsonBytes, err := json.Marshal(u.Object)
 	if err != nil {
