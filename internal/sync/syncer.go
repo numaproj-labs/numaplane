@@ -435,7 +435,7 @@ func applyLabelAndNamespace(manifests []*unstructured.Unstructured, gitSyncName,
 
 	uns := make([]*unstructured.Unstructured, 0)
 	for _, m := range manifests {
-		err := kubernetes.SetGitSyncInstanceLabel(m, common.LabelKeyNumaplaneInstance, gitSyncName)
+		err := kubernetes.SetNumaplaneInstanceLabel(m, common.LabelKeyNumaplaneInstance, gitSyncName)
 		if err != nil {
 			return nil, err
 		}
