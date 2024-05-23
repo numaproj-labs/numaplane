@@ -349,6 +349,7 @@ func (r *NumaflowControllerRolloutReconciler) SetupWithManager(mgr ctrl.Manager)
 	   	}
 
 	   // Watch Deployments of numaflow-controller
+	   // Can add other resources as well
 	   numaflowControllerDeployments := appv1.Deployment{}
 	   numaflowControllerDeployments.Name = "numaflow-controller" // not sure if this would work or not
 	   if err := controller.Watch(source.Kind(mgr.GetCache(), &numaflowControllerDeployments),
