@@ -387,8 +387,12 @@ func needsPausing(obj *kubernetes.GenericObject, newObj *kubernetes.GenericObjec
 
 	// existing has image field, but new does not.
 	// Or if image does not match
-	if found != newFound || *image != *newImage {
+	if found != newFound {
 		return true, nil
+	} else {
+		if found && *image != *newImage {
+			return true, nil
+		}
 	}
 
 	return false, nil
