@@ -18,9 +18,11 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -98,7 +100,7 @@ func (r *PipelineRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	pipelineRollout.Status.InitConditions()
 
-	err := r.reconcile(ctx, pipelineRollout)
+	enqueue, err := r.reconcile(ctx, pipelineRollout)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -122,13 +124,19 @@ func (r *PipelineRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
+	if enqueue {
+		return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
+	}
 	numaLogger.Debug("reconciliation successful")
 
 	return ctrl.Result{}, nil
 }
 
 // reconcile does the real logic
-func (r *PipelineRolloutReconciler) reconcile(ctx context.Context, pipelineRollout *apiv1.PipelineRollout) error {
+func (r *PipelineRolloutReconciler) reconcile(
+	ctx context.Context,
+	pipelineRollout *apiv1.PipelineRollout,
+) (bool, error) {
 	numaLogger := logger.FromContext(ctx)
 
 	// is PipelineRollout being deleted? need to remove the finalizer so it can
@@ -138,7 +146,7 @@ func (r *PipelineRolloutReconciler) reconcile(ctx context.Context, pipelineRollo
 		if controllerutil.ContainsFinalizer(pipelineRollout, finalizerName) {
 			controllerutil.RemoveFinalizer(pipelineRollout, finalizerName)
 		}
-		return nil
+		return false, nil
 	}
 
 	// add Finalizer so we can ensure that we take appropriate action when CRD is deleted
@@ -146,6 +154,8 @@ func (r *PipelineRolloutReconciler) reconcile(ctx context.Context, pipelineRollo
 		controllerutil.AddFinalizer(pipelineRollout, finalizerName)
 	}
 
+	// if not, check the change if it is image change, if yes, pause
+	// if not, just update
 	// apply Pipeline
 	// todo: store hash of spec in annotation; use to compare to determine if anything needs to be updated
 	obj := kubernetes.GenericObject{
@@ -161,24 +171,80 @@ func (r *PipelineRolloutReconciler) reconcile(ctx context.Context, pipelineRollo
 		Spec: pipelineRollout.Spec.Pipeline,
 	}
 
-	err := kubernetes.ApplyCRSpec(ctx, r.restConfig, &obj, "pipelines")
+	// Get the object to see if it exists
+	_, err := kubernetes.GetResource(ctx, r.restConfig, &obj, "pipelines")
 	if err != nil {
-		numaLogger.Errorf(err, "failed to apply Pipeline: %v", err)
-		pipelineRollout.Status.MarkFailed("ApplyPipelineFailure", err.Error())
-		return err
-	}
-	// after the Apply, Get the Pipeline so that we can propagate its health into our Status
-	pipeline, err := kubernetes.GetCR(ctx, r.restConfig, &obj, "pipelines")
-	if err != nil {
-		numaLogger.Errorf(err, "failed to get Pipeline: %v", err)
-		return err
-	}
+		// create object as it doesn't exist
+		if apierrors.IsNotFound(err) {
+			err = kubernetes.CreateCR(ctx, r.restConfig, &obj, "pipelines")
+			if err != nil {
+				return false, err
+			}
+		}
+	} else {
+		// If the pipeline already exist, first check if the pipeline status
+		// is pausing. If so, re-enqueue immediately.
+		pipeline, err := kubernetes.GetCR(ctx, r.restConfig, &obj, "pipelines")
+		if err != nil {
+			numaLogger.Errorf(err, "failed to get Pipeline: %v", err)
+			return false, err
+		}
+		pausing := isPipelinePausing(ctx, pipeline)
+		if pausing {
+			// re-enqueue
+			return true, nil
+		}
 
-	processPipelineStatus(ctx, pipeline, pipelineRollout)
+		// Check if the pipeline status is paused. If so, apply the change and
+		// resume.
+		paused := isPipelinePaused(ctx, pipeline)
+		if paused {
+			// Apply the new spec and resume the pipeline
+			newObj, err := setPipelineDesiredStatus(&obj, "Running")
+			if err != nil {
+				return false, err
+			}
+			obj = *newObj
+
+			err = applyPipelineSpec(ctx, r.restConfig, &obj, pipelineRollout)
+			if err != nil {
+				return false, err
+			}
+
+			return false, nil
+		}
+
+		// If pipeline status is not above, detect if pausing is required.
+		shouldPause, err := needsPausing(pipeline, &obj)
+		if err != nil {
+			return false, err
+		}
+		if shouldPause {
+			// Use the existing spec, then pausing and re-enqueue
+			obj.Spec = pipeline.Spec
+			newObj, err := setPipelineDesiredStatus(&obj, "Paused")
+			if err != nil {
+				return false, err
+			}
+			obj = *newObj
+
+			err = applyPipelineSpec(ctx, r.restConfig, &obj, pipelineRollout)
+			if err != nil {
+				return false, err
+			}
+			return true, err
+		}
+
+		// If no need to pause, just apply the spec
+		err = applyPipelineSpec(ctx, r.restConfig, &obj, pipelineRollout)
+		if err != nil {
+			return false, err
+		}
+	}
 
 	pipelineRollout.Status.MarkRunning()
 
-	return nil
+	return false, nil
 }
 
 // Set the Condition in the Status for child resource health
@@ -235,4 +301,126 @@ func (r *PipelineRolloutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return nil
+}
+
+func setPipelineDesiredStatus(obj *kubernetes.GenericObject, status string) (*kubernetes.GenericObject, error) {
+	unstruc, err := kubernetes.ObjectToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	err = unstructured.SetNestedField(unstruc.Object, status, "spec", "lifecycle", "desiredPhase")
+	if err != nil {
+		return nil, err
+	}
+
+	newObj, err := kubernetes.UnstructuredToObject(unstruc)
+	if err != nil {
+		return nil, err
+	}
+	return newObj, nil
+}
+
+func isPipelinePausing(ctx context.Context, pipeline *kubernetes.GenericObject) bool {
+	numaLogger := logger.FromContext(ctx)
+	pipelineStatus, err := kubernetes.ParseStatus(pipeline)
+	if err != nil {
+		numaLogger.Errorf(err, "failed to parse Pipeline Status from pipeline CR: %+v, %v", pipeline, err)
+		return false
+	}
+
+	numaLogger.Debugf("pipeline status: %+v", pipelineStatus)
+
+	return numaflowv1.PipelinePhase(pipelineStatus.Phase) == numaflowv1.PipelinePhasePausing
+}
+
+func isPipelinePaused(ctx context.Context, pipeline *kubernetes.GenericObject) bool {
+	numaLogger := logger.FromContext(ctx)
+	pipelineStatus, err := kubernetes.ParseStatus(pipeline)
+	if err != nil {
+		numaLogger.Errorf(err, "failed to parse Pipeline Status from pipeline CR: %+v, %v", pipeline, err)
+		return false
+	}
+
+	numaLogger.Debugf("pipeline status: %+v", pipelineStatus)
+
+	return numaflowv1.PipelinePhase(pipelineStatus.Phase) == numaflowv1.PipelinePhasePaused
+}
+
+func applyPipelineSpec(
+	ctx context.Context,
+	restConfig *rest.Config,
+	obj *kubernetes.GenericObject,
+	pipelineRollout *apiv1.PipelineRollout,
+) error {
+	numaLogger := logger.FromContext(ctx)
+	// TODO: use UpdateSpec instead
+	err := kubernetes.ApplyCRSpec(ctx, restConfig, obj, "pipelines")
+	if err != nil {
+		numaLogger.Errorf(err, "failed to apply Pipeline: %v", err)
+		pipelineRollout.Status.MarkFailed("ApplyPipelineFailure", err.Error())
+		return err
+	}
+	// after the Apply, Get the Pipeline so that we can propagate its health into our Status
+	pipeline, err := kubernetes.GetCR(ctx, restConfig, obj, "pipelines")
+	if err != nil {
+		numaLogger.Errorf(err, "failed to get Pipeline: %v", err)
+		return err
+	}
+
+	processPipelineStatus(ctx, pipeline, pipelineRollout)
+	return nil
+}
+
+// TODO: detect engine
+func needsPausing(obj *kubernetes.GenericObject, newObj *kubernetes.GenericObject) (bool, error) {
+	// only check if image tag changes for now
+	image, found, err := hasUDFImage(obj)
+	if err != nil {
+		return false, err
+	}
+
+	newImage, newFound, err := hasUDFImage(newObj)
+	if err != nil {
+		return false, err
+	}
+
+	// existing has image field, but new does not.
+	// Or if image does not match
+	if found != newFound {
+		return true, nil
+	} else {
+		if found && *image != *newImage {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func hasUDFImage(obj *kubernetes.GenericObject) (*string, bool, error) {
+	unstruc, err := kubernetes.ObjectToUnstructured(obj)
+	if err != nil {
+		return nil, false, err
+	}
+
+	vertices, found, err := unstructured.NestedSlice(unstruc.Object, "spec", "vertices")
+	if err != nil {
+		return nil, false, err
+	}
+	if !found {
+		return nil, false, nil
+	}
+	for _, v := range vertices {
+		vertex := v.(map[string]interface{})
+		// TODO: we need return all, now we only return the first
+		image, found, err := unstructured.NestedString(vertex, "udf", "container", "image")
+		if err != nil {
+			return nil, false, err
+		}
+		if found {
+			return &image, true, nil
+		}
+	}
+	return nil, false, nil
 }
