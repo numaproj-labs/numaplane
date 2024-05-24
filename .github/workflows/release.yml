@@ -39,8 +39,6 @@ jobs:
             tag="latest"
           fi
           echo "VERSION=$tag" >> $GITHUB_OUTPUT
-      - name: Build docker image
-        run: make image CONTAINER_TOOL=docker IMAGE_FULL_PATH=${{ secrets.QUAYIO_ORG }}/numaplane-controller:${{ steps.version.outputs.VERSION }}
       - name: Container build and push with arm64/amd64
         run: make image docker-push IMAGE_FULL_PATH=${{ secrets.QUAYIO_ORG }}/numaplane-controller:${{ steps.version.outputs.VERSION }} CONTAINER_TOOL=docker
 
