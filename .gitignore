@@ -1,4 +1,3 @@
-
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -31,3 +30,6 @@ Dockerfile.cross
 tests/e2e/local
 tests/kustomize-e2e/local
 tests/helm-e2e/local
+
+# UI node_modules
+extensions/argo/numa-rollout/numa-rollout-extension/ui/node_modules/
